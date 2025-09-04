@@ -5,8 +5,15 @@ import { generateTrackingId } from "@/lib/utils";
 import { resend, FROM, BASE_URL } from "@/lib/email";
 
 // ✅ Prisma 6.x : on récupère le type d'enum via Prisma.$Enums
-import type { Prisma } from "@prisma/client";
-type ShipmentStatus = Prisma["$Enums"]["ShipmentStatus"]; // (équivalent à Prisma.$Enums.ShipmentStatus)
+type ShipmentStatus =
+    | "CREATED"
+    | "RECEIVED_IN_GUINEA"
+    | "IN_TRANSIT"
+    | "IN_CUSTOMS"
+    | "ARRIVED_IN_CANADA"
+    | "PICKED_UP"
+    | "OUT_FOR_DELIVERY"
+    | "DELIVERED";
 
 // Statut initial pour une création
 const INITIAL_STATUS: ShipmentStatus = "CREATED";
