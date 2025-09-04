@@ -36,7 +36,7 @@ const EVENT_LABEL: Record<EventType | "CUSTOM", string> = {
 
 export async function POST(
     req: NextRequest,
-    { params }: { params: { trackingId: string } } // ✅ pas de Promise
+    { params }: { params: { trackingId: string } } //
 ) {
     try {
         const { trackingId } = params; // ✅ pas de await
