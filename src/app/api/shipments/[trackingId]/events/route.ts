@@ -24,12 +24,15 @@ const EVENT_LABEL: Record<string, string> = {
     DELIVERED: 'Livré',
     CUSTOM: 'Mise à jour',
 }
-
+type EventPayload = {
+    type: "IN_CUSTOMS" | "PICKED_UP" | "OUT_FOR_DELIVERY" | "RECEIVED_IN_GUINEA"
+    description: string
+    location: string
+}
 export async function POST(
     req: NextRequest,
     { params }: { params: Promise<{ trackingId: string }> }
 ) {
-    // @ts-ignore
     try {
         // ✅ Next 14.2+ : params est une Promise
         const { trackingId } = await params

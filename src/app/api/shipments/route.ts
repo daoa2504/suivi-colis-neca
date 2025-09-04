@@ -78,10 +78,10 @@ Suivez son évolution ici : ${trackUrl}
             trackingId: created.trackingId,
             status: created.status,
         })
-    } catch (e: any) {
-        console.error('[POST /api/shipments]', e)
+    } catch (e: unknown) {
+        console.error("[POST /api/shipments]", e)
         return NextResponse.json(
-            { ok: false, error: 'Internal Server Error' },
+            { ok: false, error: "Internal Server Error" },
             { status: 500 }
         )
     }

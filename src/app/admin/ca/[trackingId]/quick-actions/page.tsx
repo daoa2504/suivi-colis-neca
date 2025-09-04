@@ -36,8 +36,13 @@ export default function QuickActionsForm({ trackingId }: { trackingId: string })
             const data = await res.json()
             if (!res.ok || !data.ok) throw new Error(data?.error || 'Erreur API')
             setMsg(`✅ ${action.label} enregistré (eventId: ${data.eventId})`)
-        } catch (e: any) {
-            setMsg(`❌ Erreur: ${e.message}`)
+        } catch (e: unknown) {
+            if (e instanceof Error) {
+                setMsg(`Erreur: ${e.message}`)
+            } else {
+                setMsg("Erreur inconnue")
+            }
+
         } finally {
             setLoading(null)
         }
