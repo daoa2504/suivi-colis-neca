@@ -1,14 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma"; // <- you need this import
+import { prisma } from "@/lib/prisma";
 import { addEventSchema } from "@/lib/validators";
 import { resend, FROM, BASE_URL } from "@/lib/email";
-import { ShipmentStatus } from "@prisma/client"
+import { ShipmentStatus } from "@prisma/client"; // Prisma v6: enum exporté au top-level
 
-
-// ✅ Prisma v5: enum type lives under Prisma.$Enums
-
-// Les types d'événements que ton API accepte (doit matcher ton Zod schema)
 type EventType =
     | "RECEIVED_IN_GUINEA"
     | "IN_TRANSIT"
@@ -18,8 +13,7 @@ type EventType =
     | "OUT_FOR_DELIVERY"
     | "DELIVERED";
 
-// Map (type d’événement) -> (nouveau statut)
-const STATUS_BY_EVENT: Partial<Record<string, ShipmentStatus>> = {
+const STATUS_BY_EVENT: Partial<Record<EventType, ShipmentStatus>> = {
     RECEIVED_IN_GUINEA: ShipmentStatus.RECEIVED_IN_GUINEA,
     IN_TRANSIT: ShipmentStatus.IN_TRANSIT,
     IN_CUSTOMS: ShipmentStatus.IN_CUSTOMS,
@@ -28,7 +22,6 @@ const STATUS_BY_EVENT: Partial<Record<string, ShipmentStatus>> = {
     OUT_FOR_DELIVERY: ShipmentStatus.OUT_FOR_DELIVERY,
     DELIVERED: ShipmentStatus.DELIVERED,
 };
-
 
 const EVENT_LABEL: Record<EventType | "CUSTOM", string> = {
     RECEIVED_IN_GUINEA: "Reçu en Guinée",
@@ -43,11 +36,10 @@ const EVENT_LABEL: Record<EventType | "CUSTOM", string> = {
 
 export async function POST(
     req: NextRequest,
-    // ✅ App Router: params n’est PAS une Promise
-    { params }: { params: { trackingId: string } }
+    { params }: { params: { trackingId: string } } // ✅ pas de Promise
 ) {
     try {
-        const { trackingId } = params;
+        const { trackingId } = params; // ✅ pas de await
 
         const json = await req.json();
         const parsed = addEventSchema.safeParse(json);
@@ -65,9 +57,7 @@ export async function POST(
             occurredAt?: string | Date;
         };
 
-        const shipment = await prisma.shipment.findUnique({
-            where: { trackingId },
-        });
+        const shipment = await prisma.shipment.findUnique({ where: { trackingId } });
         if (!shipment) {
             return NextResponse.json(
                 { ok: false, error: "Shipment not found" },
@@ -111,7 +101,6 @@ export async function POST(
             });
         } catch (err) {
             console.error("[email event error]", err);
-            // on n'échoue pas la requête si l’email tombe
         }
 
         return NextResponse.json({ ok: true, eventId: event.id });
