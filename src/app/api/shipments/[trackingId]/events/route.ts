@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { Prisma } from "@prisma/client";
 import { addEventSchema } from "@/lib/validators";
 import { resend, FROM, BASE_URL } from "@/lib/email";
-import { ShipmentStatus } from "@prisma/client";
-import {prisma} from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";   // ✅ import de type
+
+
+type ShipmentStatus =
+    | "CREATED"
+    | "RECEIVED_IN_GUINEA"
+    | "IN_TRANSIT"
+    | "IN_CUSTOMS"
+    | "ARRIVED_IN_CANADA"
+    | "PICKED_UP"
+    | "OUT_FOR_DELIVERY"
+    | "DELIVERED";
+ // ✅ type de l'enum
 
 type EventType =
     | "RECEIVED_IN_GUINEA"
