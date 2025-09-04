@@ -59,7 +59,7 @@ export async function POST(
         );
     }
 
-    const event = await prisma.$transaction(async (tx) => {
+    const event = await prisma.$transaction(async (tx: { shipmentEvent: { create: (arg0: { data: { shipmentId: any; type: EventType; description: string; location: string; occurredAt: Date | undefined; }; }) => any; }; shipment: { update: (arg0: { where: { id: any; }; data: { status: ShipmentStatus; }; }) => any; }; }) => {
         const ev = await tx.shipmentEvent.create({
             data: {
                 shipmentId: shipment.id,
