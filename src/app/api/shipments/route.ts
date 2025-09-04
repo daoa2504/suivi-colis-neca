@@ -1,88 +1,62 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { createShipmentSchema } from '@/lib/validators'
-import { generateTrackingId } from '@/lib/utils'
-import { ShipmentStatus } from '@prisma/client'
-import { resend, FROM, BASE_URL } from '@/lib/email'   // 👈 ajoute ça
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { createShipmentSchema } from "@/lib/validators";
+import { generateTrackingId } from "@/lib/utils";
+import { resend, FROM, BASE_URL } from "@/lib/email";
+
+// ✅ Prisma 6.x : on récupère le type d'enum via Prisma.$Enums
+import type { Prisma } from "@prisma/client";
+type ShipmentStatus = Prisma["$Enums"]["ShipmentStatus"]; // (équivalent à Prisma.$Enums.ShipmentStatus)
+
+// Statut initial pour une création
+const INITIAL_STATUS: ShipmentStatus = "CREATED";
 
 export async function POST(req: NextRequest) {
     try {
-        const body = await req.json()
-
-        // 1) Validation Zod
-        const parsed = createShipmentSchema.safeParse(body)
+        const body = await req.json();
+        const parsed = createShipmentSchema.safeParse(body);
         if (!parsed.success) {
             return NextResponse.json(
                 { ok: false, error: parsed.error.flatten() },
                 { status: 400 }
-            )
+            );
         }
 
-        const {
-            senderName,
-            receiverName,
-            receiverEmail,
-            originCountry,
-            destinationCountry,
-            initialStatus,
-        } = parsed.data
+        const data = parsed.data;
+        const trackingId = generateTrackingId();
 
-        // 2) Générer un trackingId
-        const trackingId = generateTrackingId()
-
-        // 3) Enregistrer en base
-        const created = await prisma.shipment.create({
+        const shipment = await prisma.shipment.create({
             data: {
                 trackingId,
-                senderName,
-                receiverName,
-                receiverEmail,
-                originCountry: originCountry ?? 'Guinea',
-                destinationCountry: destinationCountry ?? 'Canada',
-                status: (initialStatus ?? 'RECEIVED_IN_GUINEA') as ShipmentStatus,
-                events: {
-                    create: {
-                        type: 'RECEIVED_IN_GUINEA',
-                        description: 'Colis reçu par nos agents en Guinée',
-                        location: originCountry ?? 'Guinea',
-                    },
-                },
+                senderName: data.senderName,
+                receiverName: data.receiverName,
+                receiverEmail: data.receiverEmail,
+
+
+                status: INITIAL_STATUS, // ✅ "CREATED" (type-safe)
             },
-            include: { events: true },
-        })
+        });
 
-        // 4) Envoyer un email au destinataire 👇
-        const trackUrl = `${BASE_URL}/shipments/${created.trackingId}`
+        // (facultatif) email de confirmation
         try {
-            const result = await resend.emails.send({
+            const trackUrl = `${BASE_URL}/shipments/${shipment.trackingId}`;
+            await resend.emails.send({
                 from: FROM,
-                to: receiverEmail,
-                subject: `Votre colis ${created.trackingId} a été enregistré`,
-                text: `Bonjour ${receiverName},
-
-Votre colis a bien été enregistré par nos agents en Guinée.
-
-Suivez son évolution ici : ${trackUrl}
-
-— Équipe Colis GN → CA`,
-            })
-            console.log('[email] envoyé:', result)
+                to: shipment.receiverEmail,
+                subject: `Votre colis est créé – ${shipment.trackingId}`,
+                text:
+                    `Bonjour ${shipment.receiverName},\n\n` +
+                    `Votre colis a été créé. Statut: ${shipment.status}\n\n` +
+                    `Suivi: ${trackUrl}\n\n` +
+                    `— Équipe Colis GN → CA`,
+            });
         } catch (err) {
-            console.error('[email] erreur:', err)
+            console.error("[email create shipment error]", err);
         }
 
-        // 5) Réponse (utile pour le front/agent)
-        return NextResponse.json({
-            ok: true,
-            id: created.id,
-            trackingId: created.trackingId,
-            status: created.status,
-        })
-    } catch (e: unknown) {
-        console.error("[POST /api/shipments]", e)
-        return NextResponse.json(
-            { ok: false, error: "Internal Server Error" },
-            { status: 500 }
-        )
+        return NextResponse.json({ ok: true, shipmentId: shipment.id, trackingId });
+    } catch (e) {
+        console.error("[POST /api/shipments]", e);
+        return NextResponse.json({ ok: false, error: "Internal Server Error" }, { status: 500 });
     }
 }
