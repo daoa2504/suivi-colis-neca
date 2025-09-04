@@ -41,9 +41,12 @@ export const authOptions: NextAuthOptions = {
         },
         async jwt({ token, user }: { token: JWT; user?: unknown }) {
             if (user) {
-                token.id = (user as any).id
-                token.email = (user as any).email
-                token.role = (user as any).role
+                // @ts-ignore
+                token.id = (user as unknown).id
+                // @ts-ignore
+                token.email = (user as unknown).email
+                // @ts-ignore
+                token.role = (user as unknown).role
             }
             return token
         },
