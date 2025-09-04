@@ -13,6 +13,7 @@ export async function GET() {
         return NextResponse.json({ ok: true, result })
     } catch (e: unknown) {
         console.error(e)
-        return NextResponse.json({ ok: false, error: e.message }, { status: 500 })
+        const message = e instanceof Error ? e.message : String(e)
+        return NextResponse.json({ ok: false, error: message }, { status: 500 })
     }
 }
