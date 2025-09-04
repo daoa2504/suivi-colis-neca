@@ -87,7 +87,7 @@ export async function POST(
         }
 
         return NextResponse.json({ ok: true, eventId: event.id })
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error('[POST /api/shipments/:trackingId/events]', e)
         return NextResponse.json({ ok: false, error: 'Internal Server Error' }, { status: 500 })
     }
