@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { addEventSchema } from "@/lib/validators";
 import { resend, FROM, BASE_URL } from "@/lib/email";
 import { ShipmentStatus } from "@prisma/client";
+import {prisma} from "@/lib/prisma";
 
 type EventType =
     | "RECEIVED_IN_GUINEA"
@@ -59,15 +60,14 @@ export async function POST(
         });
 
         const STATUS_BY_EVENT: Partial<Record<EventType, ShipmentStatus>> = {
-            RECEIVED_IN_GUINEA: ShipmentStatus.RECEIVED_IN_GUINEA,
-            IN_TRANSIT: ShipmentStatus.IN_TRANSIT,
-            IN_CUSTOMS: ShipmentStatus.IN_CUSTOMS,
-            ARRIVED_IN_CANADA: ShipmentStatus.ARRIVED_IN_CANADA,
-            PICKED_UP: ShipmentStatus.PICKED_UP,
-            OUT_FOR_DELIVERY: ShipmentStatus.OUT_FOR_DELIVERY,
-            DELIVERED: ShipmentStatus.DELIVERED,
+            RECEIVED_IN_GUINEA: "RECEIVED_IN_GUINEA",
+            IN_TRANSIT: "IN_TRANSIT",
+            IN_CUSTOMS: "IN_CUSTOMS",
+            ARRIVED_IN_CANADA: "ARRIVED_IN_CANADA",
+            PICKED_UP: "PICKED_UP",
+            OUT_FOR_DELIVERY: "OUT_FOR_DELIVERY",
+            DELIVERED: "DELIVERED",
         };
-
         const newStatus = STATUS_BY_EVENT[type];
         if (newStatus) {
             await tx.shipment.update({
