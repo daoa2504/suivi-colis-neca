@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { addEventSchema } from "@/lib/validators";
 import { resend, FROM, BASE_URL } from "@/lib/email";
-import type { Prisma } from "@prisma/client";   // ✅ import de type
+import type { Prisma } from "@prisma/client";
+import {prisma} from "@/lib/prisma";   // ✅ import de type
 
 
 type ShipmentStatus =
