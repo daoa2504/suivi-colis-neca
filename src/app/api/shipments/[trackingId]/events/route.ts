@@ -24,12 +24,11 @@ type EventType =
     | "OUT_FOR_DELIVERY"
     | "DELIVERED";
 
-// Helper générique: valeur ou Promise de valeur
-type MaybePromise<T> = T | Promise<T>;
+
 
 export async function POST(
     req: NextRequest,
-    { params }: { params: MaybePromise<{ trackingId: string }> }
+    { params }: { params: Promise<{ trackingId: string }> }
 ) {
     // ✅ Compatible Next 14 (sync) et Next 15 (async)
     const { trackingId } = await Promise.resolve(params);
