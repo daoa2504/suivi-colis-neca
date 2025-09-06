@@ -1,32 +1,27 @@
-// src/app/api/shipments/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { createShipmentByGN } from "@/lib/validators";
-import { sendEmail } from "@/lib/email";
+import { resend, FROM } from "@/lib/email";
 
 export const runtime = "nodejs"; // important pour Prisma en prod
 
-const genTracking = () =>
-    "GNCA-" + Math.random().toString(36).slice(2, 8).toUpperCase();
+const genTracking = () => "GNCA-" + Math.random().toString(36).slice(2, 8).toUpperCase();
 
 export async function POST(req: NextRequest) {
-    // Auth v4 côté API
+    // Auth: ADMIN ou AGENT_GN uniquement
     const session = await getServerSession(authOptions);
-    if (!session)
-        return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-    if (!["ADMIN", "AGENT_GN"].includes(session.user.role))
+    if (!session) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    if (!["ADMIN", "AGENT_GN"].includes(session.user.role)) {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+    }
 
     try {
-        const body = await req.json();
-        const parsed = createShipmentByGN.safeParse(body);
+        const payload = await req.json();
+        const parsed = createShipmentByGN.safeParse(payload);
         if (!parsed.success) {
-            return NextResponse.json(
-                { ok: false, error: parsed.error.flatten() },
-                { status: 400 }
-            );
+            return NextResponse.json({ ok: false, error: parsed.error.flatten() }, { status: 400 });
         }
 
         const d = parsed.data;
@@ -64,34 +59,33 @@ export async function POST(req: NextRequest) {
             include: { convoy: true },
         });
 
-        // 3) email immédiat au destinataire (optionnel si RESEND_API_KEY absent)
+        // 3) Email immédiat au destinataire
+        const dateStr = shipment.convoy!.date.toLocaleDateString("fr-CA");
         try {
-            await sendEmail({
-                from: process.env.EMAIL_FROM ?? "no-reply@resend.dev",
+            await resend.emails.send({
+                from: FROM,
                 to: shipment.receiverEmail,
-                subject: `Colis reçu en Guinée – Convoi du ${shipment.convoy!.date.toLocaleDateString()}`,
-                text: `Bonjour ${shipment.receiverName},
+                subject: `Colis reçu en Guinée – Convoi du ${dateStr} (${shipment.trackingId})`,
+                text:
+                    `Bonjour ${shipment.receiverName},
 
-Votre colis (${shipment.trackingId}) a été reçu en Guinée.
-Convoi prévu : ${shipment.convoy!.date.toLocaleDateString()}.
+Votre colis (${shipment.trackingId}) a bien été reçu en Guinée.
+Convoi prévu : ${dateStr}.
 
-Vous serez notifié quand le convoi sera en route et à son arrivée au Canada.
+Vous serez notifié lorsque le convoi sera en route puis à son arrivée au Canada.
 
 — Équipe GN → CA`,
+                // (facultatif) HTML un peu plus sympa :
+                // html: `<p>Bonjour <b>${shipment.receiverName}</b>,</p> ...`
             });
-        } catch {
-            // on ignore en prod si l’email échoue pour ne pas bloquer l’enregistrement
+        } catch (err) {
+            // on logge mais on ne bloque pas l’enregistrement
+            console.error("[resend error]", err);
         }
 
-        return NextResponse.json({
-            ok: true,
-            id: shipment.id,
-            trackingId: shipment.trackingId,
-        });
+        return NextResponse.json({ ok: true, id: shipment.id, trackingId: shipment.trackingId });
     } catch (e: any) {
-        return NextResponse.json(
-            { ok: false, error: e?.message ?? "Server error" },
-            { status: 500 }
-        );
+        console.error(e);
+        return NextResponse.json({ ok: false, error: e?.message ?? "Server error" }, { status: 500 });
     }
 }
