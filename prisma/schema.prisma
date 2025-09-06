@@ -1,13 +1,8 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// prisma/schema.prisma
 
 generator client {
   provider   = "prisma-client-js"
   engineType = "library"
-  // binaryTargets = ["native"]    // (optionnel; la valeur par défaut va bien sur Vercel)
 }
 
 datasource db {
@@ -15,66 +10,64 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  ADMIN
+  AGENT_CA
+  AGENT_GN
+}
+
 enum ShipmentStatus {
   CREATED
   RECEIVED_IN_GUINEA
   IN_TRANSIT
-  IN_CUSTOMS // ⬅️ nouveau
+  IN_CUSTOMS
   ARRIVED_IN_CANADA
-  PICKED_UP // ⬅️ nouveau (récupéré par nos agents au Canada)
+  PICKED_UP
   OUT_FOR_DELIVERY
   DELIVERED
 }
 
-enum EventType {
-  RECEIVED_IN_GUINEA
-  IN_TRANSIT
-  IN_CUSTOMS // ⬅️ nouveau (à la douane)
-  ARRIVED_IN_CANADA
-  PICKED_UP // ⬅️ nouveau (récupéré par agent CA)
-  OUT_FOR_DELIVERY
-  DELIVERED
-  CUSTOM
+model User {
+  id       String @id @default(cuid())
+  email    String @unique
+  password String
+  role     Role   @default(AGENT_GN)
+}
+
+model Convoy {
+  id        String     @id @default(cuid())
+  date      DateTime   @unique
+  createdAt DateTime   @default(now())
+  shipments Shipment[]
 }
 
 model Shipment {
-  id                 String          @id @default(cuid())
-  trackingId         String          @unique
-  senderName         String
+  id                 String         @id @default(cuid())
+  trackingId         String         @unique
   receiverName       String
   receiverEmail      String
-  originCountry      String          @default("Guinea")
-  destinationCountry String          @default("Canada")
-  status             ShipmentStatus  @default(CREATED)
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
-  events             ShipmentEvent[]
+  receiverPhone      String?
+  originCountry      String
+  destinationCountry String
+  weightKg           Float?
+  price              Float?
+  notes              String?
+  status             ShipmentStatus @default(CREATED)
+  createdAt          DateTime       @default(now())
+
+  convoyId String?
+  convoy   Convoy? @relation(fields: [convoyId], references: [id])
+
+  events ShipmentEvent[]
 }
 
 model ShipmentEvent {
   id          String    @id @default(cuid())
-  shipment    Shipment  @relation(fields: [shipmentId], references: [id])
   shipmentId  String
-  type        EventType
-  description String
-  location    String
-  occurredAt  DateTime  @default(now())
+  shipment    Shipment  @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  type        String
+  description String?
+  location    String?
+  occurredAt  DateTime? @default(now())
   createdAt   DateTime  @default(now())
-
-  @@unique([shipmentId, type]) // ⬅️ un type d’événement ne peut apparaître qu’une fois pour un même colis
-}
-
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String // hashé avec bcrypt
-  role      Role     @default(AGENT_GN)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-enum Role {
-  ADMIN
-  AGENT_GN
-  AGENT_CA
 }

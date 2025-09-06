@@ -1,38 +1,31 @@
 {
   "name": "suivi-colis-gnca",
-  "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
     "postinstall": "prisma generate",
-    "build": "next build",
+    "build": "prisma generate && next build",
+    "dev": "next dev",
     "start": "next start -p $PORT",
+    "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
-    "lint": "eslint"
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@hookform/resolvers": "^5.2.1",
     "@prisma/client": "6.15.0",
-    "bcrypt": "^6.0.0",
+    "bcrypt": "^5.1.1",
     "next": "15.5.2",
-    "next-auth": "^4.24.11",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "react-hook-form": "^7.62.0",
-    "resend": "^6.0.1",
-    "zod": "^4.1.4"
+    "next-auth": "^4.24.7",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "resend": "^4.0.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
-    "@tailwindcss/postcss": "^4",
-    "@types/bcrypt": "^6.0.0",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "15.5.2",
+    "@types/node": "^22.7.4",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.0",
     "prisma": "6.15.0",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.2"
   }
 }
