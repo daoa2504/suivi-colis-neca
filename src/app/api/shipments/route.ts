@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createShipmentByGN } from "@/lib/validators";
-import { resend, FROM } from "@/lib/email";
+import {FROM, sendEmail} from "@/lib/email";
 
 export const runtime = "nodejs"; // important pour Prisma en prod
 
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
         // 3) Email immédiat au destinataire
         const dateStr = shipment.convoy!.date.toLocaleDateString("fr-CA");
         try {
-            await resend.emails.send({
+            await sendEmail({
                 from: FROM,
                 to: shipment.receiverEmail,
                 subject: `Colis reçu en Guinée – Convoi du ${dateStr} (${shipment.trackingId})`,
