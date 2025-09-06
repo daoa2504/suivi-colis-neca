@@ -31,7 +31,7 @@ export async function POST(
     { params }: { params: Promise<{ trackingId: string }> }
 ) {
     // ✅ Compatible Next 14 (sync) et Next 15 (async)
-    const { trackingId } = await Promise.resolve(params);
+    const { trackingId } = await params;
 
     const json = await req.json();
     const parsed = addEventSchema.safeParse(json);
