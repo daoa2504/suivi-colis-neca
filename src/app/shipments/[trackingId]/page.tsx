@@ -4,7 +4,7 @@ import { formatDate } from "@/lib/utils";
 export default async function ShipmentPage(
     { params }: { params: { trackingId: string } }
 ) {
-    const { trackingId } = params;
+    const { trackingId } = await params;
 
     // 1) On prépare la requête (pour pouvoir en extraire le type)
     const q = prisma.shipment.findUnique({
