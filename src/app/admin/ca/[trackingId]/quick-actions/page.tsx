@@ -1,8 +1,8 @@
-// app/admin/ca/[trackingId]/quick-actions/page.tsx
 import QuickActionsForm from "./QuickActionsForm";
 
-export default function Page(
-    { params }: { params: { trackingId: string } }
+export default async function Page(
+    { params }: { params: Promise<{ trackingId: string }> } // Next 15: params async
 ) {
-    return <QuickActionsForm trackingId={params.trackingId} />;
+    const { trackingId } = await params;                    // on attend params
+    return <QuickActionsForm trackingId={trackingId} />;
 }
