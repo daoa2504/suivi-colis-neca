@@ -1,0 +1,80 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "library"
+  // binaryTargets = ["native"]    // (optionnel; la valeur par défaut va bien sur Vercel)
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ShipmentStatus {
+  CREATED
+  RECEIVED_IN_GUINEA
+  IN_TRANSIT
+  IN_CUSTOMS // ⬅️ nouveau
+  ARRIVED_IN_CANADA
+  PICKED_UP // ⬅️ nouveau (récupéré par nos agents au Canada)
+  OUT_FOR_DELIVERY
+  DELIVERED
+}
+
+enum EventType {
+  RECEIVED_IN_GUINEA
+  IN_TRANSIT
+  IN_CUSTOMS // ⬅️ nouveau (à la douane)
+  ARRIVED_IN_CANADA
+  PICKED_UP // ⬅️ nouveau (récupéré par agent CA)
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CUSTOM
+}
+
+model Shipment {
+  id                 String          @id @default(cuid())
+  trackingId         String          @unique
+  senderName         String
+  receiverName       String
+  receiverEmail      String
+  originCountry      String          @default("Guinea")
+  destinationCountry String          @default("Canada")
+  status             ShipmentStatus  @default(CREATED)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  events             ShipmentEvent[]
+}
+
+model ShipmentEvent {
+  id          String    @id @default(cuid())
+  shipment    Shipment  @relation(fields: [shipmentId], references: [id])
+  shipmentId  String
+  type        EventType
+  description String
+  location    String
+  occurredAt  DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+
+  @@unique([shipmentId, type]) // ⬅️ un type d’événement ne peut apparaître qu’une fois pour un même colis
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String // hashé avec bcrypt
+  role      Role     @default(AGENT_GN)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Role {
+  ADMIN
+  AGENT_GN
+  AGENT_CA
+}
