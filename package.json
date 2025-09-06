@@ -4,13 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
-    "start": "next start",
+    "postinstall": "prisma generate",
+    "build": "next build",
+    "start": "next start -p $PORT",
+    "migrate:deploy": "prisma migrate deploy",
     "lint": "eslint"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.1",
-    "@prisma/client": "^6.15.0",
+    "@prisma/client": "6.15.0",
     "bcrypt": "^6.0.0",
     "next": "15.5.2",
     "next-auth": "^4.24.11",
@@ -29,7 +31,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.2",
-    "prisma": "^6.15.0",
+    "prisma": "6.15.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
