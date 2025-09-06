@@ -2,9 +2,9 @@ import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 
 export default async function ShipmentPage(
-    { params }: { params: { trackingId: string } }
+    { params }: { params: Promise<{ trackingId: string }> } // ✅ Next 15
 ) {
-    const { trackingId } = await params;
+    const { trackingId } = await params; // ✅ on attend params
 
     // 1) On prépare la requête (pour pouvoir en extraire le type)
     const q = prisma.shipment.findUnique({
@@ -36,9 +36,7 @@ export default async function ShipmentPage(
         <main className="min-h-screen w-full bg-neutral-50 p-6">
             <div className="mx-auto max-w-4xl space-y-6">
                 <section className="rounded-2xl bg-white p-6 ring-1 ring-neutral-200 shadow">
-                    <h1 className="text-2xl font-bold text-neutral-900">
-                        Suivi — {shipment.trackingId}
-                    </h1>
+                    <h1 className="text-2xl font-bold text-neutral-900">Suivi — {shipment.trackingId}</h1>
                     <p className="mt-2 text-sm text-neutral-700">
                         Destinataire : <b className="text-neutral-900">{shipment.receiverName}</b>
                     </p>
