@@ -1,3 +1,4 @@
+// src/app/dashboard/shipments/page.tsx
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
@@ -8,20 +9,22 @@ import DeleteShipmentButton from "./DeleteShipmentButton";
 export const runtime = "nodejs";
 
 type SearchParams = { q?: string; page?: string };
-
 const PAGE_SIZE = 12;
 
-export default async function ShipmentsPage({
-                                                searchParams,
-                                            }: { searchParams: SearchParams }) {
+export default async function ShipmentsPage(
+    // ✅ Next 15: searchParams est une Promise
+    { searchParams }: { searchParams: Promise<SearchParams> }
+) {
     const session = await getServerSession(authOptions);
     const role = session?.user?.role;
     if (!session || !["ADMIN", "AGENT_GN"].includes(role || "")) {
         redirect("/login");
     }
 
-    const q = (searchParams.q || "").trim();
-    const page = Math.max(1, Number(searchParams.page || 1));
+    // ✅ on attend la Promise
+    const sp = await searchParams;
+    const q = (sp.q || "").trim();
+    const page = Math.max(1, Number(sp.page || 1));
 
     const where = q
         ? {
