@@ -16,7 +16,7 @@ export default async function EditShipmentPage({ params }: { params: { id: strin
         where: { id: params.id },
         select: {
             id: true, trackingId: true, receiverName: true, receiverEmail: true,
-            receiverPhone: true, weightKg: true, price: true, notes: true,
+            receiverPhone: true, weightKg: true, recreceiverCity: true, recreceiverAddress: true, recreceiverPoBox: true, notes: true,
         },
     });
 
