@@ -2,7 +2,7 @@
 import { Resend } from "resend";
 
 // adresse par défaut (peut être écrasée à l'appel)
-export const FROM = process.env.EMAIL_FROM || "no-reply@resend.dev";
+export const FROM = process.env.EMAIL_FROM || "no-reply@migralex.net";
 
 // Client Resend (si la clé manque, on crée quand même l'instance mais on ne tente pas d'envoyer)
 const client = new Resend(process.env.RESEND_API_KEY || "");

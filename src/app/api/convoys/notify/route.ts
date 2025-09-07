@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
         for (const s of convoy.shipments) {
             try {
                 await sendEmail({
-                    from: process.env.EMAIL_FROM ?? "no-reply@resend.dev",
+                    from: process.env.EMAIL_FROM ?? "no-reply@migralex.net",
                     to: s.receiverEmail,
                     subject,
                     text: `Bonjour ${s.receiverName},
