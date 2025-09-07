@@ -26,3 +26,14 @@ export const notifyConvoySchema = z.object({
     template: z.enum(["EN_ROUTE", "ARRIVED_CUSTOMS_CA"]),
     customMessage: z.string().optional(),
 });
+
+
+export const updateShipmentSchema = z.object({
+    receiverName: z.string().min(1),
+    receiverEmail: z.string().email(),
+    receiverPhone: z.string().optional().nullable(),
+    weightKg: z.preprocess(v => (v === "" || v == null ? undefined : Number(v)), z.number().positive().optional()),
+    price: z.preprocess(v => (v === "" || v == null ? undefined : Number(v)), z.number().nonnegative().optional()),
+    notes: z.string().optional().nullable(),
+    convoyDate: z.union([z.string(), z.date()]).optional(), // si tu veux éditer le convoi
+});
