@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import Link from "next/link";
 import DeleteShipmentButton from "./DeleteShipmentButton";
+import { Prisma } from "@prisma/client";
 
 export const runtime = "nodejs";
 
@@ -26,7 +27,7 @@ export default async function ShipmentsPage(
     const q = (sp.q || "").trim();
     const page = Math.max(1, Number(sp.page || 1));
 
-    const where = q
+    const where : Prisma.ShipmentWhereInput = q
         ? {
             OR: [
                 { trackingId: { contains: q, mode: "insensitive" } },
