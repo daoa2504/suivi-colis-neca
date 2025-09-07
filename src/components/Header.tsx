@@ -21,7 +21,7 @@ export default function Header() {
                     {/* Lien visible pour ADMIN + AGENT_GN */}
                     {(role === 'ADMIN' || role === 'AGENT_GN') && (
                         <Link href="/dashboard/shipments" className="text-sm font-medium text-neutral-700 hover:text-black">
-                            Colis
+                            Liste des Colis
                         </Link>
                     )}
 

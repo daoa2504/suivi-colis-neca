@@ -12,10 +12,9 @@ export const createShipmentByGN = z.object({
         (v) => (v === "" || v === null ? undefined : Number(v)),
         z.number().positive().optional()
     ),
-    price: z.preprocess(
-        (v) => (v === "" || v === null ? undefined : Number(v)),
-        z.number().positive().optional()
-    ),
+    receiverAddress: z.string().optional().nullable(),
+    receiverCity: z.string().optional().nullable(),
+    receiverPoBox: z.string().optional().nullable(),
     notes: z.string().optional(),
     convoyDate: z.union([z.string(), z.date()]), // ex: "2025-09-06" ou Date
 });
@@ -33,7 +32,9 @@ export const updateShipmentSchema = z.object({
     receiverEmail: z.string().email(),
     receiverPhone: z.string().optional().nullable(),
     weightKg: z.preprocess(v => (v === "" || v == null ? undefined : Number(v)), z.number().positive().optional()),
-    price: z.preprocess(v => (v === "" || v == null ? undefined : Number(v)), z.number().nonnegative().optional()),
     notes: z.string().optional().nullable(),
     convoyDate: z.union([z.string(), z.date()]).optional(), // si tu veux éditer le convoi
+    receiverAddress: z.string().optional().nullable(),
+    receiverCity: z.string().optional().nullable(),
+    receiverPoBox: z.string().optional().nullable(),
 });

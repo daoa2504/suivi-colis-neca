@@ -48,9 +48,11 @@ model Shipment {
   receiverEmail      String
   receiverPhone      String?
   originCountry      String
+  receiverAddress    String? // NEW
+  receiverCity       String? // NEW
+  receiverPoBox      String?
   destinationCountry String
   weightKg           Float?
-  price              Float?
   notes              String?
   status             ShipmentStatus @default(CREATED)
   createdAt          DateTime       @default(now())
