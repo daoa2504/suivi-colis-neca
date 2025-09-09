@@ -20,8 +20,19 @@ export default function Header() {
                 <nav className="flex items-center gap-4 text-sm">
                     {/* Lien visible pour ADMIN + AGENT_GN */}
                     {(role === 'ADMIN' || role === 'AGENT_GN') && (
-                        <Link href="/dashboard/shipments" className="text-sm font-medium text-neutral-700 hover:text-black">
+                        <Link
+                            href="/dashboard/shipments"
+                            className="px-3 py-1 rounded-md bg-black text-white hover:bg-neutral-800">
                             Liste des Colis
+                        </Link>
+                    )}
+                    {/* Bouton Ajouter un colis (visible que si ADMIN ou AGENT_GN) */}
+                    {["ADMIN", "AGENT_GN"].includes(role || "") && (
+                        <Link
+                            href="/agent/gn"
+                            className="px-3 py-1 rounded-md bg-black text-white hover:bg-neutral-800"
+                        >
+                            Ajouter un colis
                         </Link>
                     )}
 
