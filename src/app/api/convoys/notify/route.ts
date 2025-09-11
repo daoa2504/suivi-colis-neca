@@ -1,87 +1,33 @@
-// src/app/api/convoys/notify/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { notifyConvoySchema } from "@/lib/validators";
-import { sendEmail } from "@/lib/email";
+import { sendEmailSafe, FROM } from "@/lib/email";
 
 export const runtime = "nodejs";
 
-const FROM = process.env.EMAIL_FROM || "no-reply@migralex.net";
-
-// petite validation email très simple
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
-
-function htmlTemplate(opts: {
-    receiverName: string;
-    trackingId: string;
-    dateStr: string;
-    enRoute: boolean;
-    custom?: string | null;
-}) {
-    const { receiverName, trackingId, dateStr, enRoute, custom } = opts;
-    const title = enRoute
-        ? "Votre convoi est en route vers le Canada"
-        : "Votre convoi est arrivé à la douane (Canada)";
-
-    return `
-<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;line-height:1.5">
-<h2 style="margin:0 0 8px">${title}</h2>
-<p>Bonjour <strong>${receiverName}</strong>,</p>
-<p>Convoi du <strong>${dateStr}</strong> — ${
-        enRoute
-            ? "il est en <strong>route vers le Canada</strong>."
-            : "il est <strong>arrivé à la douane au Canada</strong>."
-    }</p>
-<p>Numéro de colis : <strong>${trackingId}</strong></p>
-${custom ? `<p style="white-space:pre-wrap">${custom}</p>` : ""}
-<hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0" />
-<p style="color:#6b7280;font-size:12px">Équipe GN → CA</p>
-</div>`;
-}
-
-async function sendWithRetry(args: Parameters<typeof sendEmail>[0], tries = 3) {
-    let lastErr: unknown = null;
-    for (let i = 0; i < tries; i++) {
-        try {
-            await sendEmail(args);
-            return { ok: true as const };
-        } catch (e: any) {
-            lastErr = e;
-// Si Resend renvoie 429/5xx on attend un peu (backoff)
-            const msg = String(e?.message || "");
-            if (/(429|rate|timeout|5\d\d)/i.test(msg)) {
-                await new Promise((r) => setTimeout(r, 500 * (i + 1)));
-                continue;
-            }
-            break;
-        }
-    }
-    return { ok: false as const, error: lastErr };
+function chunk<T>(arr: T[], size: number) {
+    const out: T[][] = [];
+    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+    return out;
 }
 
 export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions);
-    if (!session) {
-        return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-    }
-    if (!["ADMIN", "AGENT_CA"].includes(session.user.role)) {
+    if (!session) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    if (!["ADMIN", "AGENT_CA"].includes(session.user.role))
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
-    }
 
     try {
-        const raw = await req.json();
-        const parsed = notifyConvoySchema.safeParse(raw);
+        const body = await req.json();
+        const parsed = notifyConvoySchema.safeParse(body);
         if (!parsed.success) {
-            return NextResponse.json(
-                { ok: false, error: parsed.error.flatten() },
-                { status: 400 }
-            );
+            return NextResponse.json({ ok: false, error: parsed.error.flatten() }, { status: 400 });
         }
 
         const convoyDate = new Date(parsed.data.convoyDate as any);
-        const template = parsed.data.template; // "EN_ROUTE" | "IN_CUSTOMS"
+        const template = parsed.data.template;
         const custom = parsed.data.customMessage;
 
         const convoy = await prisma.convoy.findUnique({
@@ -89,105 +35,98 @@ export async function POST(req: NextRequest) {
             include: {
                 shipments: {
                     select: {
-                        id: true,
-                        trackingId: true,
-                        receiverName: true,
-                        receiverEmail: true,
+                        id: true, trackingId: true, receiverName: true, receiverEmail: true,
                     },
                 },
             },
         });
 
         if (!convoy || convoy.shipments.length === 0) {
-            return NextResponse.json(
-                { ok: false, error: "Aucun colis pour ce convoi" },
-                { status: 404 }
-            );
+            return NextResponse.json({ ok: false, error: "Aucun colis pour ce convoi" }, { status: 404 });
         }
 
         const dateStr = convoy.date.toLocaleDateString("fr-CA");
-        const enRoute = template === "EN_ROUTE";
-        const subject = enRoute
-            ? "Votre convoi est en route vers le Canada"
-            : "Votre convoi est arrivé à la douane (Canada)";
+        const subject =
+            template === "EN_ROUTE"
+                ? "Votre convoi est en route vers le Canada"
+                : "Votre convoi est arrivé à la douane (Canada)";
 
-// 1) préparer les cibles valides
-        const valid = convoy.shipments.filter(
-            (s) => s.receiverEmail && EMAIL_RE.test(s.receiverEmail)
-        );
-        const skipped = convoy.shipments
-            .filter((s) => !s.receiverEmail || !EMAIL_RE.test(s.receiverEmail))
-            .map((s) => ({ id: s.id, email: s.receiverEmail || "", reason: "email invalide" }));
+// 1) déduplication + filtrage d’emails vides
+        const unique = new Map<string, { id: string; trackingId: string; receiverName: string }>();
+        for (const s of convoy.shipments) {
+            const email = (s.receiverEmail || "").trim().toLowerCase();
+            if (!email) continue;
+            if (!unique.has(email)) unique.set(email, { id: s.id, trackingId: s.trackingId, receiverName: s.receiverName });
+        }
+        const list = Array.from(unique.entries()); // [ [email, meta], ... ]
 
-// 2) envoi par petits lots (concurrence limitée)
-        const CONCURRENCY = 5;
-        const results: { id: string; email: string; ok: boolean; error?: string }[] = [];
+        if (list.length === 0) {
+            return NextResponse.json({ ok: false, error: "Aucun email valide" }, { status: 400 });
+        }
 
-        for (let i = 0; i < valid.length; i += CONCURRENCY) {
-            const chunk = valid.slice(i, i + CONCURRENCY);
-            const settles = await Promise.allSettled(
-                chunk.map(async (s) => {
-                    const res = await sendWithRetry({
-                        from: FROM,
-                        to: s.receiverEmail!,
-                        subject,
-                        text: `Bonjour ${s.receiverName},
+// 2) envoi en CHUNKS, p.ex. 40 emails puis petite pause
+        const BATCH = 40;
+        const chunks = chunk(list, BATCH);
+
+        type Result = { email: string; ok: boolean; error?: string; id?: string };
+        const results: Result[] = [];
+
+        for (const c of chunks) {
+            const settled = await Promise.allSettled(
+                c.map(async ([email, meta]) => {
+                    const text = `Bonjour ${meta.receiverName},
 
 Convoi du ${dateStr} — ${
-                            enRoute ? "il est en route vers le Canada." : "il est arrivé à la douane au Canada."
-                        }
-Colis: ${s.trackingId}
+                        template === "EN_ROUTE"
+                            ? "il est en route vers le Canada."
+                            : "il est arrivé à la douane au Canada."
+                    }
+Colis: ${meta.trackingId}
 
 ${custom ?? ""}
 
-— Équipe GN → CA`,
-                        html: htmlTemplate({
-                            receiverName: s.receiverName,
-                            trackingId: s.trackingId,
-                            dateStr,
-                            enRoute,
-                            custom,
-                        }),
-// reply_to: 'support@migralex.net', // si tu veux
+— Équipe GN → CA`;
+
+                    const r = await sendEmailSafe({
+                        from: FROM,
+                        to: email,
+                        subject,
+                        text,
                     });
-                    return { id: s.id, email: s.receiverEmail!, ok: res.ok, error: (res as any)?.error?.message };
+
+                    if (r.ok) return { email, ok: true, id: r.id };
+                    return { email, ok: false, error: r.error || "unknown" };
                 })
             );
 
-            settles.forEach((r, idx) => {
-                const { id, receiverEmail } = chunk[idx];
-                if (r.status === "fulfilled") {
-                    results.push(r.value);
-                } else {
-                    results.push({ id, email: receiverEmail!, ok: false, error: String(r.reason) });
-                }
+            settled.forEach((r, i) => {
+                const email = c[i][0];
+                if (r.status === "fulfilled") results.push(r.value);
+                else results.push({ email, ok: false, error: String(r.reason) });
             });
 
-// petite pause pour ne pas heurter les limites
-            await new Promise((r) => setTimeout(r, 150));
+// petite pause entre les batches pour éviter le throttling
+            await new Promise(res => setTimeout(res, 600));
         }
 
-        const failed = results.filter((r) => !r.ok);
-        const sent = results.filter((r) => r.ok).length;
-
-// 3) mise à jour de statut en masse
+// 3) Mise à jour de statut en masse
         await prisma.shipment.updateMany({
             where: { convoyId: convoy.id },
-            data: { status: enRoute ? "IN_TRANSIT" : "IN_CUSTOMS" },
+            data: { status: template === "EN_ROUTE" ? "IN_TRANSIT" : "IN_CUSTOMS" },
         });
+
+// 4) Retourne un rapport clair
+        const sent = results.filter(r => r.ok).length;
+        const failed = results.filter(r => !r.ok);
 
         return NextResponse.json({
             ok: true,
-            convoyDate: dateStr,
+            totalRecipients: list.length,
             sent,
-            failed,
-            skipped,
-            total: convoy.shipments.length,
+            failedCount: failed.length,
+            failed, // => tu vois exactement quelles adresses n’ont pas reçu et pourquoi
         });
     } catch (e: any) {
-        return NextResponse.json(
-            { ok: false, error: e?.message ?? "Server error" },
-            { status: 500 }
-        );
+        return NextResponse.json({ ok: false, error: e?.message ?? "Server error" }, { status: 500 });
     }
 }
