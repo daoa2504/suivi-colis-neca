@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { sendEmail, FROM } from "@/lib/email";
+import { sendEmailSafe, FROM } from "@/lib/email";
 
 export const runtime = "nodejs";
 
@@ -71,7 +71,7 @@ export async function PUT(req: Request, ctx: Ctx) {
         lignes.push("");
         lignes.push("— Service Suivi GN → CA");
 
-        await sendEmail({
+        await sendEmailSafe({
             from: FROM, // ex: "notification@migalex.net"
             to: updated.receiverEmail,
             subject,
