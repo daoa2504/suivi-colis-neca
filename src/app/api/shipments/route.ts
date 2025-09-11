@@ -70,11 +70,14 @@ export async function POST(req: NextRequest) {
                 subject: `Colis reçu en Guinée – Convoi du ${dateStr} (${shipment.trackingId})`,
                 text:
                     `Bonjour ${shipment.receiverName},
+Nous vous confirmons la bonne réception de votre colis en Guinée.
+Numéro de suivi: (${shipment.trackingId}).
 
-Votre colis (${shipment.trackingId}) a bien été reçu en Guinée.
-Convoi prévu : ${dateStr}.
+Celui-ci est programmé pour le convoi prévu le ${dateStr}.
 
-Vous serez notifié lorsque le convoi sera en route puis à son arrivée au Canada.
+Vous serez informé dès que le convoi sera en route, puis à son arrivée au Canada.
+
+Merci d'avoir fait confiance à Logistique Mugralex inc.
 
 — Équipe GN → CA`,
                 // (facultatif) HTML un peu plus sympa :
