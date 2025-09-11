@@ -155,11 +155,11 @@ ${custom ?? ""}
             );
 
             settles.forEach((r, idx) => {
-                const { id, email } = chunk[idx];
+                const { id, receiverEmail } = chunk[idx];
                 if (r.status === "fulfilled") {
                     results.push(r.value);
                 } else {
-                    results.push({ id, email: email!, ok: false, error: String(r.reason) });
+                    results.push({ id, email: receiverEmail!, ok: false, error: String(r.reason) });
                 }
             });
 
