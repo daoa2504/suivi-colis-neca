@@ -69,62 +69,45 @@ export async function POST(req: NextRequest) {
         const chunks = chunk(list, BATCH);
 
         type Result = { email: string; ok: boolean; error?: string; id?: string };
-        const results: Result[] = [];
+        // ...
+// list = Array<[email, { id, trackingId, receiverName }]> (déjà dédupliqué)
 
-        for (const c of chunks) {
-            const settled = await Promise.allSettled(
-                c.map(async ([email, meta]) => {
-                    const text = `Bonjour ${meta.receiverName},
+        const results: { email: string; ok: boolean; error?: string; id?: string }[] = [];
+
+        for (const [email, meta] of list) {
+            const text = `Bonjour ${meta.receiverName},
 
 Convoi du ${dateStr} — ${
-                        template === "EN_ROUTE"
-                            ? "il est en route vers le Canada."
-                            : "il est arrivé à la douane au Canada."
-                    }
+                template === "EN_ROUTE" ? "il est en route vers le Canada." : "il est arrivé à la douane au Canada."
+            }
 Colis: ${meta.trackingId}
 
 ${custom ?? ""}
 
 — Équipe GN → CA`;
 
-                    const r = await sendEmailSafe({
-                        from: FROM,
-                        to: email,
-                        subject,
-                        text,
-                    });
-
-                    if (r.ok) return { email, ok: true, id: r.id };
-                    return { email, ok: false, error: r.error || "unknown" };
-                })
-            );
-
-            settled.forEach((r, i) => {
-                const email = c[i][0];
-                if (r.status === "fulfilled") results.push(r.value);
-                else results.push({ email, ok: false, error: String(r.reason) });
+            const r = await sendEmailSafe({
+                from: FROM,
+                to: email,
+                subject,
+                text,
             });
 
-// petite pause entre les batches pour éviter le throttling
-            await new Promise(res => setTimeout(res, 600));
+            results.push(r.ok ? { email, ok: true, id: r.id } : { email, ok: false, error: r.error });
+
+            // petite pause 400 ms pour être 100% safe vis-à-vis du throttling
+            await new Promise(res => setTimeout(res, 400));
         }
 
-// 3) Mise à jour de statut en masse
-        await prisma.shipment.updateMany({
-            where: { convoyId: convoy.id },
-            data: { status: template === "EN_ROUTE" ? "IN_TRANSIT" : "IN_CUSTOMS" },
-        });
-
-// 4) Retourne un rapport clair
+// puis retourne le rapport comme avant
         const sent = results.filter(r => r.ok).length;
         const failed = results.filter(r => !r.ok);
-
         return NextResponse.json({
             ok: true,
             totalRecipients: list.length,
             sent,
             failedCount: failed.length,
-            failed, // => tu vois exactement quelles adresses n’ont pas reçu et pourquoi
+            failed,
         });
     } catch (e: any) {
         return NextResponse.json({ ok: false, error: e?.message ?? "Server error" }, { status: 500 });
