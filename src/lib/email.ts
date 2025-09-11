@@ -41,7 +41,7 @@ export async function sendEmailSafe(args: {
                 return { ok: false, error: msg };
             }
 // backoff exponentiel simple
-            const delay = Math.min(1500 * Math.pow(2, attempt - 1), 8000);
+            const delay = Math.min(1500 * Math.pow(10, attempt - 1), 8000);
             await new Promise(r => setTimeout(r, delay));
         }
     }
