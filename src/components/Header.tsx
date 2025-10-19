@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 
-type AppRole = 'ADMIN' | 'AGENT_GN' | 'AGENT_CA';
+type AppRole = 'ADMIN' | 'AGENT_NE' | 'AGENT_CA';
 
 export default function Header() {
     const { data: session } = useSession();
@@ -12,8 +12,8 @@ export default function Header() {
     // 🔄 Déterminer le sens d'affichage
     const directionLabel =
         role === 'AGENT_CA'
-            ? 'Suivi CA → GN'
-            : 'Suivi GN → CA'; // par défaut (ADMIN et AGENT_GN)
+            ? 'Suivi CA → NE'
+            : 'Suivi NE → CA'; // par défaut (ADMIN et AGENT_GN)
 
     return (
         <header className="w-full bg-white shadow-sm ring-1 ring-neutral-200">
@@ -25,7 +25,7 @@ export default function Header() {
 
                 <nav className="flex items-center gap-4 text-sm">
                     {/* Lien visible pour ADMIN + AGENT_GN */}
-                    {(role === 'ADMIN' || role === 'AGENT_GN' || role === 'AGENT_CA' ) && (
+                    {(role === 'ADMIN' || role === 'AGENT_NE' || role === 'AGENT_CA' ) && (
                         <Link
                             href="/dashboard/shipments"
                             className="px-3 py-1 rounded-md bg-black text-white hover:bg-neutral-800">
@@ -34,11 +34,11 @@ export default function Header() {
                     )}
 
                     {/* Ajouter GN */}
-                    {["ADMIN", "AGENT_GN"].includes(role || "") && (
+                    {["ADMIN", "AGENT_NE"].includes(role || "") && (
                         <Link
-                            href="/agent/gn"
+                            href="/agent/ne"
                             className="px-3 py-1 rounded-md bg-black text-white hover:bg-neutral-800">
-                            Ajouter (GN)
+                            Ajouter (NE)
                         </Link>
                     )}
 
@@ -58,8 +58,8 @@ export default function Header() {
                             <Link href="/admin" className="text-sm font-medium text-neutral-700 hover:text-black">
                                 Admin
                             </Link>
-                            <Link href="/agent/gn" className="text-sm font-medium text-neutral-700 hover:text-black">
-                                Agent Guinée
+                            <Link href="/agent/ne" className="text-sm font-medium text-neutral-700 hover:text-black">
+                                Agent Niger
                             </Link>
                             <Link href="/agent/ca" className="text-sm font-medium text-neutral-700 hover:text-black">
                                 Agent Canada
