@@ -11,7 +11,7 @@ const client = new Resend(process.env.RESEND_API_KEY || "");
 
 
 // ex: dans src/lib/email.ts (ou localement dans chaque route)
-export type Direction = "GN_TO_CA" | "CA_TO_GN";
+export type Direction = "NE_TO_CA" | "CA_TO_NE";
 
 export function inferDirection(opts: {
     convoyDirection?: Direction | null;
@@ -21,14 +21,14 @@ export function inferDirection(opts: {
     if (opts.convoyDirection) return opts.convoyDirection;
     const o = (opts.originCountry || "").toLowerCase();
     const d = (opts.destinationCountry || "").toLowerCase();
-    if (o.includes("guinea") && d.includes("canada")) return "GN_TO_CA";
-    if (o.includes("canada") && d.includes("guinea")) return "CA_TO_GN";
+    if (o.includes("guinea") && d.includes("canada")) return "NE_TO_CA";
+    if (o.includes("canada") && d.includes("guinea")) return "CA_TO_NE";
     // défaut raisonnable
-    return "GN_TO_CA";
+    return "NE_TO_CA";
 }
 
 export function footerFor(direction: Direction) {
-    return direction === "GN_TO_CA" ? "— Équipe GN → CA" : "— Équipe CA → GN";
+    return direction === "NE_TO_CA" ? "— Équipe NE → CA" : "— Équipe CA → NE";
 }
 export async function sendEmailSafe(args: {
     from?: string;
@@ -40,7 +40,7 @@ export async function sendEmailSafe(args: {
 }, maxRetries = 3) {
     if (!process.env.RESEND_API_KEY) {
         if (process.env.NODE_ENV !== "production") {
-            console.warn("[email] RESEND_API_KEY manquante — envoi ignoré");
+            console.warn("[email] RESEND_API_KEY manquante — envoi iNEoré");
         }
         return { ok: true }; // no-op en dev sans clé
     }
