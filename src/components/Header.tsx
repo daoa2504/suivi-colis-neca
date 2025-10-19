@@ -9,34 +9,50 @@ export default function Header() {
     const { data: session } = useSession();
     const role = session?.user?.role as AppRole | undefined;
 
+    // 🔄 Déterminer le sens d'affichage
+    const directionLabel =
+        role === 'AGENT_CA'
+            ? 'Suivi CA → GN'
+            : 'Suivi GN → CA'; // par défaut (ADMIN et AGENT_GN)
+
     return (
         <header className="w-full bg-white shadow-sm ring-1 ring-neutral-200">
             <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
-                {/* Logo / Titre */}
+                {/* Logo / Titre dynamique */}
                 <Link href="/" className="text-lg font-bold text-neutral-900 flex items-center gap-1">
-                    📦 <span>Suivi GN → CA</span>
+                    📦 <span>{directionLabel}</span>
                 </Link>
 
                 <nav className="flex items-center gap-4 text-sm">
                     {/* Lien visible pour ADMIN + AGENT_GN */}
-                    {(role === 'ADMIN' || role === 'AGENT_GN') && (
+                    {(role === 'ADMIN' || role === 'AGENT_GN' || role === 'AGENT_CA' ) && (
                         <Link
                             href="/dashboard/shipments"
                             className="px-3 py-1 rounded-md bg-black text-white hover:bg-neutral-800">
                             Liste des Colis
                         </Link>
                     )}
-                    {/* Bouton Ajouter un colis (visible que si ADMIN ou AGENT_GN) */}
+
+                    {/* Ajouter GN */}
                     {["ADMIN", "AGENT_GN"].includes(role || "") && (
                         <Link
                             href="/agent/gn"
-                            className="px-3 py-1 rounded-md bg-black text-white hover:bg-neutral-800"
-                        >
-                            Ajouter un colis
+                            className="px-3 py-1 rounded-md bg-black text-white hover:bg-neutral-800">
+                            Ajouter (GN)
                         </Link>
                     )}
 
-                    {/* Liens réservés ADMIN (si tu veux les garder) */}
+                    {/* Ajouter CA */}
+                    {["ADMIN", "AGENT_CA"].includes(role || "") && (
+                        <Link
+                            href="/agent/ca"
+                            className="px-3 py-1 rounded-md bg-black text-white hover:bg-neutral-800">
+                            Ajouter (CA)
+                        </Link>
+
+                    )}
+
+                    {/* Liens ADMIN */}
                     {role === 'ADMIN' && (
                         <>
                             <Link href="/admin" className="text-sm font-medium text-neutral-700 hover:text-black">
@@ -50,13 +66,16 @@ export default function Header() {
                             </Link>
                         </>
                     )}
-
-                    {/* Tous les rôles voient Déconnexion quand ils sont connectés */}
+                    <Link
+                        href="/agent/ca/track"
+                        className="px-3 py-1 rounded-md bg-black text-white hover:bg-neutral-800">
+                        Suivi du Colis
+                    </Link>
+                    {/* Bouton déconnexion */}
                     {session && (
                         <button
                             onClick={() => signOut({ callbackUrl: '/login' })}
-                            className="btn-primary text-sm px-3 py-1 rounded-lg"
-                        >
+                            className="btn-primary text-sm px-3 py-1 rounded-lg">
                             Déconnexion
                         </button>
                     )}

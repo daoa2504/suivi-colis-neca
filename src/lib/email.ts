@@ -7,6 +7,29 @@ const client = new Resend(process.env.RESEND_API_KEY || "");
  * Envoie un email avec retry (backoff) sur erreurs 429/5xx.
  * Retourne { ok, id?, error? }
  */
+
+
+
+// ex: dans src/lib/email.ts (ou localement dans chaque route)
+export type Direction = "GN_TO_CA" | "CA_TO_GN";
+
+export function inferDirection(opts: {
+    convoyDirection?: Direction | null;
+    originCountry?: string | null;
+    destinationCountry?: string | null;
+}): Direction {
+    if (opts.convoyDirection) return opts.convoyDirection;
+    const o = (opts.originCountry || "").toLowerCase();
+    const d = (opts.destinationCountry || "").toLowerCase();
+    if (o.includes("guinea") && d.includes("canada")) return "GN_TO_CA";
+    if (o.includes("canada") && d.includes("guinea")) return "CA_TO_GN";
+    // défaut raisonnable
+    return "GN_TO_CA";
+}
+
+export function footerFor(direction: Direction) {
+    return direction === "GN_TO_CA" ? "— Équipe GN → CA" : "— Équipe CA → GN";
+}
 export async function sendEmailSafe(args: {
     from?: string;
     to: string;

@@ -27,6 +27,21 @@ export const notifyConvoySchema = z.object({
 });
 
 
+
+export const addEventSchema = z.object({
+    type: z.enum([
+        "RECEIVED_IN_GUINEA",
+        "RECEIVED_IN_CANADA",
+        "IN_TRANSIT",
+        "IN_CUSTOMS",
+        "OUT_FOR_DELIVERY",
+        "DELIVERED",
+        "CUSTOM",
+    ]),
+    description: z.string().optional(),
+    location: z.string().optional(),
+    occurredAt: z.union([z.string(), z.date()]).optional(),
+});
 export const updateShipmentSchema = z.object({
     receiverName: z.string().min(1),
     receiverEmail: z.string().email(),

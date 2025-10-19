@@ -19,12 +19,19 @@ enum Role {
 enum ShipmentStatus {
   CREATED
   RECEIVED_IN_GUINEA
+  RECEIVED_IN_CANADA
   IN_TRANSIT
   IN_CUSTOMS
   ARRIVED_IN_CANADA
+  ARRIVED_IN_GUINEA
   PICKED_UP
   OUT_FOR_DELIVERY
   DELIVERED
+}
+
+enum Direction {
+  GN_TO_CA
+  CA_TO_GN
 }
 
 model User {
@@ -32,13 +39,6 @@ model User {
   email    String @unique
   password String
   role     Role   @default(AGENT_GN)
-}
-
-model Convoy {
-  id        String     @id @default(cuid())
-  date      DateTime   @unique
-  createdAt DateTime   @default(now())
-  shipments Shipment[]
 }
 
 model Shipment {
@@ -72,4 +72,16 @@ model ShipmentEvent {
   location    String?
   occurredAt  DateTime? @default(now())
   createdAt   DateTime  @default(now())
+}
+
+// prisma/schema.prisma
+
+model Convoy {
+  id        String    @id @default(cuid())
+  date      DateTime
+  direction Direction @default(GN_TO_CA)
+
+  shipments Shipment[]
+
+  @@unique([date, direction]) // un convoi par jour et par sens
 }

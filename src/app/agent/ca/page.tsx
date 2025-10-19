@@ -1,18 +1,25 @@
 // src/app/agent/ca/page.tsx
-import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import CANotifyForm from "./CANotifyForm";
+import { redirect } from "next/navigation";
+import CAForm from "./CAForm";
 
-export default async function CAPage() {
+export const runtime = "nodejs";
+
+export default async function AgentCAPage() {
     const session = await getServerSession(authOptions);
-    if (!session) redirect("/login");
-    if (!["ADMIN", "AGENT_CA"].includes(session.user.role))
-        return <main className="p-6">403</main>;
+    const role = session?.user?.role;
+    if (!session || !["ADMIN", "AGENT_CA"].includes(role || "")) redirect("/login");
 
     return (
-        <main className="p-6">
-            <CANotifyForm />
+        <main className="container-page">
+            <div className="card">
+                <h1 className="title">Réception — Agent Canada (départ vers Guinée)</h1>
+                <p className="text-sm text-neutral-600">
+                    Enregistrer un colis reçu au Canada (convoi CA → GN). Un email sera envoyé au destinataire en Guinée.
+                </p>
+                <CAForm />
+            </div>
         </main>
     );
 }
