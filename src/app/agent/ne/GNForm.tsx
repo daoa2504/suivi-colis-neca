@@ -44,7 +44,7 @@ export default function GNForm() {
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl mx-auto bg-white rounded-xl shadow p-6">
-            <h2 className="text-xl font-semibold">Réception d’un colis (Guinée)</h2>
+            <h2 className="text-xl font-semibold">Réception d’un colis (Niger)</h2>
 
             {/* Destinataire */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -11,7 +11,7 @@ import type { Prisma } from "@prisma/client";
 import type { ShipmentStatus } from "@prisma/client"; // (déjà importé Prisma plus bas)
 
 const STATUS_FR: Record<ShipmentStatus, string> = {
-    RECEIVED_IN_GUINEA: "Reçu (Guinée)",
+    RECEIVED_IN_NIGER: "Reçu (Guinée)",
     RECEIVED_IN_CANADA: "Reçu (Canada)",
     IN_TRANSIT: "En route",
     IN_CUSTOMS: "À la douane",
@@ -19,7 +19,7 @@ const STATUS_FR: Record<ShipmentStatus, string> = {
     DELIVERED: "Livré",
     CREATED: "",
     ARRIVED_IN_CANADA: "",
-    ARRIVED_IN_GUINEA: "",
+    ARRIVED_IN_NIGER: "",
     PICKED_UP: ""
 };
 export const runtime = "nodejs";
@@ -31,7 +31,7 @@ export default async function ShipmentsPage(
     { searchParams }: { searchParams: Promise<SearchParams> } // Next 15: Promise
 ) {
     const session = await getServerSession(authOptions);
-    const role = session?.user?.role as "ADMIN" | "AGENT_GN" | "AGENT_CA" | undefined;
+    const role = session?.user?.role as "ADMIN" | "AGENT_NE" | "AGENT_CA" | undefined;
     if (!session || !role) redirect("/login");
 
     const sp = await searchParams;
@@ -39,7 +39,7 @@ export default async function ShipmentsPage(
     const page = Math.max(1, Number(sp.page || 1));
 
     // 🔹 base du lien “Suivi” selon rôle
-    const baseForRole = role === "AGENT_CA" ? "/agent/ca" : "/agent/gn";
+    const baseForRole = role === "AGENT_CA" ? "/agent/ca" : "/agent/ne";
 
     // 🔹 filtre “recherche”
     const searchFilter: Prisma.ShipmentWhereInput = q
@@ -54,18 +54,18 @@ export default async function ShipmentsPage(
 
     // 🔹 filtre “rôle”
     let roleFilter: Prisma.ShipmentWhereInput = {};
-    if (role === "AGENT_GN") {
+    if (role === "AGENT_NE") {
         roleFilter = {
             OR: [
                 { originCountry: "GN" },
-                { convoy: { direction: "GN_TO_CA" } },
+                { convoy: { direction: "NE_TO_CA" } },
             ],
         };
     } else if (role === "AGENT_CA") {
         roleFilter = {
             OR: [
                 { originCountry: "CA" },
-                { convoy: { direction: "CA_TO_GN" } },
+                { convoy: { direction: "CA_TO_NE" } },
             ],
         };
     }

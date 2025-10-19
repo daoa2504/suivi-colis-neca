@@ -19,7 +19,7 @@ export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions);
-    if (!session || !["ADMIN", "AGENT_GN"].includes(session.user.role)) {
+    if (!session || !["ADMIN", "AGENT_NE"].includes(session.user.role)) {
         return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
 
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     const convoyDate = body.convoyDate ? new Date(body.convoyDate) : new Date();
 
     // 👉 côté Guinée : direction figée GN_TO_CA
-    const direction: Direction = "GN_TO_CA";
+    const direction: Direction = "NE_TO_CA";
 
     // 1) upsert du convoi par (date, direction)
     const convoy = await prisma.convoy.upsert({
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     // 2) créer le colis
     const shipment = await prisma.shipment.create({
         data: {
-            trackingId: `GNCA-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+            trackingId: `NECA-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
             receiverName: body.receiverName?.trim(),
             receiverEmail: body.receiverEmail?.trim(),
             receiverPhone: body.receiverPhone || null,
@@ -51,9 +51,9 @@ export async function POST(req: NextRequest) {
             notes: body.notes || null,
 
             convoy: { connect: { id: convoy.id } },
-            originCountry: "GN",
+            originCountry: "NE",
             destinationCountry: "CA",
-            status: "RECEIVED_IN_GUINEA",
+            status: "RECEIVED_IN_NIGER",
         },
     });
 
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
         const subject = `Colis enregistré en Guinée — ${shipment.trackingId}`;
         const text =
             `Bonjour ${shipment.receiverName},\n\n` +
-            `Votre colis a été enregistré en Guinée. Il sera expédié vers le Canada lors du prochain convoi.\n` +
+            `Votre colis a été enregistré en Niger. Il sera expédié vers le Canada lors du prochain convoi.\n` +
             notes +
             `\n— Équipe GN → CA`;
 
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
                 text,
             });
         } catch (e) {
-            console.warn("[GN new-shipment] email send failed:", e);
+            console.warn("[NE new-shipment] email send failed:", e);
         }
     }
 

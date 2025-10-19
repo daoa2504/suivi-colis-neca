@@ -8,7 +8,7 @@ async function main() {
     const users = [
         { email: "admin@example.com",    role: "ADMIN",    password: "admin123" },
         { email: "agent.ca@example.com", role: "AGENT_CA", password: "canada123" },
-        { email: "agent.gn@example.com", role: "AGENT_GN", password: "guinea123" },
+        { email: "agent.ne@example.com", role: "AGENT_NE", password: "guinea123" },
     ] as const;
 
     for (const u of users) {

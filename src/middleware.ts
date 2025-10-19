@@ -5,7 +5,7 @@ import { getToken } from "next-auth/jwt";
 
 // Protège ces espaces : admin + agents
 export const config = {
-    matcher: ["/admin/:path*", "/agent/ca/:path*", "/agent/gn/:path*"],
+    matcher: ["/admin/:path*", "/agent/ca/:path*", "/agent/ne/:path*"],
 };
 
 export default async function middleware(req: NextRequest) {

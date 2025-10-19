@@ -3,7 +3,7 @@ import "next-auth";
 import "next-auth/jwt";
 
 // Aligne les types sur notre RBAC : ADMIN | AGENT_CA | AGENT_GN
-type AppRole = "ADMIN" | "AGENT_CA" | "AGENT_GN";
+type AppRole = "ADMIN" | "AGENT_CA" | "AGENT_NE";
 
 declare module "next-auth" {
     interface Session {

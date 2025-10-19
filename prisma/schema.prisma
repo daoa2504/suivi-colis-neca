@@ -13,32 +13,32 @@ datasource db {
 enum Role {
   ADMIN
   AGENT_CA
-  AGENT_GN
+  AGENT_NE
 }
 
 enum ShipmentStatus {
   CREATED
-  RECEIVED_IN_GUINEA
+  RECEIVED_IN_NIGER
   RECEIVED_IN_CANADA
   IN_TRANSIT
   IN_CUSTOMS
   ARRIVED_IN_CANADA
-  ARRIVED_IN_GUINEA
+  ARRIVED_IN_NIGER
   PICKED_UP
   OUT_FOR_DELIVERY
   DELIVERED
 }
 
 enum Direction {
-  GN_TO_CA
-  CA_TO_GN
+  NE_TO_CA
+  CA_TO_NE
 }
 
 model User {
   id       String @id @default(cuid())
   email    String @unique
   password String
-  role     Role   @default(AGENT_GN)
+  role     Role   @default(AGENT_NE)
 }
 
 model Shipment {
@@ -79,7 +79,7 @@ model ShipmentEvent {
 model Convoy {
   id        String    @id @default(cuid())
   date      DateTime
-  direction Direction @default(GN_TO_CA)
+  direction Direction @default(NE_TO_CA)
 
   shipments Shipment[]
 

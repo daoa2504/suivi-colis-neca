@@ -11,7 +11,7 @@ export default async function HomePage() {
     const role = session.user.role;
     if (role === "ADMIN") redirect("/admin");
     if (role === "AGENT_CA") redirect("/agent/ca");
-    if (role === "AGENT_GN") redirect("/agent/gn");
+    if (role === "AGENT_NE") redirect("/agent/ne");
 
     // fallback (ne devrait pas arriver)
     return <main className="p-6">Rôle inconnu</main>;

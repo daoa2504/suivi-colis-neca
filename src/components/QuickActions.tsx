@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 export type Action = {
     label: string;
     type:
-        | "RECEIVED_IN_GUINEA"
+        | "RECEIVED_IN_NIGER"
         | "RECEIVED_IN_CANADA"
         | "IN_TRANSIT"
         | "IN_CUSTOMS"
