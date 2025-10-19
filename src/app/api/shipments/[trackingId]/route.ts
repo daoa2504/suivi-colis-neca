@@ -4,15 +4,18 @@ import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
-type RouteContext = { params: { trackingId: string } };
-
-export async function GET(_req: NextRequest, { params }: RouteContext) {
-    const { trackingId } = params;
+export async function GET(_req: NextRequest, ctx: any) {
+    const trackingId = ctx?.params?.trackingId as string | undefined;
+    if (!trackingId || typeof trackingId !== "string") {
+        return NextResponse.json(
+            { ok: false, error: "Invalid trackingId" },
+            { status: 400 }
+        );
+    }
 
     try {
-        // récupère le colis + ses events si tu en as
         const shipment = await prisma.shipment.findUnique({
-            where: { trackingId }, // ⚠️ 'trackingId' doit être @unique dans Prisma
+            where: { trackingId }, // doit être @unique dans Prisma
             include: {
                 events: { orderBy: { occurredAt: "desc" } },
                 convoy: { select: { date: true, direction: true } },

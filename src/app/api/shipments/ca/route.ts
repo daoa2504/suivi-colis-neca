@@ -19,27 +19,27 @@ export async function POST(req: NextRequest) {
         const body = await req.json();
         const convoyDate = new Date(body.convoyDate);
 
-        // 1) convoi CA -> GN (créé s'il n'existe pas)
+        // 1) convoi CA -> NE (créé s'il n'existe pas)
         const convoy = await prisma.convoy.upsert({
             where: {
                 date_direction: {
                     date: convoyDate,
-                    direction: $Enums.Direction.CA_TO_GN,
+                    direction: $Enums.Direction.CA_TO_NE,
                 },
             },
             update: {},
             create: {
                 date: convoyDate,
-                direction: $Enums.Direction.CA_TO_GN,
+                direction: $Enums.Direction.CA_TO_NE,
             },
         });
 
         // 2) créer le colis (départ Canada vers Guinée)
         const shipment = await prisma.shipment.create({
             data: {
-                trackingId: `CAGN-${Math.random().toString(36).slice(2, 8).toUpperCase()}`, // remplace par ton generateTrackingId si tu as
+                trackingId: `CANE-${Math.random().toString(36).slice(2, 8).toUpperCase()}`, // remplace par ton generateTrackingId si tu as
                 originCountry: "Canada",
-                destinationCountry: "Guinea",
+                destinationCountry: "Niger",
                 status: "CREATED",
                 convoyId: convoy.id,
 
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
             await tx.shipmentEvent.create({
                 data: {
                     shipmentId: shipment.id,
-                    type: "RECEIVED_IN_CANADA", // reçu par agent au Canada (avant envoi vers GN)
+                    type: "RECEIVED_IN_CANADA", // reçu par agent au Canada (avant envoi vers NE)
                     description: "Colis reçu par l’agent Canada (départ vers Guinée)",
                     location: "Canada",
                 },
@@ -89,7 +89,7 @@ Détails :
 - Tracking : ${shipment.trackingId}
 - Poids : ${shipment.weightKg ?? "n/a"} kg
 ${notesTxt}
-— Équipe CA → GN`;
+— Équipe CA → NE`;
 
         try {
             await sendEmailSafe({ from: FROM, to: shipment.receiverEmail, subject, text });

@@ -13,7 +13,7 @@ type Ctx = { params: Promise<{ trackingId: string }> };
 
 // mapping event -> statut
 const STATUS_BY_EVENT = {
-    RECEIVED_IN_GUINEA: "RECEIVED_IN_GUINEA",
+    RECEIVED_IN_NIGER: "RECEIVED_IN_NIGER",
     RECEIVED_IN_CANADA: "RECEIVED_IN_CANADA",
     IN_TRANSIT: "IN_TRANSIT",
     IN_CUSTOMS: "IN_CUSTOMS",
@@ -23,7 +23,7 @@ const STATUS_BY_EVENT = {
 
 // labels FR
 const LABELS: Record<string, string> = {
-    RECEIVED_IN_GUINEA: "Reçu par nos agents (Guinée)",
+    RECEIVED_IN_NIGER: "Reçu par nos agents (Niger)",
     RECEIVED_IN_CANADA: "Reçu par nos agents (Canada)",
     IN_TRANSIT: "En route",
     IN_CUSTOMS: "À la douane",
@@ -46,7 +46,7 @@ function buildEmailForEvent(args: {
     const noteBlock = notes && notes.trim().length > 0 ? `\nNotes :\n${notes.trim()}\n` : "";
 
     switch (type) {
-        case "RECEIVED_IN_GUINEA":
+        case "RECEIVED_IN_NIGER":
             return {
                 subject: `Colis reçu par nos agents (Guinée) — ${trackingId}`,
                 text:

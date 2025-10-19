@@ -85,15 +85,15 @@ export async function POST(req: NextRequest) {
         // Sujet dynamique selon direction + template
         const subject =
             template === "EN_ROUTE"
-                ? direction === "GN_TO_CA"
+                ? direction === "NE_TO_CA"
                     ? "Votre convoi est en route vers le Canada"
                     : "Votre convoi est en route vers la Guinée"
-                : direction === "GN_TO_CA"
+                : direction === "NE_TO_CA"
                     ? "Votre convoi est arrivé à la douane (Canada)"
                     : "Votre convoi est arrivé à la douane (Guinée)";
 
         // Pied de mail dynamique
-        const FOOTER = direction === "GN_TO_CA" ? "— Équipe GN → CA" : "— Équipe CA → GN";
+        const FOOTER = direction === "NE_TO_CA" ? "— Équipe NE → CA" : "— Équipe CA → GN";
 
         // Déduplique les emails (au cas où plusieurs colis ont le même destinataire)
         const unique = new Map<
@@ -130,10 +130,10 @@ export async function POST(req: NextRequest) {
 
 Convoi du ${dateStr} — ${
                         template === "EN_ROUTE"
-                            ? direction === "GN_TO_CA"
+                            ? direction === "NE_TO_CA"
                                 ? "il est en route vers le Canada."
                                 : "il est en route vers la Guinée."
-                            : direction === "GN_TO_CA"
+                            : direction === "NE_TO_CA"
                                 ? "il est arrivé à la douane (Canada)."
                                 : "il est arrivé à la douane (Guinée)."
                     }

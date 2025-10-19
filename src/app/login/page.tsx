@@ -10,7 +10,7 @@ export default async function LoginPage() {
         const r = session.user.role;
         if (r === "ADMIN") redirect("/admin");
         if (r === "AGENT_CA") redirect("/agent/ca");
-        if (r === "AGENT_GN") redirect("/agent/gn");
+        if (r === "AGENT_NE") redirect("/agent/ne");
     }
     return (
         <main className="min-h-screen grid place-items-center p-6">
