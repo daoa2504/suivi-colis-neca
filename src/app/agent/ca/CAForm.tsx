@@ -37,7 +37,7 @@ export default function CAForm() {
 
             // ✅ force le sens CA -> GN pour l'emailing et le suivi
             originCountry: "Canada",
-            destinationCountry: "Guinea",
+            destinationCountry: "Niger",
         };
 
         try {
@@ -74,7 +74,7 @@ export default function CAForm() {
         <form onSubmit={onSubmit} className="mt-6 grid gap-5 max-w-2xl">
             <div>
                 <label className="label">
-                    Date du convoi (CA → GN) <span className="text-red-600">*</span>
+                    Date du convoi (CA → NE) <span className="text-red-600">*</span>
                 </label>
                 <input name="convoyDate" type="date" className="input" required />
             </div>
@@ -103,7 +103,7 @@ export default function CAForm() {
             </div>
 
             <fieldset className="grid gap-4">
-                <legend className="label font-semibold">Adresse (Guinée)</legend>
+                <legend className="label font-semibold">Adresse (Niger)</legend>
                 <div>
                     <label className="label">Adresse</label>
                     <input name="receiverAddress" className="input" placeholder="quartier, rue…" />
@@ -111,7 +111,7 @@ export default function CAForm() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="label">Ville</label>
-                        <input name="receiverCity" className="input" placeholder="ex: Conakry" />
+                        <input name="receiverCity" className="input" placeholder="ex: Niamey" />
                     </div>
                     <div>
                         <label className="label">Boîte postale</label>

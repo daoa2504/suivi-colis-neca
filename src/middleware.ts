@@ -19,7 +19,7 @@ export default async function middleware(req: NextRequest) {
         return NextResponse.redirect(url);
     }
 
-    const role = token.role as "ADMIN" | "AGENT_CA" | "AGENT_GN";
+    const role = token.role as "ADMIN" | "AGENT_CA" | "AGENT_NE";
 
     // RBAC simple selon le chemin
     if (url.pathname.startsWith("/admin") && role !== "ADMIN") {
@@ -28,7 +28,7 @@ export default async function middleware(req: NextRequest) {
     if (url.pathname.startsWith("/agent/ca") && !["ADMIN", "AGENT_CA"].includes(role)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-    if (url.pathname.startsWith("/agent/gn") && !["ADMIN", "AGENT_GN"].includes(role)) {
+    if (url.pathname.startsWith("/agent/ne") && !["ADMIN", "AGENT_NE"].includes(role)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

@@ -14,9 +14,9 @@ export default async function AgentCAPage() {
     return (
         <main className="container-page">
             <div className="card">
-                <h1 className="title">Réception — Agent Canada (départ vers Guinée)</h1>
+                <h1 className="title">Réception — Agent Canada (départ vers Niger)</h1>
                 <p className="text-sm text-neutral-600">
-                    Enregistrer un colis reçu au Canada (convoi CA → GN). Un email sera envoyé au destinataire en Guinée.
+                    Enregistrer un colis reçu au Canada (convoi CA → NE). Un email sera envoyé au destinataire au Niger.
                 </p>
                 <CAForm />
             </div>

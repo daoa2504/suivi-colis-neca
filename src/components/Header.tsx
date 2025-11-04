@@ -34,7 +34,7 @@ export default function Header() {
                     )}
 
                     {/* Ajouter GN */}
-                    {["ADMIN", "AGENT_NE"].includes(role || "") && (
+                    {["ADMIN", "AGENT_GN"].includes(role || "") && (
                         <Link
                             href="/agent/ne"
                             className="px-3 py-1 rounded-md bg-black text-white hover:bg-neutral-800">
@@ -51,6 +51,17 @@ export default function Header() {
                         </Link>
 
                     )}
+                    {["ADMIN", "AGENT_CA"].includes(role || "") && (
+                        <Link href="/agent/ca/notify" className="px-3 py-1 rounded-md bg-black text-white hover:bg-neutral-800">
+                            Notifier convoi (CA)
+                        </Link>
+                    )}
+
+                    {["ADMIN", "AGENT_GN"].includes(role || "") && (
+                        <Link href="/agent/ne/notify" className="px-3 py-1 rounded-md bg-black text-white hover:bg-neutral-800">
+                            Notifier convoi (NE)
+                        </Link>
+                    )}
 
                     {/* Liens ADMIN */}
                     {role === 'ADMIN' && (
@@ -66,11 +77,7 @@ export default function Header() {
                             </Link>
                         </>
                     )}
-                    <Link
-                        href="/agent/ca/track"
-                        className="px-3 py-1 rounded-md bg-black text-white hover:bg-neutral-800">
-                        Suivi du Colis
-                    </Link>
+
                     {/* Bouton déconnexion */}
                     {session && (
                         <button

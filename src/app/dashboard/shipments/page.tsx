@@ -4,11 +4,12 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import Link from "next/link";
-import DeleteShipmentButton from "./DeleteShipmentButton";
-import type { Prisma } from "@prisma/client";
+import type { Prisma, ShipmentStatus } from "@prisma/client";
 
+export const runtime = "nodejs";
 
-import type { ShipmentStatus } from "@prisma/client"; // (déjà importé Prisma plus bas)
+type SearchParams = { q?: string; page?: string };
+const PAGE_SIZE = 12;
 
 const STATUS_FR: Record<ShipmentStatus, string> = {
     RECEIVED_IN_NIGER: "Reçu (Guinée)",
@@ -17,31 +18,40 @@ const STATUS_FR: Record<ShipmentStatus, string> = {
     IN_CUSTOMS: "À la douane",
     OUT_FOR_DELIVERY: "Prêt à être livré",
     DELIVERED: "Livré",
-    CREATED: "",
-    ARRIVED_IN_CANADA: "",
-    ARRIVED_IN_NIGER: "",
-    PICKED_UP: ""
+    CREATED: "Créé",
+    ARRIVED_IN_CANADA: "Arrivé au Canada",
+    ARRIVED_IN_NIGER: "Arrivé en Guinée",
+    PICKED_UP: "Ramassé",
 };
-export const runtime = "nodejs";
 
-type SearchParams = { q?: string; page?: string };
-const PAGE_SIZE = 12;
+function fmtDate(d: Date) {
+    return new Date(d).toLocaleDateString("fr-CA", { year: "numeric", month: "2-digit", day: "2-digit" });
+}
+
+function StatusBadge({ status }: { status: ShipmentStatus }) {
+    const txt = STATUS_FR[status] ?? status;
+    const tone =
+        status === "DELIVERED" ? "bg-green-100 text-green-800"
+            : ["OUT_FOR_DELIVERY", "IN_CUSTOMS", "IN_TRANSIT"].includes(status) ? "bg-blue-100 text-blue-800"
+                : ["RECEIVED_IN_NIGER", "RECEIVED_IN_CANADA"].includes(status) ? "bg-neutral-100 text-neutral-800"
+                    : "bg-amber-100 text-amber-900";
+    return <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${tone}`}>{txt}</span>;
+}
 
 export default async function ShipmentsPage(
-    { searchParams }: { searchParams: Promise<SearchParams> } // Next 15: Promise
+    { searchParams }: { searchParams: Promise<SearchParams> } // Next 15
 ) {
+    // --- Auth stricte : uniquement AGENT_NE ---
     const session = await getServerSession(authOptions);
     const role = session?.user?.role as "ADMIN" | "AGENT_NE" | "AGENT_CA" | undefined;
-    if (!session || !role) redirect("/login");
+    if (!session || role !== "AGENT_NE") redirect("/login"); // ou redirect("/") si tu préfères
 
+    // --- Query params ---
     const sp = await searchParams;
     const q = (sp.q || "").trim();
     const page = Math.max(1, Number(sp.page || 1));
 
-    // 🔹 base du lien “Suivi” selon rôle
-    const baseForRole = role === "AGENT_CA" ? "/agent/ca" : "/agent/ne";
-
-    // 🔹 filtre “recherche”
+    // --- Filtres ---
     const searchFilter: Prisma.ShipmentWhereInput = q
         ? {
             OR: [
@@ -52,28 +62,19 @@ export default async function ShipmentsPage(
         }
         : {};
 
-    // 🔹 filtre “rôle”
-    let roleFilter: Prisma.ShipmentWhereInput = {};
-    if (role === "AGENT_NE") {
-        roleFilter = {
-            OR: [
-                { originCountry: "GN" },
-                { convoy: { direction: "NE_TO_CA" } },
-            ],
-        };
-    } else if (role === "AGENT_CA") {
-        roleFilter = {
-            OR: [
-                { originCountry: "CA" },
-                { convoy: { direction: "CA_TO_NE" } },
-            ],
-        };
-    }
+    // Sens unique : NE -> CA
+    const directionFilter: Prisma.ShipmentWhereInput = {
+        convoy: { direction: "NE_TO_CA" },
+    };
 
-    // 🔹 where final
-    const where: Prisma.ShipmentWhereInput =
-        role === "ADMIN" ? searchFilter : { AND: [roleFilter, searchFilter] };
+    // (Option de durcissement) Restreindre aux colis créés côté Niger
+    const originFilter: Prisma.ShipmentWhereInput = { originCountry: "NE" };
 
+    const where: Prisma.ShipmentWhereInput = {
+        AND: [directionFilter, originFilter, searchFilter],
+    };
+
+    // --- Requête ---
     const [items, total] = await Promise.all([
         prisma.shipment.findMany({
             where,
@@ -102,21 +103,33 @@ export default async function ShipmentsPage(
     return (
         <main className="w-full px-6 py-6">
             <div className="w-full rounded-2xl ring-1 ring-neutral-200 bg-white shadow p-6">
+                {/* Header */}
                 <div className="flex items-center justify-between gap-3 mb-6">
-                    <h1 className="text-2xl font-bold">Liste des Colis</h1>
+                    <h1 className="text-2xl font-bold">Liste des Colis — NE → CA</h1>
 
-                    <form className="flex gap-2">
-                        <input
-                            name="q"
-                            defaultValue={q}
-                            placeholder="Rechercher (tracking, nom, email)"
-                            className="input w-80"
-                        />
-                        <button className="btn-ghost">Rechercher</button>
-                    </form>
+                    <div className="flex gap-2">
+                        {/* Seul bouton de création autorisé */}
+                        <Link
+                            href={`/agent/ne/`}
+                            className="btn-primary"
+                        >
+                            Ajouter colis (NE)
+                        </Link>
+                    </div>
                 </div>
 
-                {/* ⬇️ tableau conservé tel quel */}
+                {/* Recherche */}
+                <form className="flex gap-2 mb-4" action="/dashboard/shipments">
+                    <input
+                        name="q"
+                        defaultValue={q}
+                        placeholder="Rechercher (tracking, nom, email)"
+                        className="input w-80"
+                    />
+                    <button className="btn-ghost">Rechercher</button>
+                </form>
+
+                {/* Tableau */}
                 <table className="w-full table-auto text-sm border border-neutral-200 rounded-lg">
                     <thead className="bg-neutral-100 text-neutral-700">
                     <tr>
@@ -124,9 +137,9 @@ export default async function ShipmentsPage(
                         <th className="py-3 px-4 text-left w-[14%]">Destinataire</th>
                         <th className="py-3 px-4 text-left w-[18%]">Email</th>
                         <th className="py-3 px-4 text-left w-[10%]">Tél</th>
-                        <th className="py-3 px-4 text-left w-[12%]">Statut</th>
+                        <th className="py-3 px-4 text-left w-[14%]">Statut</th>
                         <th className="py-3 px-4 text-left w-[7%]">Poids</th>
-                        <th className="py-3 px-4 text-left w-[18%]">Adresse</th>
+                        <th className="py-3 px-4 text-left w-[17%]">Adresse</th>
                         <th className="py-3 px-4 text-left w-[7%]">Créé le</th>
                         <th className="py-3 px-4 text-right w-[9%]">Actions</th>
                     </tr>
@@ -139,39 +152,24 @@ export default async function ShipmentsPage(
                             <td className="py-2 px-4">{s.receiverName}</td>
                             <td className="py-2 px-4">{s.receiverEmail}</td>
                             <td className="py-2 px-4">{s.receiverPhone || "—"}</td>
-                            <td className="py-2 px-4">{STATUS_FR[s.status] ?? s.status}</td>
+                            <td className="py-2 px-4">
+                                <StatusBadge status={s.status} />
+                            </td>
                             <td className="py-2 px-4">{s.weightKg ?? "—"}</td>
-
                             <td className="py-2 px-4 whitespace-pre-wrap break-words">
                                 {s.receiverAddress ?? "—"}
                             </td>
-
-                            <td className="py-2 px-4">
-                                {new Date(s.createdAt).toLocaleDateString("fr-CA")}
-                            </td>
-
+                            <td className="py-2 px-4">{fmtDate(s.createdAt)}</td>
                             <td className="py-2 px-4">
                                 <div className="flex justify-end gap-2">
-                                    {/* 🔹 Bouton Suivi (pour tous les rôles) */}
+                                    {/* Suivi côté Niger */}
                                     <Link
-                                        href={`${baseForRole}/${s.trackingId}/quick-actions`}
+                                        href={`/agent/ne/${s.trackingId}/quick-actions`}
                                         className="px-2 py-1 text-sm rounded bg-neutral-900 text-white hover:bg-neutral-800"
                                     >
                                         Suivi
                                     </Link>
-
-                                    {/* 🔹 Modifier/Supprimer visibles seulement pour ADMIN */}
-                                    {role === "ADMIN" && (
-                                        <>
-                                            <Link
-                                                href={`/dashboard/shipments/${s.id}/edit`}
-                                                className="px-2 py-1 text-sm rounded bg-neutral-200 hover:bg-neutral-300"
-                                            >
-                                                Modifier
-                                            </Link>
-                                            <DeleteShipmentButton id={s.id} />
-                                        </>
-                                    )}
+                                    {/* Pas d'actions admin pour AGENT_NE */}
                                 </div>
                             </td>
                         </tr>
@@ -194,18 +192,12 @@ export default async function ShipmentsPage(
             </span>
                         <div className="flex gap-2">
                             {page > 1 && (
-                                <Link
-                                    className="btn-ghost"
-                                    href={`/dashboard/shipments?page=${page - 1}&q=${encodeURIComponent(q)}`}
-                                >
+                                <Link className="btn-ghost" href={`/dashboard/shipments?page=${page - 1}&q=${encodeURIComponent(q)}`}>
                                     ← Précédent
                                 </Link>
                             )}
                             {page < pages && (
-                                <Link
-                                    className="btn-ghost"
-                                    href={`/dashboard/shipments?page=${page + 1}&q=${encodeURIComponent(q)}`}
-                                >
+                                <Link className="btn-ghost" href={`/dashboard/shipments?page=${page + 1}&q=${encodeURIComponent(q)}`}>
                                     Suivant →
                                 </Link>
                             )}
