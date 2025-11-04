@@ -12,7 +12,7 @@ type SearchParams = { q?: string; page?: string };
 const PAGE_SIZE = 12;
 
 const STATUS_FR: Record<ShipmentStatus, string> = {
-    RECEIVED_IN_NIGER: "Reçu (Guinée)",
+    RECEIVED_IN_NIGER: "Reçu (Niger)",
     RECEIVED_IN_CANADA: "Reçu (Canada)",
     IN_TRANSIT: "En route",
     IN_CUSTOMS: "À la douane",
@@ -20,7 +20,7 @@ const STATUS_FR: Record<ShipmentStatus, string> = {
     DELIVERED: "Livré",
     CREATED: "Créé",
     ARRIVED_IN_CANADA: "Arrivé au Canada",
-    ARRIVED_IN_NIGER: "Arrivé en Guinée",
+    ARRIVED_IN_NIGER: "Arrivé au Niger",
     PICKED_UP: "Ramassé",
 };
 
