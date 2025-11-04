@@ -64,12 +64,12 @@ export async function POST(req: NextRequest) {
                 ? `\nNotes :\n${String(shipment.notes).trim()}\n`
                 : "";
 
-        const subject = `Colis enregistré en Guinée — ${shipment.trackingId}`;
+        const subject = `Colis enregistré au Niger — ${shipment.trackingId}`;
         const text =
             `Bonjour ${shipment.receiverName},\n\n` +
             `Votre colis a été enregistré en Niger. Il sera expédié vers le Canada lors du prochain convoi.\n` +
             notes +
-            `\n— Équipe GN → CA`;
+            `\n— Équipe NE → CA`;
 
         // n'empêche pas la création si l'email échoue
         try {
