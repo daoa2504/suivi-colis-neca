@@ -6,16 +6,16 @@ import { notFound, redirect } from "next/navigation";
 import EditForm from "./EditForm";
 
 export const runtime = "nodejs";
-// (optionnel) pour éviter du cache si besoin
+// (facultatif) si tu veux désactiver le cache sur cette page
 export const dynamic = "force-dynamic";
 
-// ✅ En Next 15 (PPR), `params` est un Promise
+// 🔴 IMPORTANT: en Next 15, `params` est un Promise
 export default async function EditShipmentPage({
                                                    params,
                                                }: {
     params: Promise<{ id: string }>;
 }) {
-    const { id: idStr } = await params;   // ← on "await" params
+    const { id: idStr } = await params;     // ⬅️ on "await" params
     const id = Number(idStr);
     if (!Number.isInteger(id)) return notFound();
 
