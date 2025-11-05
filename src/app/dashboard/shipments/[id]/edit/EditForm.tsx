@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 type Shipment = {
-    id: string;
+    id: number;
     trackingId: string;
     receiverName: string;
     receiverEmail: string;
@@ -51,12 +51,15 @@ export default function EditForm({ shipment }: { shipment: Shipment }) {
         try {
             const res = await fetch(`/dashboard/shipments/${shipment.id}`, {
                 method: "PUT",
+                credentials: "include", // << indispensable pour que la session arrive côté serveur
                 headers: {
                     "Content-Type": "application/json",
                     Accept: "application/json",
                 },
                 body: JSON.stringify(payload),
+                cache: "no-store",
             });
+
 
             const data = res.headers.get("Content-Type")?.includes("application/json")
                 ? await res.json()

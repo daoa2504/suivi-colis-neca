@@ -2,21 +2,21 @@
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { redirect } from "next/navigation";
+import {notFound, redirect} from "next/navigation";
 import EditForm from "./EditForm";
 
 export const runtime = "nodejs";
 
-export default async function EditShipmentPage(
-    { params }: { params: Promise<{ id: string }> } // ✅ Next 15 expects a Promise here
-) {
-    // Resolve the params
-    const { id } = await params;
+export default async function EditShipmentPage({
+                                                   params,
+                                               }: { params: { id: string } }) {
+    const id = Number(params.id);
+    if (!Number.isInteger(id)) return notFound();
 
     // AuthZ
     const session = await getServerSession(authOptions);
     const role = session?.user?.role;
-    if (!session || !["ADMIN", "AGENT_GN"].includes(role ?? "")) {
+    if (!session || !["ADMIN", "AGENT_NE"].includes(role ?? "")) {
         redirect("/login");
     }
 

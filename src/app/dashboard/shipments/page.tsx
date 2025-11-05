@@ -164,12 +164,12 @@ export default async function ShipmentsPage(
                                 <div className="flex justify-end gap-2">
                                     {/* Suivi côté Niger */}
                                     <Link
-                                        href={`/agent/ne/${s.trackingId}/quick-actions`}
+                                        href={`/dashboard/shipments/${s.id}/edit`}
                                         className="px-2 py-1 text-sm rounded bg-neutral-900 text-white hover:bg-neutral-800"
                                     >
-                                        Suivi
+                                        Modifier
                                     </Link>
-                                    {/* Pas d'actions admin pour AGENT_NE */}
+
                                 </div>
                             </td>
                         </tr>
