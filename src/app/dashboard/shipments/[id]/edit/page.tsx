@@ -2,15 +2,21 @@
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import {notFound, redirect} from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import EditForm from "./EditForm";
 
 export const runtime = "nodejs";
+// (optionnel) pour éviter du cache si besoin
+export const dynamic = "force-dynamic";
 
+// ✅ En Next 15 (PPR), `params` est un Promise
 export default async function EditShipmentPage({
                                                    params,
-                                               }: { params: { id: string } }) {
-    const id = Number(params.id);
+                                               }: {
+    params: Promise<{ id: string }>;
+}) {
+    const { id: idStr } = await params;   // ← on "await" params
+    const id = Number(idStr);
     if (!Number.isInteger(id)) return notFound();
 
     // AuthZ
@@ -30,9 +36,9 @@ export default async function EditShipmentPage({
             receiverEmail: true,
             receiverPhone: true,
             weightKg: true,
-            receiverCity: true,       // ✅ fixed key
-            receiverAddress: true,    // ✅ fixed key
-            receiverPoBox: true,      // ✅ fixed key
+            receiverCity: true,
+            receiverAddress: true,
+            receiverPoBox: true,
             notes: true,
         },
     });
