@@ -42,7 +42,7 @@ model User {
 }
 
 model Shipment {
-  id                 String         @id @default(cuid())
+  id                 Int      @id @default(autoincrement())
   trackingId         String         @unique
   receiverName       String
   receiverEmail      String
@@ -65,7 +65,7 @@ model Shipment {
 
 model ShipmentEvent {
   id          String    @id @default(cuid())
-  shipmentId  String
+  shipmentId  Int
   shipment    Shipment  @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
   type        String
   description String?

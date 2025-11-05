@@ -23,7 +23,7 @@ function normalizeEmail(raw: string) {
 }
 
 function isValidEmail(e: string) {
-    // raisonnable pour filtrage basique (on laisse le provider faire la validation stricte)
+    // filtrage basique ; la validation stricte est faite par le provider
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 }
 
@@ -31,22 +31,45 @@ async function sendWithRetry(
     args: Parameters<typeof sendEmailSafe>[0],
     maxAttempts = 5
 ) {
-    let last:
-        | Awaited<ReturnType<typeof sendEmailSafe>>
-        | undefined;
+    let last: Awaited<ReturnType<typeof sendEmailSafe>> | undefined;
     for (let i = 0; i < maxAttempts; i++) {
         last = await sendEmailSafe(args);
         if (last.ok) return last;
 
-        // On ne retente que si l'erreur semble transitoire (rate-limit, 5xx, timeout…)
         const msg = last.error || "";
         const transient = /(?:429|rate|throttl|temporar|timeout|5\d\d)/i.test(msg);
         if (!transient) break;
 
-        // Backoff simple (0.6s, 1.2s, 1.8s, …)
-        await sleep(600 * (i + 1));
+        await sleep(600 * (i + 1)); // 0.6s, 1.2s, ...
     }
     return last!;
+}
+
+/* ----------------------------- Helpers email ----------------------------- */
+
+function subjectFor(
+    template: "EN_ROUTE" | "ARRIVED",
+    direction: DirectionEnum,
+    dateStr: string
+) {
+    const dirStr = direction === DirectionEnum.NE_TO_CA ? "NE → CA" : "CA → NE";
+    const statusStr = template === "EN_ROUTE" ? "en route" : "arrivé à la douane";
+    return `Convoi du ${dateStr} • ${dirStr} • ${statusStr}`;
+}
+
+function statusSentence(
+    template: "EN_ROUTE" | "ARRIVED",
+    direction: DirectionEnum
+) {
+    if (template === "EN_ROUTE") {
+        return direction === DirectionEnum.NE_TO_CA
+            ? "ils sont en route vers le Canada."
+            : "ils sont en route vers le Niger.";
+    }
+    // ARRIVED
+    return direction === DirectionEnum.NE_TO_CA
+        ? "ils sont arrivés à la douane (Canada)."
+        : "ils sont arrivés à la douane (Niger).";
 }
 
 /* --------------------------------- Route --------------------------------- */
@@ -65,7 +88,7 @@ export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
 
-        // Validation stricte via Zod (ne pas caster !)
+        // Validation via Zod
         const parsed = notifyConvoySchema.safeParse(body);
         if (!parsed.success) {
             return NextResponse.json(
@@ -76,15 +99,13 @@ export async function POST(req: NextRequest) {
 
         const { convoyDate, template, customMessage, direction } = parsed.data;
 
-        // Règles d'accès : l'agent Canada ne notifie QUE NE -> CA
+        // Règles d'accès
         if (role === "AGENT_CA" && direction !== DirectionEnum.NE_TO_CA) {
             return NextResponse.json(
                 { ok: false, error: "AGENT_CA ne peut notifier que NE_TO_CA" },
                 { status: 403 }
             );
         }
-
-        // Ici, on interdit complètement l'agent NE de notifier (si c'est ta politique)
         if (role === "AGENT_NE") {
             return NextResponse.json(
                 { ok: false, error: "AGENT_NE n'est pas autorisé à notifier des convois" },
@@ -92,10 +113,10 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Normalisation de la date pour la clé composite (date, direction)
+        // Date normalisée
         const date = startOfDayUTC(convoyDate);
 
-        // Upsert du convoi (la clé unique composite doit exister en Prisma : @@unique([date, direction], name: "date_direction"))
+        // Upsert du convoi (assure @@unique([date, direction], name: "date_direction"))
         const convoy = await prisma.convoy.upsert({
             where: { date_direction: { date, direction } },
             update: {},
@@ -120,30 +141,16 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Sujet / Footer selon sens + template
         const dateStr = convoy.date.toLocaleDateString("fr-CA", { timeZone: "UTC" });
-        const subject =
-            template === "EN_ROUTE"
-                ? direction === DirectionEnum.NE_TO_CA
-                    ? "Votre convoi est en route vers le Canada"
-                    : "Votre convoi est en route vers le Niger"
-                : direction === DirectionEnum.NE_TO_CA
-                    ? "Votre convoi est arrivé à la douane (Canada)"
-                    : "Votre convoi est arrivé à la douane (Niger)";
 
         const FOOTER =
             direction === DirectionEnum.NE_TO_CA ? "— Équipe NE → CA" : "— Équipe CA → NE";
 
-        // Construction des destinataires uniques + validation
-        type Recipient = {
-            email: string;
-            id: string;
-            trackingId: string;
-            receiverName: string;
-        };
+        // ---------- Dédup + Groupage par destinataire ----------
+        type RecipientGroup = { name: string; ids: string[] };
 
-        const recipientsMap = new Map<string, Recipient>();
-        const invalidEmails: Array<{ emailRaw: string; id: string; trackingId: string }> = [];
+        const grouped = new Map<string, RecipientGroup>();
+        const invalidEmails: Array<{ emailRaw: string; id: number; trackingId: string }> = [];
 
         for (const s of convoy.shipments) {
             const emailRaw = s.receiverEmail ?? "";
@@ -153,20 +160,15 @@ export async function POST(req: NextRequest) {
                 invalidEmails.push({ emailRaw, id: s.id, trackingId: s.trackingId });
                 continue;
             }
-
-            // Un seul email par destinataire (dédoublonnage)
-            if (!recipientsMap.has(email)) {
-                recipientsMap.set(email, {
-                    email,
-                    id: s.id,
-                    trackingId: s.trackingId,
-                    receiverName: s.receiverName,
-                });
+            const entry = grouped.get(email);
+            if (entry) {
+                entry.ids.push(s.trackingId);
+            } else {
+                grouped.set(email, { name: s.receiverName, ids: [s.trackingId] });
             }
         }
 
-        const recipients = Array.from(recipientsMap.values());
-        if (!recipients.length) {
+        if (!grouped.size) {
             return NextResponse.json(
                 {
                     ok: false,
@@ -178,36 +180,62 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Envoi séquentiel (évite les rate-limits des providers)
+        // Base URL pour le logo
+        const BASE_URL =
+            process.env.NEXT_PUBLIC_BASE_URL ||
+            process.env.APP_URL ||
+            "https://nimaplex.com";
+
         const results: { email: string; ok: boolean; error?: string; id?: string }[] = [];
 
-        for (const r of recipients) {
-            const text = `Bonjour ${r.receiverName},
+        // ---------- Envoi séquentiel : un mail par destinataire (groupé) ----------
+        for (const [email, { name, ids }] of grouped.entries()) {
+            const colisListText = ids.map((t) => `• ${t}`).join("\n");
+            const txt = `Bonjour ${name},
 
-Convoi du ${dateStr} — ${
-                template === "EN_ROUTE"
-                    ? direction === DirectionEnum.NE_TO_CA
-                        ? "il est en route vers le Canada."
-                        : "il est en route vers le Niger."
-                    : direction === DirectionEnum.NE_TO_CA
-                        ? "il est arrivé à la douane (Canada)."
-                        : "il est arrivé à la douane (Niger)."
-            }
-Colis: ${r.trackingId}
+Convoi du ${dateStr} — ${statusSentence(template as "EN_ROUTE" | "ARRIVED", direction)}
+Colis (${ids.length}) :
+${colisListText}
 
 ${customMessage ?? ""}
 
 ${FOOTER}`;
 
-            const resp = await sendWithRetry(
-                { from: FROM, to: r.email, subject, text },
-                5
-            );
-            results.push(
-                resp.ok ? { email: r.email, ok: true, id: resp.id } : { email: r.email, ok: false, error: resp.error }
-            );
+            const html = `
+<div style="font-family: Arial, sans-serif; color:#333; line-height:1.6;">
+  <p>Bonjour <strong>${name}</strong>,</p>
+  <p>Convoi du <strong>${dateStr}</strong> — ${statusSentence(template as "EN_ROUTE" | "ARRIVED", direction)}</p>
+  <p><strong> Vous aviez  ${ids.length} colis :</strong><br>${ids.map((t) => `• ${t}`).join("<br>")}</p>
+  ${customMessage ? `<p>${customMessage}</p>` : ""}
+  <p>${FOOTER.replace("— ", "— ")}</p>
 
-            // Pause entre chaque envoi (ajuste 700–1200ms selon ton provider)
+  <hr style="margin:20px 0;border:none;border-top:1px solid #ddd;" />
+  <table role="presentation" style="border-collapse:collapse;border-spacing:0;margin-top:6px;">
+    <tr>
+      <td style="padding:0;">
+        <img src="https://nimaplex.com/img.png" width="55" height="55" style="display:block;border-radius:6px;" alt="NIMAPLEX" />
+      </td><td style="padding:0 0 0 6px;line-height:1.25;">
+        <div style="font-weight:bold;color:#8B0000;font-size:15px;">NIMAPLEX</div>
+        <div style="font-size:12.5px;color:#555;">Plus qu’une solution, un service d’excellence global</div>
+      </td>
+    </tr>
+  </table>
+</div>`.trim();
+
+            try {
+                const resp = await sendWithRetry({
+                    from: FROM,
+                    to: email,
+                    subject: subjectFor(template as "EN_ROUTE" | "ARRIVED", direction, dateStr),
+                    text: txt,
+                    html,
+                });
+                results.push(resp.ok ? { email, ok: true, id: resp.id } : { email, ok: false, error: resp.error });
+            } catch (e: any) {
+                results.push({ email, ok: false, error: e?.message || String(e) });
+            }
+
+            // Petite pause anti rate-limit (ajuste selon provider)
             await sleep(900);
         }
 
@@ -217,11 +245,11 @@ ${FOOTER}`;
         return NextResponse.json({
             ok: true,
             convoyId: convoy.id,
-            totalShipments: convoy.shipments.length, // colis dans le convoi (peut > uniqueRecipients)
-            uniqueRecipients: recipients.length,     // destinataires uniques (après dédoublonnage)
+            totalShipments: convoy.shipments.length, // nb de colis
+            uniqueRecipients: grouped.size,          // nb d'emails uniques
             sent,
             failedCount: failed.length,
-            failed, // [{ email, ok:false, error }]
+            failed,                                   // [{ email, ok:false, error }]
             invalidCount: invalidEmails.length,
             invalidSamples: invalidEmails.slice(0, 5),
         });

@@ -36,11 +36,20 @@ export async function POST(req: NextRequest) {
         update: {},
         create: { date: convoyDate, direction },
     });
+    const lastShipment = await prisma.shipment.findFirst({
+        orderBy: { id: "desc" },
+    });
+
+    const nextNumber = (lastShipment ? lastShipment.id + 1 : 1)
+        .toString()
+        .padStart(4, "0");
+
+
     const weightKg = toFloatOrNull((body as any).weightKg);
     // 2) créer le colis
     const shipment = await prisma.shipment.create({
         data: {
-            trackingId: `NECA-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+            trackingId: `NECA-${nextNumber}`,
             receiverName: body.receiverName?.trim(),
             receiverEmail: body.receiverEmail?.trim(),
             receiverPhone: body.receiverPhone || null,
@@ -65,11 +74,44 @@ export async function POST(req: NextRequest) {
                 : "";
 
         const subject = `Colis enregistré au Niger — ${shipment.trackingId}`;
-        const text =
-            `Bonjour ${shipment.receiverName},\n\n` +
-            `Votre colis a été enregistré en Niger. Il sera expédié vers le Canada lors du prochain convoi.\n` +
-            notes +
-            `\n— Équipe NE → CA`;
+
+        const html = `
+<div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+  <p>Bonjour <strong>${shipment.receiverName}</strong>,</p>
+
+  <p>
+    Votre colis a été enregistré au <strong>Niger</strong>.
+    Il sera expédié vers le <strong>Canada</strong> lors du prochain convoi.
+  </p>
+
+  ${notes ? `<p>${notes}</p>` : ""}
+
+  <p>— Équipe <strong>NE → CA</strong></p>
+
+  <hr style="margin: 25px 0; border: none; border-top: 1px solid #ddd;" />
+
+  <!-- Signature alignée à gauche sans espace -->
+  <table role="presentation"
+         style="border-collapse: collapse; border-spacing: 0; margin-top: 8px;">
+    <tr style="padding: 0; margin: 0;">
+      <td style="padding: 0; margin: 0;">
+        <img src="https://nimaplex.com/img.png"
+             alt="NIMAPLEX"
+             width="55"
+             height="55"
+             style="display: block; border-radius: 6px;" />
+      </td>
+      <td style="padding: 0; margin: 0; line-height: 1.2;">
+        <div style="font-weight: bold; color: #8B0000; font-size: 15px; margin-left: 4px;">NIMAPLEX</div>
+        <div style="font-size: 12.5px; color: #555; margin-left: 4px;">
+          Plus qu’une solution, un service d’excellence global
+        </div>
+      </td>
+    </tr>
+  </table>
+</div>
+`;
+
 
         // n'empêche pas la création si l'email échoue
         try {
@@ -77,7 +119,7 @@ export async function POST(req: NextRequest) {
                 from: FROM,
                 to: shipment.receiverEmail,
                 subject,
-                text,
+                html,
             });
         } catch (e) {
             console.warn("[NE new-shipment] email send failed:", e);
