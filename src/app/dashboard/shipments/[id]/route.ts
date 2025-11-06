@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { sendEmailSafe, FROM } from "@/lib/email";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";   // ← évite tout cache
+export const dynamic = "force-dynamic";
 
 function canEdit(role?: string | null) {
     return role === "ADMIN" || role === "AGENT_NE";
@@ -27,8 +27,11 @@ async function sendWithRetry(args: Parameters<typeof sendEmailSafe>[0], max = 3)
     }
     return last!;
 }
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
-    const id = Number(params.id);
+
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+    const { id: idStr } = await params;  // ← AJOUT DE AWAIT
+    const id = Number(idStr);
+
     if (!Number.isInteger(id)) {
         return NextResponse.json({ ok: false, error: "Bad id" }, { status: 400 });
     }
@@ -104,10 +107,9 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         if ("receiverPhone"   in data) lines.push(`• Téléphone : ${updated.receiverPhone ?? "—"}`);
         if ("weightKg"        in data) lines.push(`• Poids : ${updated.weightKg ?? "—"} kg`);
         if ("notes"           in data) lines.push(`• Notes : ${updated.notes ?? "—"}`);
-        lines.push("", `Tracking : ${updated.trackingId}`, "", "— Service Suivi NE → CA"); // <= retiré le backtick
+        lines.push("", `Tracking : ${updated.trackingId}`, "", "— Service Suivi NE → CA");
 
         const text = lines.join("\n");
-
 
         const html = `
 <div style="font-family: Arial, sans-serif; color:#333; line-height:1.6;">
@@ -130,13 +132,12 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         <img src="${BASE_URL}/img.png" width="55" height="55" style="display:block;border-radius:6px;" alt="NIMAPLEX" />
       </td><td style="padding:0 0 0 6px;line-height:1.25;">
         <div style="font-weight:bold;color:#8B0000;font-size:15px;">NIMAPLEX</div>
-        <div style="font-size:12.5px;color:#555;">Plus qu’une solution, un service d’excellence global</div>
+        <div style="font-size:12.5px;color:#555;">Plus qu'une solution, un service d'excellence global</div>
       </td>
     </tr>
   </table>
 </div>`.trim();
 
-        // ↓↓↓ On loggue le résultat dans la réponse JSON
         const resp = await sendWithRetry({ from: FROM_SAFE, to, subject, text, html }, 3);
         emailResp = { ok: resp.ok, id: resp.id, error: resp.error };
         if (!resp.ok) {
@@ -157,7 +158,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
             providerOk: emailResp?.ok ?? false,
             providerId: emailResp?.id ?? null,
             providerError: emailResp?.error ?? null,
-            hasApiKey: !!process.env.RESEND_API_KEY, // utile pour diagnostiquer
+            hasApiKey: !!process.env.RESEND_API_KEY,
         },
     });
 }
