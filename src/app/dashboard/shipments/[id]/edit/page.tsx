@@ -1,49 +1,54 @@
-// src/app/dashboard/shipments/[id]/route.ts
-import { NextResponse } from "next/server";
+// src/app/dashboard/shipments/[id]/edit/page.tsx
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { notFound, redirect } from "next/navigation";
+import EditForm from "./EditForm";
 
-export async function PUT(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic"; // optionnel
+
+export default async function EditShipmentPage({
+                                                   params,
+                                               }: {
+    params: Promise<{ id: string }>;
+}) {
+    const { id: idStr } = await params;
+    const id = Number(idStr);
+    if (!Number.isInteger(id)) return notFound();
+
     const session = await getServerSession(authOptions);
-
-    if (!session || !["ADMIN", "AGENT_NE"].includes(session.user?.role ?? "")) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const role = session?.user?.role;
+    if (!session || !["ADMIN", "AGENT_NE"].includes(role ?? "")) {
+        redirect("/login");
     }
 
-    const { id } = await params;
-    const shipmentId = Number(id);
+    const shipment = await prisma.shipment.findUnique({
+        where: { id },
+        select: {
+            id: true,
+            trackingId: true,
+            receiverName: true,
+            receiverEmail: true,
+            receiverPhone: true,
+            weightKg: true,
+            receiverAddress: true,
+            receiverCity: true,
+            receiverPoBox: true,
+            notes: true,
+        },
+    });
 
-    if (!Number.isInteger(shipmentId)) {
-        return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
+    if (!shipment) {
+        redirect("/dashboard/shipments");
     }
 
-    try {
-        const body = await request.json();
-
-        const updated = await prisma.shipment.update({
-            where: { id: shipmentId },
-            data: {
-                receiverName: body.receiverName,
-                receiverEmail: body.receiverEmail,
-                receiverPhone: body.receiverPhone,
-                weightKg: body.weightKg,
-                receiverAddress: body.receiverAddress,
-                receiverCity: body.receiverCity,
-                receiverPoBox: body.receiverPoBox,
-                notes: body.notes,
-            },
-        });
-
-        return NextResponse.json(updated);
-    } catch (error) {
-        console.error("Error updating shipment:", error);
-        return NextResponse.json(
-            { error: "Failed to update shipment" },
-            { status: 500 }
-        );
-    }
+    return (
+        <main className="container-page">
+            <div className="card">
+                <h1 className="title">Modifier — {shipment!.trackingId}</h1>
+                <EditForm shipment={shipment!} />
+            </div>
+        </main>
+    );
 }
