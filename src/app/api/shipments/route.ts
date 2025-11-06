@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
                 ? `\nNotes :\n${String(shipment.notes).trim()}\n`
                 : "";
 
-        const subject = `Colis enregistré au Niger — ${shipment.trackingId}`;
+        const subject = `Colis reçu par nos agents au Niger — ${shipment.trackingId}`;
 
         const html = `
 <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
