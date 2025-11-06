@@ -1,60 +1,54 @@
-// src/app/dashboard/shipments/[id]/route.ts
-import { NextResponse } from "next/server";
+// src/app/dashboard/shipments/[id]/edit/page.tsx
+import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
-import { sendEmailSafe, FROM } from "@/lib/email";
+import { notFound, redirect } from "next/navigation";
+import EditForm from "./EditForm";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic"; // optionnel
 
-function canEdit(role?: string | null) {
-    return role === "ADMIN" || role === "AGENT_NE";
-}
-
-export async function PUT(
-    req: Request,
-    ctx: { params: Promise<{ id: string }> }   // ✅ params est un Promise
-) {
-    const { id: idStr } = await ctx.params;     // ✅ on attend params
+export default async function EditShipmentPage({
+                                                   params,
+                                               }: {
+    params: Promise<{ id: string }>;
+}) {
+    const { id: idStr } = await params;
     const id = Number(idStr);
-    if (!Number.isInteger(id)) {
-        return NextResponse.json({ ok: false, error: "Bad id" }, { status: 400 });
-    }
+    if (!Number.isInteger(id)) return notFound();
 
     const session = await getServerSession(authOptions);
-    if (!session || !canEdit(session.user?.role)) {
-        return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    const role = session?.user?.role;
+    if (!session || !["ADMIN", "AGENT_NE"].includes(role ?? "")) {
+        redirect("/login");
     }
 
-    const body = await req.json();
+    const shipment = await prisma.shipment.findUnique({
+        where: { id },
+        select: {
+            id: true,
+            trackingId: true,
+            receiverName: true,
+            receiverEmail: true,
+            receiverPhone: true,
+            weightKg: true,
+            receiverAddress: true,
+            receiverCity: true,
+            receiverPoBox: true,
+            notes: true,
+        },
+    });
 
-    const before = await prisma.shipment.findUnique({ where: { id } });
-    if (!before) {
-        return NextResponse.json({ ok: false, error: "Colis introuvable" }, { status: 404 });
+    if (!shipment) {
+        redirect("/dashboard/shipments");
     }
 
-    // … ton code d’update + revalidate + email (inchangé) …
-    // revalidatePath("/dashboard/shipments");
-    // revalidatePath(`/dashboard/shipments/${id}/edit`);
-    // await sendEmailSafe({ ... });
-
-    return NextResponse.json({ ok: true /* , shipment: updated */ });
-}
-
-export async function DELETE(
-    _req: Request,
-    ctx: { params: Promise<{ id: string }> }    // ✅ idem ici
-) {
-    const { id: idStr } = await ctx.params;
-    const id = Number(idStr);
-
-    const session = await getServerSession(authOptions);
-    if (!session || !canEdit(session.user?.role)) {
-        return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-    }
-
-    await prisma.shipment.delete({ where: { id } });
-    revalidatePath("/dashboard/shipments");
-    return NextResponse.json({ ok: true });
+    return (
+        <main className="container-page">
+            <div className="card">
+                <h1 className="title">Modifier — {shipment!.trackingId}</h1>
+                <EditForm shipment={shipment!} />
+            </div>
+        </main>
+    );
 }
