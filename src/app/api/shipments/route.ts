@@ -64,19 +64,19 @@ export async function POST(req: NextRequest) {
         const shipment = await prisma.shipment.create({
             data: {
                 trackingId,
-                receiverName: body.receiverName?.trim() || "",
-                receiverEmail: body.receiverEmail?.trim() || null,
+                receiverName: body.receiverName?.trim(),
+                receiverEmail: body.receiverEmail?.trim(),
                 receiverPhone: body.receiverPhone || null,
                 weightKg: weightKg ?? null,
                 receiverAddress: body.receiverAddress || null,
                 receiverCity: body.receiverCity || null,
                 receiverPoBox: body.receiverPoBox || null,
                 notes: body.notes || null,
-                convoyId: convoy.id, // Utiliser convoyId au lieu de connect
+
+                convoy: { connect: { id: convoy.id } },
                 originCountry: "NE",
                 destinationCountry: "CA",
                 status: "RECEIVED_IN_NIGER",
-                // Ajouter l'userId
             },
         });
 
