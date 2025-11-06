@@ -1,58 +1,60 @@
-// src/app/dashboard/shipments/[id]/edit/page.tsx
-import { prisma } from "@/lib/prisma";
+// src/app/dashboard/shipments/[id]/route.ts
+import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { notFound, redirect } from "next/navigation";
-import EditForm from "./EditForm";
+import { prisma } from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
+import { sendEmailSafe, FROM } from "@/lib/email";
 
 export const runtime = "nodejs";
-// (facultatif) si tu veux désactiver le cache sur cette page
-export const dynamic = "force-dynamic";
 
-// 🔴 IMPORTANT: en Next 15, `params` est un Promise
-export default async function EditShipmentPage({
-                                                   params,
-                                               }: {
-    params: Promise<{ id: string }>;
-}) {
-    const { id: idStr } = await params;     // ⬅️ on "await" params
+function canEdit(role?: string | null) {
+    return role === "ADMIN" || role === "AGENT_NE";
+}
+
+export async function PUT(
+    req: Request,
+    ctx: { params: Promise<{ id: string }> }   // ✅ params est un Promise
+) {
+    const { id: idStr } = await ctx.params;     // ✅ on attend params
     const id = Number(idStr);
-    if (!Number.isInteger(id)) return notFound();
+    if (!Number.isInteger(id)) {
+        return NextResponse.json({ ok: false, error: "Bad id" }, { status: 400 });
+    }
 
-    // AuthZ
     const session = await getServerSession(authOptions);
-    const role = session?.user?.role;
-    if (!session || !["ADMIN", "AGENT_NE"].includes(role ?? "")) {
-        redirect("/login");
+    if (!session || !canEdit(session.user?.role)) {
+        return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    // Fetch shipment
-    const shipment = await prisma.shipment.findUnique({
-        where: { id },
-        select: {
-            id: true,
-            trackingId: true,
-            receiverName: true,
-            receiverEmail: true,
-            receiverPhone: true,
-            weightKg: true,
-            receiverCity: true,
-            receiverAddress: true,
-            receiverPoBox: true,
-            notes: true,
-        },
-    });
+    const body = await req.json();
 
-    if (!shipment) {
-        redirect("/dashboard/shipments");
+    const before = await prisma.shipment.findUnique({ where: { id } });
+    if (!before) {
+        return NextResponse.json({ ok: false, error: "Colis introuvable" }, { status: 404 });
     }
 
-    return (
-        <main className="container-page">
-            <div className="card">
-                <h1 className="title">Modifier — {shipment.trackingId}</h1>
-                <EditForm shipment={shipment} />
-            </div>
-        </main>
-    );
+    // … ton code d’update + revalidate + email (inchangé) …
+    // revalidatePath("/dashboard/shipments");
+    // revalidatePath(`/dashboard/shipments/${id}/edit`);
+    // await sendEmailSafe({ ... });
+
+    return NextResponse.json({ ok: true /* , shipment: updated */ });
+}
+
+export async function DELETE(
+    _req: Request,
+    ctx: { params: Promise<{ id: string }> }    // ✅ idem ici
+) {
+    const { id: idStr } = await ctx.params;
+    const id = Number(idStr);
+
+    const session = await getServerSession(authOptions);
+    if (!session || !canEdit(session.user?.role)) {
+        return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
+
+    await prisma.shipment.delete({ where: { id } });
+    revalidatePath("/dashboard/shipments");
+    return NextResponse.json({ ok: true });
 }
