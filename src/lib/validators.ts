@@ -19,14 +19,27 @@ export const createShipmentByGN = z.object({
     convoyDate: z.union([z.string(), z.date()]), // ex: "2025-09-06" ou Date
 });
 
-// Formulaire Agent CA : envoi email groupé par convoi
+
+import { Direction } from "@prisma/client";
+
+
+
+
+
 export const notifyConvoySchema = z.object({
     convoyDate: z.string().min(1),
-    // Aligne avec tes valeurs de <select> dans le form
     template: z.enum(["EN_ROUTE", "IN_CUSTOMS", "OUT_FOR_DELIVERY", "DELIVERED"]),
-    customMessage: z.string().optional().nullable().default(""),
-    // ✅ utilise directement l’enum Prisma
-    direction: z.nativeEnum(DirectionEnum),
+    customMessage: z.string().optional().default(""),
+    direction: z.enum(["NE_TO_CA", "CA_TO_NE"]),
+    customerEmail: z.string().email().optional(), // sera raffermi par refine ci-dessous
+}).superRefine((data, ctx) => {
+    if (data.template === "DELIVERED" && !data.customerEmail) {
+        ctx.addIssue({
+            path: ["customerEmail"],
+            code: z.ZodIssueCode.custom,
+            message: "Email client requis pour DELIVERED",
+        });
+    }
 });
 
 

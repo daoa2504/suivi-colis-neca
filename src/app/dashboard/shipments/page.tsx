@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import Link from "next/link";
 import type { Prisma, ShipmentStatus } from "@prisma/client";
+import NotifyDeliveredButton from "./NotifyDeliveredButton";
 
 export const runtime = "nodejs";
 
@@ -25,26 +26,48 @@ const STATUS_FR: Record<ShipmentStatus, string> = {
 };
 
 function fmtDate(d: Date) {
-    return new Date(d).toLocaleDateString("fr-CA", { year: "numeric", month: "2-digit", day: "2-digit" });
+    return new Date(d).toLocaleDateString("fr-CA", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+    });
 }
 
 function StatusBadge({ status }: { status: ShipmentStatus }) {
     const txt = STATUS_FR[status] ?? status;
     const tone =
-        status === "DELIVERED" ? "bg-green-100 text-green-800"
-            : ["OUT_FOR_DELIVERY", "IN_CUSTOMS", "IN_TRANSIT"].includes(status) ? "bg-blue-100 text-blue-800"
-                : ["RECEIVED_IN_NIGER", "RECEIVED_IN_CANADA"].includes(status) ? "bg-neutral-100 text-neutral-800"
+        status === "DELIVERED"
+            ? "bg-green-100 text-green-800"
+            : ["OUT_FOR_DELIVERY", "IN_CUSTOMS", "IN_TRANSIT"].includes(status)
+                ? "bg-blue-100 text-blue-800"
+                : ["RECEIVED_IN_NIGER", "RECEIVED_IN_CANADA"].includes(status)
+                    ? "bg-neutral-100 text-neutral-800"
                     : "bg-amber-100 text-amber-900";
-    return <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${tone}`}>{txt}</span>;
+    return (
+        <span
+            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${tone}`}
+        >
+      {txt}
+    </span>
+    );
 }
 
-export default async function ShipmentsPage(
-    { searchParams }: { searchParams: Promise<SearchParams> } // Next 15
-) {
-    // --- Auth stricte : uniquement AGENT_NE ---
+export default async function ShipmentsPage({
+                                                searchParams,
+                                            }: {
+    searchParams: Promise<SearchParams>; // Next 15
+}) {
+    // --- Auth : ADMIN, AGENT_CA, AGENT_NE peuvent accéder à la page ---
     const session = await getServerSession(authOptions);
-    const role = session?.user?.role as "ADMIN" | "AGENT_NE" | "AGENT_CA" | undefined;
-    if (!session || role !== "AGENT_NE") redirect("/login"); // ou redirect("/") si tu préfères
+    const role = session?.user?.role as
+        | "ADMIN"
+        | "AGENT_NE"
+        | "AGENT_CA"
+        | undefined;
+
+    if (!session || !["ADMIN", "AGENT_CA", "AGENT_NE"].includes(role ?? "")) {
+        redirect("/login");
+    }
 
     // --- Query params ---
     const sp = await searchParams;
@@ -108,13 +131,12 @@ export default async function ShipmentsPage(
                     <h1 className="text-2xl font-bold">Liste des Colis — NE → CA</h1>
 
                     <div className="flex gap-2">
-                        {/* Seul bouton de création autorisé */}
-                        <Link
-                            href={`/agent/ne/`}
-                            className="btn-primary"
-                        >
-                            Ajouter colis (NE)
-                        </Link>
+                        {/* Création côté Niger : réservé à AGENT_NE (et éventuellement ADMIN si tu veux) */}
+                        {role === "AGENT_NE" && (
+                            <Link href={`/agent/ne/`} className="btn-primary">
+                                Ajouter colis (NE)
+                            </Link>
+                        )}
                     </div>
                 </div>
 
@@ -147,7 +169,10 @@ export default async function ShipmentsPage(
 
                     <tbody>
                     {items.map((s) => (
-                        <tr key={s.id} className="border-t border-neutral-200 hover:bg-neutral-50">
+                        <tr
+                            key={s.id}
+                            className="border-t border-neutral-200 hover:bg-neutral-50"
+                        >
                             <td className="py-2 px-4 font-mono">{s.trackingId}</td>
                             <td className="py-2 px-4">{s.receiverName}</td>
                             <td className="py-2 px-4">{s.receiverEmail}</td>
@@ -162,14 +187,25 @@ export default async function ShipmentsPage(
                             <td className="py-2 px-4">{fmtDate(s.createdAt)}</td>
                             <td className="py-2 px-4">
                                 <div className="flex justify-end gap-2">
-                                    {/* Suivi côté Niger */}
-                                    <Link
-                                        href={`/dashboard/shipments/${s.id}/edit`}
-                                        className="px-2 py-1 text-sm rounded bg-neutral-900 text-white hover:bg-neutral-800"
-                                    >
-                                        Modifier
-                                    </Link>
+                                    {/* Modifier : réservé à AGENT_NE */}
+                                    {role === "AGENT_NE" && (
+                                        <Link
+                                            href={`/dashboard/shipments/${s.id}/edit`}
+                                            className="px-2 py-1 text-sm rounded bg-neutral-900 text-white hover:bg-neutral-800"
+                                        >
+                                            Modifier
+                                        </Link>
+                                    )}
 
+                                    {/* Remercier : visible pour ADMIN et AGENT_CA */}
+                                    {["ADMIN", "AGENT_CA"].includes(role!) && (
+                                        <NotifyDeliveredButton
+                                            shipmentId={s.id}
+                                            receiverName={s.receiverName}
+                                            receiverEmail={s.receiverEmail}
+                                            trackingId={s.trackingId}
+                                        />
+                                    )}
                                 </div>
                             </td>
                         </tr>
@@ -192,12 +228,22 @@ export default async function ShipmentsPage(
             </span>
                         <div className="flex gap-2">
                             {page > 1 && (
-                                <Link className="btn-ghost" href={`/dashboard/shipments?page=${page - 1}&q=${encodeURIComponent(q)}`}>
+                                <Link
+                                    className="btn-ghost"
+                                    href={`/dashboard/shipments?page=${
+                                        page - 1
+                                    }&q=${encodeURIComponent(q)}`}
+                                >
                                     ← Précédent
                                 </Link>
                             )}
                             {page < pages && (
-                                <Link className="btn-ghost" href={`/dashboard/shipments?page=${page + 1}&q=${encodeURIComponent(q)}`}>
+                                <Link
+                                    className="btn-ghost"
+                                    href={`/dashboard/shipments?page=${
+                                        page + 1
+                                    }&q=${encodeURIComponent(q)}`}
+                                >
                                     Suivant →
                                 </Link>
                             )}

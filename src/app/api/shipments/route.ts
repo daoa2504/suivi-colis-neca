@@ -75,28 +75,75 @@ export async function POST(req: NextRequest) {
                     ? `\nNotes :\n${String(updatedShipment.notes).trim()}\n`
                     : "";
 
-            const subject = `Colis reçu par nos agents au Niger — ${updatedShipment.trackingId}`;
+            const subject = `Réception de colis au Niger — N° ID: ${updatedShipment.trackingId}`;
             const html = `
-<div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
-  <p>Bonjour <strong>${updatedShipment.receiverName}</strong>,</p>
-  <p>Votre colis <strong>${updatedShipment.trackingId}</strong> a été enregistré au <strong>Niger</strong>.</p>
-  ${notes ? `<p>${notes}</p>` : ""}
-  <p>— Équipe <strong>NE → CA</strong></p>
-  <hr style="margin: 25px 0; border: none; border-top: 1px solid #ddd;" />
-  <table role="presentation" style="border-collapse: collapse; border-spacing: 0; margin-top: 8px;">
+<div style="font-family: 'Segoe UI', Arial, sans-serif; color: #2c3e50; line-height: 1.8; max-width: 600px; margin: 0 auto;">
+  
+  <!-- En-tête avec logo -->
+  <table role="presentation" style="border-collapse: collapse; border-spacing: 0; margin-bottom: 30px; width: 100%;">
     <tr>
       <td style="padding: 0;">
-        <img src="https://nimaplex.com/img.png" alt="NIMAPLEX" width="55" height="55" style="display: block; border-radius: 6px;" />
+        <img src="https://nimaplex.com/img.png" alt="NIMAPLEX" width="60" height="60" style="display: block; border-radius: 8px;" />
       </td>
-      <td style="padding-left: 6px; line-height: 1.2;">
-        <div style="font-weight: bold; color: #8B0000; font-size: 15px;">NIMAPLEX</div>
-        <div style="font-size: 12.5px; color: #555;">Plus qu'une solution, un service d'excellence global</div>
+      <td style="padding-left: 12px; line-height: 1.3;">
+        <div style="font-weight: 700; color: #8B0000; font-size: 18px; letter-spacing: 0.5px;">NIMAPLEX</div>
+        <div style="font-size: 13px; color: #6c757d;">Plus qu'une solution, un service d'excellence global</div>
       </td>
     </tr>
   </table>
+
+  <!-- Corps du message -->
+  <div style="background-color: #f8f9fa; padding: 25px; border-radius: 8px; border-left: 4px solid #8B0000;">
+    <h2 style="color: #8B0000; margin: 0 0 20px 0; font-size: 20px; font-weight: 600;">
+      Confirmation de réception de votre colis
+    </h2>
+    
+    <p style="margin: 0 0 15px 0;">Bonjour <strong>${updatedShipment.receiverName}</strong>,</p>
+    
+    <p style="margin: 0 0 15px 0;">
+      Nous avons le plaisir de vous informer que votre colis a été réceptionné avec succès au <strong>Niger</strong>.
+    </p>
+    
+    <div style="background-color: #ffffff; padding: 15px; border-radius: 6px; margin: 20px 0;">
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0; color: #6c757d; font-size: 14px;">Numéro ID :</td>
+          <td style="padding: 8px 0; text-align: right; font-weight: 600; color: #2c3e50; font-size: 14px;">
+            ${updatedShipment.trackingId}
+          </td>
+        </tr>
+      </table>
+    </div>
+    
+    ${notes ? `
+    <div style="background-color: #fff3cd; border-left: 3px solid #ffc107; padding: 12px 15px; border-radius: 4px; margin: 20px 0;">
+      <p style="margin: 0; color: #856404; font-size: 14px;">
+        <strong>Note :</strong> ${notes}
+      </p>
+    </div>
+    ` : ""}
+    
+    <p style="margin: 20px 0 0 0; color: #6c757d; font-size: 14px;">
+      Votre colis est actuellement en notre possession et sera acheminé vers le Canada dans les meilleurs délais.
+    </p>
+  </div>
+
+  <!-- Pied de page -->
+  <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #e9ecef; text-align: center;">
+    <p style="margin: 0 0 10px 0; color: #6c757d; font-size: 13px;">
+      Cordialement,<br/>
+      <strong style="color: #8B0000;">L'équipe NIMAPLEX</strong><br/>
+      <span style="font-size: 12px;">Niger → Canada</span>
+    </p>
+    
+    <p style="margin: 15px 0 0 0; font-size: 11px; color: #adb5bd;">
+      Cet email est envoyé automatiquement, merci de ne pas y répondre directement.<br/>
+      Pour toute question, veuillez contacter notre service client.
+    </p>
+  </div>
+  
 </div>
 `;
-
             try {
                 await sendEmailSafe({ from: FROM, to: updatedShipment.receiverEmail, subject, html });
             } catch (e) {

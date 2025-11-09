@@ -1,4 +1,3 @@
-// src/app/agent/ca/notify/NotifyByConvoyForm.tsx
 "use client";
 
 import { useState } from "react";
@@ -9,6 +8,8 @@ type Props = { direction: Direction };
 export default function NotifyByConvoyForm({ direction }: Props) {
     const [msg, setMsg] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [template, setTemplate] = useState<"EN_ROUTE" | "IN_CUSTOMS" | "OUT_FOR_DELIVERY" | "DELIVERED">("EN_ROUTE");
+    const [customerEmail, setCustomerEmail] = useState("");
 
     async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -16,11 +17,17 @@ export default function NotifyByConvoyForm({ direction }: Props) {
         setLoading(true);
 
         const fd = new FormData(e.currentTarget);
+
         const payload = {
             convoyDate: String(fd.get("convoyDate") || ""),
-            template: String(fd.get("template") || "EN_ROUTE"), // action
+            template: String(fd.get("template") || "EN_ROUTE"),
             customMessage: (fd.get("customMessage") as string) || "",
-            direction, // 👈 pour que l’API ajuste le libellé dans le bon sens
+            direction,
+            // ✅ IMPORTANT: inclure l'email uniquement pour DELIVERED
+            customerEmail:
+                String(fd.get("template")) === "DELIVERED"
+                    ? String(fd.get("customerEmail") || "")
+                    : undefined,
         };
 
         try {
@@ -36,49 +43,75 @@ export default function NotifyByConvoyForm({ direction }: Props) {
 
             if (!res.ok || !data.ok) throw new Error(data.error || "Échec de l’envoi");
             setMsg(
-                `✅ Notifications envoyées : ${data.sent}/${data.totalRecipients}${
+                `✅ Notifications envoyées : ${data.sent ?? 0}/${data.uniqueRecipients ?? data.shipmentsFound ?? 0}${
                     data.failedCount ? ` — échecs: ${data.failedCount}` : ""
                 }`
             );
         } catch (err: any) {
-            setMsg(`Erreur : ${err?.message || "inconnue"}`);
+            setMsg(`❌ Erreur : ${err?.message || "inconnue"}`);
         } finally {
             setLoading(false);
         }
     }
 
     return (
-        <form onSubmit={onSubmit} className="mt-4 grid gap-4 max-w-xl">
+        // ✅ IMPORTANT: brancher l’handler
+        <form onSubmit={onSubmit}>
             <div>
                 <label className="label">Date du convoi *</label>
-                <input name="convoyDate" type="date" required className="input" />
+                <input type="date" name="convoyDate" className="input" required />
             </div>
 
             <div>
                 <label className="label">Action / Statut *</label>
-                <select name="template" className="input" defaultValue="EN_ROUTE" required>
+                <select
+                    name="template"
+                    className="input"
+                    value={template}
+                    onChange={(e) => setTemplate(e.target.value as any)}
+                    required
+                >
                     <option value="EN_ROUTE">En route</option>
                     <option value="IN_CUSTOMS">À la douane</option>
-                    <option value="OUT_FOR_DELIVERY">Prêt à être livré</option>
-                    <option value="DELIVERED">Livré</option>
+                    <option value="OUT_FOR_DELIVERY">Prêt à être récupéré</option>
+                    <option value="DELIVERED">Livré (Remerciement)</option>
                 </select>
             </div>
+
+            {/* Champ conditionnel pour DELIVERED */}
+            {template === "DELIVERED" && (
+                <div>
+                    <label className="label">Email du client *</label>
+                    <input
+                        type="email"
+                        name="customerEmail"
+                        className="input"
+                        placeholder="Ex: client@example.com"
+                        value={customerEmail}
+                        onChange={(e) => setCustomerEmail(e.target.value)}
+                        required
+                    />
+                    <p className="text-sm text-gray-600 mt-1">
+                        Entrez l'email du client qui a récupéré son/ses colis
+                    </p>
+                </div>
+            )}
 
             <div>
                 <label className="label">Message (optionnel)</label>
                 <textarea
                     name="customMessage"
-                    className="textarea"
-                    placeholder="Ex: Détails utiles qui seront ajoutés dans l’email"
+                    className="input"
+                    placeholder="Ex: Détails utiles qui seront ajoutés dans l'email"
+                    rows={3}
                 />
             </div>
 
-            <div className="flex items-center gap-3">
-                <button className="btn-primary" disabled={loading}>
-                    {loading ? "Envoi…" : "Envoyer les notifications"}
-                </button>
-                {msg && <p className="text-sm">{msg}</p>}
-            </div>
+            <button type="submit" className="btn-primary" disabled={loading}>
+                {loading ? "Envoi en cours..." : "Envoyer les notifications"}
+            </button>
+
+            {msg && <p className="mt-2 text-sm">{msg}</p>}
         </form>
     );
 }

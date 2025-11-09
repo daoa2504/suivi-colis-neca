@@ -9,7 +9,8 @@ async function main() {
         { email: "admin@example.com",    role: "ADMIN",    password: "admin123" },
         { email: "agent.ca@example.com", role: "AGENT_CA", password: "canada123" },
         { email: "agent.ne@example.com", role: "AGENT_NE", password: "niger123" },
-        { email: "www.sodikabdouramane@gmail.com", role: "AGENT_NE", password: "niger1234" },
+        { email: "www.sodikabdouramane@gmail.com", role: "AGENT_CA", password: "niger1234" },
+        { email: "assoumanailloabdoulmananou@gmail.com", role: "AGENT_NE", password: "niger123" },
     ] as const;
 
     for (const u of users) {
