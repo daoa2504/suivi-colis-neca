@@ -162,6 +162,7 @@ export default async function ShipmentsPage({
                         <th className="py-3 px-4 text-left w-[14%]">Statut</th>
                         <th className="py-3 px-4 text-left w-[7%]">Poids</th>
                         <th className="py-3 px-4 text-left w-[17%]">Adresse</th>
+                        <th className="py-3 px-4 text-left w-[17%]">Ville</th>
                         <th className="py-3 px-4 text-left w-[7%]">Créé le</th>
                         <th className="py-3 px-4 text-right w-[9%]">Actions</th>
                     </tr>
@@ -183,6 +184,9 @@ export default async function ShipmentsPage({
                             <td className="py-2 px-4">{s.weightKg ?? "—"}</td>
                             <td className="py-2 px-4 whitespace-pre-wrap break-words">
                                 {s.receiverAddress ?? "—"}
+                            </td>
+                            <td className="py-2 px-4 whitespace-pre-wrap break-words">
+                                {s.receiverCity ?? "—"}
                             </td>
                             <td className="py-2 px-4">{fmtDate(s.createdAt)}</td>
                             <td className="py-2 px-4">

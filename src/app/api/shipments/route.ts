@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
         if (updatedShipment.receiverEmail) {
             const notes =
                 updatedShipment.notes && String(updatedShipment.notes).trim().length > 0
-                    ? `\nNotes :\n${String(updatedShipment.notes).trim()}\n`
+                    ? `${String(updatedShipment.notes).trim()}\n`
                     : "";
 
             const subject = `Réception de colis au Niger — N° ID: ${updatedShipment.trackingId}`;
@@ -112,6 +112,12 @@ export async function POST(req: NextRequest) {
             ${updatedShipment.trackingId}
           </td>
         </tr>
+         <tr>
+      <td style="padding: 8px 0; color: #6c757d; font-size: 14px;">Poids :</td>
+      <td style="padding: 8px 0; text-align: right; font-weight: 600; color: #2c3e50; font-size: 14px;">
+        ${updatedShipment.weightKg} kg
+      </td>
+    </tr>
       </table>
     </div>
     
