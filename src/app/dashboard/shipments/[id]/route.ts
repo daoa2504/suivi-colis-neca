@@ -95,6 +95,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     let emailResp: { ok?: boolean; id?: string; error?: string } | null = null;
 
     if (emailTried) {
+        const notes =
+            updated.notes && String(updated.notes).trim().length > 0
+                ? `${String(updated.notes).trim()}\n`
+                : "";
         const subject = `Mise à jour • ${updated.trackingId}`;
 
         const text = `Bonjour ${updated.receiverName || ""},
@@ -143,9 +147,22 @@ Pour toute question, n'hésitez pas à nous contacter.
           <td style="padding: 8px 0; text-align: right; font-weight: 600; color: #2c3e50; font-size: 14px;">
             ${updated.trackingId}
           </td>
+          <tr>
+          <td style="padding: 8px 0; color: #6c757d; font-size: 14px;">Poids :</td>
+          <td style="padding: 8px 0; text-align: right; font-weight: 600; color: #2c3e50; font-size: 14px;">
+            ${updated.weightKg} Kg
+          </td>
+          </tr>
         </tr>
       </table>
     </div>
+       ${notes ? `
+    <div style="background-color: #fff3cd; border-left: 3px solid #ffc107; padding: 12px 15px; border-radius: 4px; margin: 20px 0;">
+      <p style="margin: 0; color: #856404; font-size: 14px;">
+        <strong>Note :</strong> ${notes}
+      </p>
+    </div>
+    ` : ""}
     
     <p style="margin: 20px 0 0 0; color: #6c757d; font-size: 14px;">
       Pour toute question concernant votre colis, n'hésitez pas à nous contacter.

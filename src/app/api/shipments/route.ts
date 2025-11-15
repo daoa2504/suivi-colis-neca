@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
          <tr>
       <td style="padding: 8px 0; color: #6c757d; font-size: 14px;">Poids :</td>
       <td style="padding: 8px 0; text-align: right; font-weight: 600; color: #2c3e50; font-size: 14px;">
-        ${updatedShipment.weightKg} kg
+        ${updatedShipment.weightKg} Kg
       </td>
     </tr>
       </table>

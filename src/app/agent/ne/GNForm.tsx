@@ -8,6 +8,7 @@ export default function GNForm() {
     const [postalCode, setPostalCode] = useState('');
     const [city, setCity] = useState("");
     const [otherCity, setOtherCity] = useState("");
+    const [phone, setPhone] = useState('');
     const [receiverName, setReceiverName] = useState('');
     const capitalizeNames = (input: string) => {
         return input
@@ -115,15 +116,71 @@ export default function GNForm() {
 
                 <div>
                     <label htmlFor="receiverPhone" className="label block mb-1 text-sm font-medium text-neutral-700">
-                        Téléphone
+                        Téléphone <span className="text-red-600">*</span>
                     </label>
                     <input
                         id="receiverPhone"
                         name="receiverPhone"
-                        autoComplete="off"
-                        placeholder="(optionnel)"
+                        required
+                        type="tel"
+                        autoComplete="tel"
+                        placeholder="+1 (514) 123-4567"
+                        pattern="\+1\s?\(?\d{3}\)?\s?\d{3}-?\d{4}"
+                        title="Format: +1 (514) 123-4567"
                         className="input border p-2 w-full rounded"
+
+                        onKeyDown={(e) => {
+                            // Autoriser: chiffres, Backspace, Delete, Tab, Escape, Enter, flèches
+                            const allowedKeys = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+
+                            // Autoriser Ctrl/Cmd + A, C, V, X (sélectionner tout, copier, coller, couper)
+                            if ((e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) {
+                                return;
+                            }
+
+                            // Bloquer si ce n'est pas un chiffre et pas une touche autorisée
+                            if (!/^[0-9]$/.test(e.key) && !allowedKeys.includes(e.key)) {
+                                e.preventDefault();
+                            }
+                        }}
+                        onChange={(e) => {
+                            // Extraire seulement les chiffres
+                            let digits = e.target.value.replace(/\D/g, '');
+
+                            // Si vide, laisser vide
+                            if (digits.length === 0) {
+                                e.target.value = '';
+                                return;
+                            }
+
+                            // Si commence par 1, le garder, sinon ajouter 1
+                            if (digits[0] !== '1') {
+                                digits = '1' + digits;
+                            }
+
+                            // Limiter à 11 chiffres (1 + 10 chiffres)
+                            digits = digits.substring(0, 11);
+
+                            // Formater seulement si assez de chiffres
+                            let formatted = '';
+                            if (digits.length >= 1) {
+                                formatted = '+' + digits[0];
+                            }
+                            if (digits.length > 1) {
+                                formatted += ' (' + digits.substring(1, Math.min(4, digits.length));
+                            }
+                            if (digits.length > 4) {
+                                formatted += ') ' + digits.substring(4, Math.min(7, digits.length));
+                            }
+                            if (digits.length > 7) {
+                                formatted += '-' + digits.substring(7);
+                            }
+
+                            e.target.value = formatted;
+                        }}
+
                     />
+
                 </div>
 
                 <div>
@@ -162,13 +219,14 @@ export default function GNForm() {
                             htmlFor="receiverCitySelect"
                             className="label block mb-1 text-sm font-medium text-neutral-700"
                         >
-                            Ville (Québec)
+                            Ville <span className="text-red-600">*</span>
                         </label>
 
                         {/* Sélect court */}
                         <select
                             id="receiverCitySelect"
                             value={city}
+
                             onChange={(e) => setCity(e.target.value)}
                             className="input border p-2 w-full rounded"
                             required={!isOther} // requis si pas "Autre"
@@ -247,7 +305,7 @@ export default function GNForm() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label htmlFor="weightKg" className="label block mb-1 text-sm font-medium text-neutral-700">
-                        Poids (kg)
+                        Poids (kg) <span className="text-red-600">*</span>
                     </label>
                     <input
                         id="weightKg"

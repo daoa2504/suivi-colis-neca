@@ -3,6 +3,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import * as React from "react";
 
 type Shipment = {
     id: number;
@@ -13,7 +14,7 @@ type Shipment = {
     weightKg?: number | null;
     notes?: string | null;
 
-    // 🔸 nouveaux champs “adresse au Canada”
+    // 🔸 nouveaux champs "adresse au Canada"
     receiverAddress?: string | null;
     receiverCity?: string | null;
     receiverPoBox?: string | null;
@@ -23,29 +24,69 @@ export default function EditForm({ shipment }: { shipment: Shipment }) {
     const router = useRouter();
     const [msg, setMsg] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [phone, setPhone] = useState(shipment.receiverPhone || "");
+    const [otherCity, setOtherCity] = useState("");
+    const [city, setCity] = useState("");
+
+    const isOther = city === "__other__";
+    const effectiveCity = (isOther ? otherCity.trim() : city).trim();
+    // States pour tous les champs
+    const [receiverName, setReceiverName] = useState(shipment.receiverName);
+    const [receiverEmail, setReceiverEmail] = useState(shipment.receiverEmail);
+    const [weightKg, setWeightKg] = useState(shipment.weightKg?.toString() || "");
+    const [receiverAddress, setReceiverAddress] = useState(shipment.receiverAddress || "");
+    const [receiverCity, setReceiverCity] = useState(shipment.receiverCity || "");
+    const [receiverPoBox, setReceiverPoBox] = useState(shipment.receiverPoBox || "");
+    const [notes, setNotes] = useState(shipment.notes || "");
+
+    // Fonction pour formater le téléphone
+    const formatPhone = (value: string) => {
+        let digits = value.replace(/\D/g, '');
+
+        if (digits.length === 0) {
+            return '';
+        }
+
+        if (digits[0] !== '1') {
+            digits = '1' + digits;
+        }
+
+        digits = digits.substring(0, 11);
+
+        let formatted = '';
+        if (digits.length >= 1) {
+            formatted = '+' + digits[0];
+        }
+        if (digits.length > 1) {
+            formatted += ' (' + digits.substring(1, Math.min(4, digits.length));
+        }
+        if (digits.length > 4) {
+            formatted += ') ' + digits.substring(4, Math.min(7, digits.length));
+        }
+        if (digits.length > 7) {
+            formatted += '-' + digits.substring(7);
+        }
+
+        return formatted;
+    };
 
     async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
         setLoading(true);
         setMsg(null);
 
-        const fd = new FormData(e.currentTarget);
-
         // ⚠️ on typpe/normalise ce qui doit être nombre ou string optionnelle
         const payload = {
-            receiverName: String(fd.get("receiverName") || "").trim(),
-            receiverEmail: String(fd.get("receiverEmail") || "").trim(),
-            receiverPhone: (fd.get("receiverPhone") as string) || null,
-            weightKg:
-                fd.get("weightKg") && String(fd.get("weightKg")).length > 0
-                    ? Number(fd.get("weightKg"))
-                    : null,
-            notes: (fd.get("notes") as string) || null,
+            receiverName: receiverName.trim(),
+            receiverEmail: receiverEmail.trim(),
+            receiverPhone: phone || null,
+            weightKg: weightKg && weightKg.length > 0 ? Number(weightKg) : null,
+            notes: notes || null,
 
             // 🔸 nouveaux champs
-            receiverAddress: (fd.get("receiverAddress") as string) || null,
-            receiverCity: (fd.get("receiverCity") as string) || null,
-            receiverPoBox: (fd.get("receiverPoBox") as string) || null,
+            receiverAddress: receiverAddress || null,
+            receiverCity: effectiveCity  || null,
+            receiverPoBox: receiverPoBox || null,
         };
 
         try {
@@ -60,7 +101,6 @@ export default function EditForm({ shipment }: { shipment: Shipment }) {
                 cache: "no-store",
             });
 
-
             const data = res.headers.get("Content-Type")?.includes("application/json")
                 ? await res.json()
                 : { ok: res.ok, error: await res.text() };
@@ -70,6 +110,21 @@ export default function EditForm({ shipment }: { shipment: Shipment }) {
             }
 
             setMsg("✅ Modifications enregistrées");
+            setReceiverName("");
+            setReceiverEmail("");
+            setPhone("");
+            setWeightKg("");
+            setReceiverAddress("");
+            setReceiverCity("");
+            setReceiverPoBox("");
+            setNotes("");
+
+// Reset du formulaire HTML
+            (e.target as HTMLFormElement).reset();
+            // Réinitialiser le formulaire après succès
+            setPhone("");
+            (e.target as HTMLFormElement).reset();
+
             router.refresh();
         } catch (err: any) {
             setMsg(`Erreur : ${err?.message || "inconnue"}`);
@@ -87,7 +142,8 @@ export default function EditForm({ shipment }: { shipment: Shipment }) {
                     </label>
                     <input
                         name="receiverName"
-                        defaultValue={shipment.receiverName}
+                        value={receiverName}
+                        onChange={(e) => setReceiverName(e.target.value)}
                         className="input"
                         required
                     />
@@ -100,7 +156,8 @@ export default function EditForm({ shipment }: { shipment: Shipment }) {
                     <input
                         name="receiverEmail"
                         type="email"
-                        defaultValue={shipment.receiverEmail}
+                        value={receiverEmail}
+                        onChange={(e) => setReceiverEmail(e.target.value)}
                         className="input"
                         required
                     />
@@ -110,9 +167,30 @@ export default function EditForm({ shipment }: { shipment: Shipment }) {
                     <label className="label">Téléphone</label>
                     <input
                         name="receiverPhone"
-                        defaultValue={shipment.receiverPhone || ""}
+                        type="tel"
+                        autoComplete="tel"
+                        placeholder="(optionnel) +1 (514) 123-4567"
                         className="input"
-                        placeholder="(optionnel)"
+                        value={phone}
+                        onKeyDown={(e) => {
+                            const allowedKeys = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+
+                            if ((e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) {
+                                return;
+                            }
+
+                            if (e.key === '+') {
+                                return;
+                            }
+
+                            if (!/^[0-9]$/.test(e.key) && !allowedKeys.includes(e.key)) {
+                                e.preventDefault();
+                            }
+                        }}
+                        onInput={(e) => {
+                            const formatted = formatPhone(e.currentTarget.value);
+                            setPhone(formatted);
+                        }}
                     />
                 </div>
 
@@ -121,8 +199,9 @@ export default function EditForm({ shipment }: { shipment: Shipment }) {
                     <input
                         name="weightKg"
                         type="number"
-                        step="0.01"
-                        defaultValue={shipment.weightKg ?? ""}
+                        step="0.5"
+                        value={weightKg}
+                        onChange={(e) => setWeightKg(e.target.value)}
                         className="input"
                         placeholder="ex: 2.5"
                     />
@@ -136,7 +215,8 @@ export default function EditForm({ shipment }: { shipment: Shipment }) {
                     <label className="label">Adresse</label>
                     <input
                         name="receiverAddress"
-                        defaultValue={shipment.receiverAddress || ""}
+                        value={receiverAddress}
+                        onChange={(e) => setReceiverAddress(e.target.value)}
                         className="input"
                         placeholder="N°, rue…"
                     />
@@ -145,19 +225,67 @@ export default function EditForm({ shipment }: { shipment: Shipment }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="label">Ville (Canada)</label>
-                        <input
-                            name="receiverCity"
-                            defaultValue={shipment.receiverCity || ""}
-                            className="input"
-                            placeholder="ex: Montréal, Toronto…"
-                        />
+                        <select
+                            id="receiverCitySelect"
+                            value={city}
+
+                            onChange={(e) => setCity(e.target.value)}
+                            className="input border p-2 w-full rounded"
+                            required={!isOther} // requis si pas "Autre"
+                        >
+                            <option value="">-- Sélectionnez une ville --</option>
+
+                            {/* Liste courte des plus connues */}
+                            <option value="Montréal">Montréal</option>
+                            <option value="Québec">Québec</option>
+                            <option value="Laval">Laval</option>
+                            <option value="Gatineau">Gatineau</option>
+                            <option value="Longueuil">Longueuil</option>
+                            <option value="Sherbrooke">Sherbrooke</option>
+                            <option value="Saguenay">Saguenay</option>
+                            <option value="Lévis">Lévis</option>
+                            <option value="Trois-Rivières">Trois-Rivières</option>
+                            <option value="Terrebonne">Terrebonne</option>
+                            <option value="Drummondville">Drummondville</option>
+                            <option value="Saint-Jérôme">Saint-Jérôme</option>
+                            <option value="Rimouski">Rimouski</option>
+
+                            {/* Option pour saisir une autre ville */}
+                            <option value="__other__">Autre ville…</option>
+                        </select>
+
+                        {/* Champ libre affiché seulement si "Autre ville" */}
+                        {isOther && (
+                            <div>
+                                <label
+                                    htmlFor="receiverCityOther"
+                                    className="block text-sm text-neutral-700 mb-1"
+                                >
+                                    Saisissez la ville
+                                </label>
+                                <input
+                                    id="receiverCityOther"
+                                    type="text"
+                                    placeholder="Ex.: Saint-Georges, Baie-Comeau…"
+                                    className="input border p-2 w-full rounded"
+                                    value={otherCity}
+                                    onChange={(e) => setOtherCity(e.target.value)}
+                                    required // requis quand "Autre"
+                                    minLength={2}
+                                />
+                            </div>
+                        )}
+
+                        {/* Le vrai champ envoyé au serveur */}
+
                     </div>
 
                     <div>
                         <label className="label">Boîte postale</label>
                         <input
                             name="receiverPoBox"
-                            defaultValue={shipment.receiverPoBox || ""}
+                            value={receiverPoBox}
+                            onChange={(e) => setReceiverPoBox(e.target.value)}
                             className="input"
                             placeholder="ex: CP J1K2R1"
                         />
@@ -169,7 +297,8 @@ export default function EditForm({ shipment }: { shipment: Shipment }) {
                 <label className="label">Notes</label>
                 <textarea
                     name="notes"
-                    defaultValue={shipment.notes || ""}
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
                     className="textarea"
                     placeholder="(optionnel)"
                 />
