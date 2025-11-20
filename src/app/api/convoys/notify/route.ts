@@ -81,8 +81,8 @@ function statusSentence(
 ) {
     if (template === "EN_ROUTE") {
         return direction === DirectionEnum.NE_TO_CA
-            ? "a quitté le Niger en destination du Canada"
-            : "est en route vers le Niger";
+            ? "a quitté le Niger en destination du Canada. Les colis seront disponibles pour récupération dans un délai maximum de <strong>sept (7) jours ouvrables</strong>"
+            : "est en route vers le Niger. Les colis seront disponibles pour récupération dans un délai maximum de <strong>dix (10) jours ouvrables</strong>";
     }
 
     if (template === "IN_CUSTOMS") {
