@@ -409,10 +409,15 @@ ${FOOTER}`;
     
     <p style="margin: 0 0 15px 0;">Bonjour <strong>${name}</strong>,</p>
 
-    <p style="margin: 0 0 20px 0;">
-      Nous vous informons que le convoi du <strong>${dateStr}</strong> ${statusSentence(template as ConvoyStatus, direction)}.
-    </p>
-    
+<p style="margin: 0 0 20px 0; text-align: justify; text-justify: inter-word;">
+  Nous vous informons que le convoi du <strong>${dateStr}</strong> ${statusSentence(template as ConvoyStatus, direction)}.
+  Votre colis est maintenant disponible pour remise. Nous tenons à vous présenter <strong>nos excuses pour le retard</strong>.
+
+  Suite à un imprévu avec la compagnie Royal Air Maroc, votre colis est resté à Casablanca plus longtemps que prévu. Cette situation exceptionnelle a entraîné un léger décalage dans la mise à disposition du colis, mais celui-ci est désormais bien arrivé et prêt pour récupération.
+
+  Nous souhaitons également préciser qu’il s’agissait d’un convoi dans des conditions particulières. En temps normal, l’expédition ne dure que 4 jours, et c’est justement pour ce type de cas que notre délai peut s’étendre jusqu’à 7 jours ouvrables.
+</p>
+
     <!-- Encadré des colis -->
     <div style="background-color: #ffffff; padding: 20px; border-radius: 6px; margin: 20px 0;">
       <p style="margin: 0 0 12px 0; font-weight: 600; color: #2c3e50; font-size: 15px;">
@@ -423,13 +428,15 @@ ${FOOTER}`;
       </div>
     </div>
     
-    <p style="margin: 20px 0 0 0; color: #6c757d; font-size: 14px;">
-      ${template === "EN_ROUTE"
-                ? `${ids.length > 1 ? "Vos colis sont" : "Votre colis est"} actuellement en transit et ${ids.length > 1 ? "se dirigent" : "se dirige"} vers ${ids.length > 1 ? "leur" : "sa"} destination finale. Nous vous tiendrons informé de ${ids.length > 1 ? "leur" : "son"} arrivée.`
+<p style="margin: 20px 0 0 0; color: #6c757d; font-size: 14px; text-align: justify; text-justify: inter-word;">
+  ${template === "EN_ROUTE"
+                ? `Votre colis est actuellement en transit et se dirige vers sa destination finale. Nous vous tiendrons informé de son arrivée.`
                 : template === "IN_CUSTOMS"
-                    ? `${ids.length > 1 ? "Vos colis sont" : "Votre colis est"} maintenant ${ids.length > 1 ? "arrivés" : "arrivé"} à la douane et ${ids.length > 1 ? "seront bientôt disponibles" : "sera bientôt disponible"} pour récupération. Nous vous contacterons prochainement pour la collecte.`
-                    : `${ids.length > 1 ? "Vos colis sont" : "Votre colis est"} maintenant ${ids.length > 1 ? "disponibles" : "disponible"} pour remise. Nous vous contacterons sous peu pour confirmer les modalités de collecte.`}
-    </p>
+                    ? `Votre colis est maintenant arrivé à la douane et sera bientôt disponible pour récupération. Nous vous contacterons prochainement pour la collecte.`
+                    : `<strong> L’équipe NIMAPLEX </strong> vous présente ses excuses les plus sincères pour cette attente et vous remercie chaleureusement pour votre patience et votre confiance.`}
+
+            </p>
+
   </div>
 
   ${customMessage ? `
