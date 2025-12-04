@@ -3,9 +3,10 @@
   "private": true,
   "scripts": {
     "postinstall": "prisma generate",
-    "build": "prisma generate && prisma migrate deploy && next build",
     "dev": "next dev",
-    "start": "next start -p $PORT",
+    "build": "next build",
+    "start": "next start",
+    "railway:build": "prisma migrate deploy && next build",
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "seed": "tsx prisma/seed.ts"
