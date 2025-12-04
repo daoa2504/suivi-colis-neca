@@ -6,10 +6,17 @@ import { authOptions } from "@/lib/auth";
 import Link from "next/link";
 import type { Prisma, ShipmentStatus } from "@prisma/client";
 import NotifyDeliveredButton from "./NotifyDeliveredButton";
+import ConvoyFilter from "./ConvoyFilter";
 
 export const runtime = "nodejs";
 
-type SearchParams = { q?: string; page?: string };
+type SearchParams = {
+    q?: string;
+    page?: string;
+    direction?: string;
+    convoyId?: string;
+};
+
 const PAGE_SIZE = 12;
 
 const STATUS_FR: Record<ShipmentStatus, string> = {
@@ -26,11 +33,12 @@ const STATUS_FR: Record<ShipmentStatus, string> = {
 };
 
 function fmtDate(d: Date) {
-    return new Date(d).toLocaleDateString("fr-CA", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-    });
+    // Utiliser UTC pour éviter les problèmes de fuseau horaire
+    const date = new Date(d);
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 function StatusBadge({ status }: { status: ShipmentStatus }) {
@@ -43,9 +51,10 @@ function StatusBadge({ status }: { status: ShipmentStatus }) {
                 : ["RECEIVED_IN_NIGER", "RECEIVED_IN_CANADA"].includes(status)
                     ? "bg-neutral-100 text-neutral-800"
                     : "bg-amber-100 text-amber-900";
+
     return (
         <span
-            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${tone}`}
+            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${tone}`}
         >
       {txt}
     </span>
@@ -55,9 +64,9 @@ function StatusBadge({ status }: { status: ShipmentStatus }) {
 export default async function ShipmentsPage({
                                                 searchParams,
                                             }: {
-    searchParams: Promise<SearchParams>; // Next 15
+    searchParams: Promise<SearchParams>;
 }) {
-    // --- Auth : ADMIN, AGENT_CA, AGENT_NE peuvent accéder à la page ---
+    // --- Auth ---
     const session = await getServerSession(authOptions);
     const role = session?.user?.role as
         | "ADMIN"
@@ -69,12 +78,27 @@ export default async function ShipmentsPage({
         redirect("/login");
     }
 
+    const userId = session.user?.id;
+
     // --- Query params ---
     const sp = await searchParams;
     const q = (sp.q || "").trim();
     const page = Math.max(1, Number(sp.page || 1));
+    const direction = sp.direction || "NE_TO_CA";
+    const convoyId = sp.convoyId || "";
 
-    // --- Filtres ---
+    // --- Récupérer les convois disponibles pour le filtre ---
+    const convoys = await prisma.convoy.findMany({
+        where: { direction: direction as "NE_TO_CA" | "CA_TO_NE" },
+        orderBy: { date: "desc" },
+        select: {
+            id: true,
+            date: true,
+        },
+        take: 50,
+    });
+
+    // --- Filtres de recherche ---
     const searchFilter: Prisma.ShipmentWhereInput = q
         ? {
             OR: [
@@ -85,16 +109,40 @@ export default async function ShipmentsPage({
         }
         : {};
 
-    // Sens unique : NE -> CA
+    // --- Filtre de direction ---
     const directionFilter: Prisma.ShipmentWhereInput = {
-        convoy: { direction: "NE_TO_CA" },
+        convoy: { direction: direction as "NE_TO_CA" | "CA_TO_NE" },
     };
 
-    // (Option de durcissement) Restreindre aux colis créés côté Niger
-    const originFilter: Prisma.ShipmentWhereInput = { originCountry: "NE" };
+    // --- Filtre de convoi ---
+    const convoyFilter: Prisma.ShipmentWhereInput = convoyId
+        ? { convoyId }
+        : {};
+
+    // --- Permissions basées sur le rôle ---
+    let permissionFilter: Prisma.ShipmentWhereInput = {};
+
+    if (role === "AGENT_NE") {
+        // Agent NE peut voir :
+        // - Ses propres colis NE→CA (origine Niger)
+        // - Tous les colis CA→NE (pour envoyer remerciements)
+        if (direction === "NE_TO_CA") {
+            permissionFilter = { originCountry: "NE" };
+        }
+        // Pour CA→NE, pas de filtre supplémentaire (peut tout voir)
+    } else if (role === "AGENT_CA") {
+        // Agent CA peut voir :
+        // - Tous les colis NE→CA (pour envoyer remerciements)
+        // - Ses propres colis CA→NE (origine Canada)
+        if (direction === "CA_TO_NE") {
+            permissionFilter = { originCountry: "CA" };
+        }
+        // Pour NE→CA, pas de filtre supplémentaire (peut tout voir)
+    }
+    // ADMIN peut tout voir, pas de filtre
 
     const where: Prisma.ShipmentWhereInput = {
-        AND: [directionFilter, originFilter, searchFilter],
+        AND: [directionFilter, convoyFilter, searchFilter, permissionFilter],
     };
 
     // --- Requête ---
@@ -116,6 +164,13 @@ export default async function ShipmentsPage({
                 receiverAddress: true,
                 receiverPoBox: true,
                 createdAt: true,
+                originCountry: true,
+                thankYouEmailSent: true,
+                convoy: {
+                    select: {
+                        date: true,
+                    },
+                },
             },
         }),
         prisma.shipment.count({ where }),
@@ -123,138 +178,242 @@ export default async function ShipmentsPage({
 
     const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-    return (
-        <main className="w-full px-6 py-6">
-            <div className="w-full rounded-2xl ring-1 ring-neutral-200 bg-white shadow p-6">
-                {/* Header */}
-                <div className="flex items-center justify-between gap-3 mb-6">
-                    <h1 className="text-2xl font-bold">Liste des Colis — NE → CA</h1>
+    // --- Déterminer qui peut modifier et qui peut remercier ---
+    const canEdit = (shipment: (typeof items)[0]) => {
+        if (role === "ADMIN") return true;
+        // Agent NE peut modifier les colis d'origine NE (direction NE→CA)
+        if (role === "AGENT_NE" && direction === "NE_TO_CA") {
+            return shipment.originCountry === "NE";
+        }
+        // Agent CA peut modifier les colis d'origine CA (direction CA→NE)
+        if (role === "AGENT_CA" && direction === "CA_TO_NE") {
+            return shipment.originCountry === "CA";
+        }
+        return false;
+    };
 
-                    <div className="flex gap-2">
-                        {/* Création côté Niger : réservé à AGENT_NE (et éventuellement ADMIN si tu veux) */}
-                        {role === "AGENT_NE" && (
-                            <Link href={`/agent/ne/`} className="btn-primary">
-                                Ajouter colis (NE)
-                            </Link>
-                        )}
-                    </div>
+    const canNotify = (shipment: (typeof items)[0]) => {
+        // Agent CA peut remercier pour les colis NE→CA
+        if (role === "AGENT_CA" && direction === "NE_TO_CA") return true;
+        // Agent NE peut remercier pour les colis CA→NE
+        if (role === "AGENT_NE" && direction === "CA_TO_NE") return true;
+        // ADMIN peut toujours
+        if (role === "ADMIN") return true;
+        return false;
+    };
+
+    return (
+        <div className="space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <h1 className="text-3xl font-bold">
+                    Liste des Colis —{" "}
+                    {direction === "NE_TO_CA" ? "NE → CA" : "CA → NE"}
+                </h1>
+
+                {/* Bouton d'ajout selon le rôle et la direction */}
+                {role === "AGENT_NE" && direction === "NE_TO_CA" && (
+                    <Link
+                        href="/dashboard/shipments/new"
+                        className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+                    >
+                        Ajouter colis (NE)
+                    </Link>
+                )}
+                {role === "AGENT_CA" && direction === "CA_TO_NE" && (
+                    <Link
+                        href="/dashboard/shipments/new"
+                        className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+                    >
+                        Ajouter colis (CA)
+                    </Link>
+                )}
+            </div>
+
+            {/* Filtres */}
+            <div className="rounded-lg border bg-white p-4 shadow-sm space-y-4">
+                {/* Onglets de direction */}
+                <div className="flex gap-2 border-b pb-2">
+                    <Link
+                        href={`/dashboard/shipments?direction=NE_TO_CA`}
+                        className={`px-4 py-2 rounded-t-lg font-medium ${
+                            direction === "NE_TO_CA"
+                                ? "bg-indigo-100 text-indigo-700 border-b-2 border-indigo-700"
+                                : "text-gray-600 hover:bg-gray-100"
+                        }`}
+                    >
+                        Niger → Canada
+                    </Link>
+                    <Link
+                        href={`/dashboard/shipments?direction=CA_TO_NE`}
+                        className={`px-4 py-2 rounded-t-lg font-medium ${
+                            direction === "CA_TO_NE"
+                                ? "bg-indigo-100 text-indigo-700 border-b-2 border-indigo-700"
+                                : "text-gray-600 hover:bg-gray-100"
+                        }`}
+                    >
+                        Canada → Niger
+                    </Link>
                 </div>
 
-                {/* Recherche */}
-                <form className="flex gap-2 mb-4" action="/dashboard/shipments">
-                    <input
-                        name="q"
-                        defaultValue={q}
-                        placeholder="Rechercher (tracking, nom, email)"
-                        className="input w-80"
-                    />
-                    <button className="btn-ghost">Rechercher</button>
-                </form>
+                {/* Recherche et filtre par convoi */}
+                <div className="flex gap-4">
+                    <form className="flex-1 flex gap-2">
+                        <input type="hidden" name="direction" value={direction} />
+                        {convoyId && <input type="hidden" name="convoyId" value={convoyId} />}
+                        <input
+                            type="text"
+                            name="q"
+                            defaultValue={q}
+                            placeholder="Rechercher (tracking, nom, email)..."
+                            className="flex-1 rounded-md border px-3 py-2 text-sm"
+                        />
+                        <button
+                            type="submit"
+                            className="rounded-md bg-gray-700 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+                        >
+                            Rechercher
+                        </button>
+                    </form>
 
-                {/* Tableau */}
-                <table className="w-full table-auto text-sm border border-neutral-200 rounded-lg">
-                    <thead className="bg-neutral-100 text-neutral-700">
+                    {/* Filtre par convoi */}
+                    <ConvoyFilter
+                        convoys={convoys}
+                        currentConvoyId={convoyId}
+                        direction={direction}
+                        searchQuery={q}
+                    />
+                </div>
+            </div>
+
+            {/* Tableau */}
+            <div className="rounded-lg border bg-white shadow-sm overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
                     <tr>
-                        <th className="py-3 px-4 text-left w-[11%]">Tracking</th>
-                        <th className="py-3 px-4 text-left w-[14%]">Destinataire</th>
-                        <th className="py-3 px-4 text-left w-[18%]">Email</th>
-                        <th className="py-3 px-4 text-left w-[10%]">Tél</th>
-                        <th className="py-3 px-4 text-left w-[14%]">Statut</th>
-                        <th className="py-3 px-4 text-left w-[7%]">Poids</th>
-                        <th className="py-3 px-4 text-left w-[17%]">Adresse</th>
-                        <th className="py-3 px-4 text-left w-[17%]">Ville</th>
-                        <th className="py-3 px-4 text-left w-[7%]">Créé le</th>
-                        <th className="py-3 px-4 text-right w-[9%]">Actions</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                            Tracking
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                            Convoi
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                            Destinataire
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                            Email
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                            Tél
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                            Statut
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                            Poids
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                            Ville
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                            Créé le
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                            Actions
+                        </th>
                     </tr>
                     </thead>
-
-                    <tbody>
+                    <tbody className="divide-y divide-gray-200 bg-white">
                     {items.map((s) => (
-                        <tr
-                            key={s.id}
-                            className="border-t border-neutral-200 hover:bg-neutral-50"
-                        >
-                            <td className="py-2 px-4 font-mono">{s.trackingId}</td>
-                            <td className="py-2 px-4">{s.receiverName}</td>
-                            <td className="py-2 px-4">{s.receiverEmail}</td>
-                            <td className="py-2 px-4">{s.receiverPhone || "—"}</td>
-                            <td className="py-2 px-4">
+                        <tr key={s.id} className="hover:bg-gray-50">
+                            <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
+                                {s.trackingId}
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
+                                {s.convoy ? fmtDate(s.convoy.date) : "—"}
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">
+                                {s.receiverName}
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
+                                {s.receiverEmail}
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
+                                {s.receiverPhone || "—"}
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-3 text-sm">
                                 <StatusBadge status={s.status} />
                             </td>
-                            <td className="py-2 px-4">{s.weightKg ?? "—"}</td>
-                            <td className="py-2 px-4 whitespace-pre-wrap break-words">
-                                {s.receiverAddress ?? "—"}
+                            <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
+                                {s.weightKg ?? "—"}
                             </td>
-                            <td className="py-2 px-4 whitespace-pre-wrap break-words">
+                            <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
                                 {s.receiverCity ?? "—"}
                             </td>
-                            <td className="py-2 px-4">{fmtDate(s.createdAt)}</td>
-                            <td className="py-2 px-4">
-                                <div className="flex justify-end gap-2">
-                                    {/* Modifier : réservé à AGENT_NE */}
-                                    {role === "AGENT_NE" && (
-                                        <Link
-                                            href={`/dashboard/shipments/${s.id}/edit`}
-                                            className="px-2 py-1 text-sm rounded bg-neutral-900 text-white hover:bg-neutral-800"
-                                        >
-                                            Modifier
-                                        </Link>
-                                    )}
-
-                                    {/* Remercier : visible pour ADMIN et AGENT_CA */}
-                                    {["ADMIN", "AGENT_CA"].includes(role!) && (
-                                        <NotifyDeliveredButton
-                                            shipmentId={s.id}
-                                            receiverName={s.receiverName}
-                                            receiverEmail={s.receiverEmail}
-                                            trackingId={s.trackingId}
-                                        />
-                                    )}
-                                </div>
+                            <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-500">
+                                {fmtDate(s.createdAt)}
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-3 text-sm space-x-2">
+                                {canEdit(s) && (
+                                    <Link
+                                        href={`/dashboard/shipments/${s.id}/edit`}
+                                        className="text-indigo-600 hover:text-indigo-900"
+                                    >
+                                        Modifier
+                                    </Link>
+                                )}
+                                {canNotify(s) && (
+                                    <NotifyDeliveredButton
+                                        shipmentId={s.id}
+                                        receiverName={s.receiverName}
+                                        receiverEmail={s.receiverEmail}
+                                        trackingId={s.trackingId}
+                                        thankYouEmailSent={s.thankYouEmailSent}
+                                    />
+                                )}
                             </td>
                         </tr>
                     ))}
-
                     {items.length === 0 && (
                         <tr>
-                            <td colSpan={9} className="py-8 text-center text-neutral-500">
+                            <td
+                                colSpan={10}
+                                className="px-4 py-8 text-center text-sm text-gray-500"
+                            >
                                 Aucun colis trouvé.
                             </td>
                         </tr>
                     )}
                     </tbody>
                 </table>
-
-                {pages > 1 && (
-                    <div className="mt-4 flex items-center justify-between">
-            <span className="text-sm text-neutral-600">
-              Page {page} / {pages} — {total} colis
-            </span>
-                        <div className="flex gap-2">
-                            {page > 1 && (
-                                <Link
-                                    className="btn-ghost"
-                                    href={`/dashboard/shipments?page=${
-                                        page - 1
-                                    }&q=${encodeURIComponent(q)}`}
-                                >
-                                    ← Précédent
-                                </Link>
-                            )}
-                            {page < pages && (
-                                <Link
-                                    className="btn-ghost"
-                                    href={`/dashboard/shipments?page=${
-                                        page + 1
-                                    }&q=${encodeURIComponent(q)}`}
-                                >
-                                    Suivant →
-                                </Link>
-                            )}
-                        </div>
-                    </div>
-                )}
             </div>
-        </main>
+
+            {/* Pagination */}
+            {pages > 1 && (
+                <div className="flex items-center justify-between rounded-lg border bg-white p-4 shadow-sm">
+                    <p className="text-sm text-gray-700">
+                        Page {page} / {pages} — {total} colis
+                    </p>
+                    <div className="flex gap-2">
+                        {page > 1 && (
+                            <Link
+                                href={`?q=${q}&page=${page - 1}&direction=${direction}${convoyId ? `&convoyId=${convoyId}` : ""}`}
+                                className="rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                            >
+                                ← Précédent
+                            </Link>
+                        )}
+                        {page < pages && (
+                            <Link
+                                href={`?q=${q}&page=${page + 1}&direction=${direction}${convoyId ? `&convoyId=${convoyId}` : ""}`}
+                                className="rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                            >
+                                Suivant →
+                            </Link>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
     );
 }

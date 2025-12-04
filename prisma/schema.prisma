@@ -42,7 +42,7 @@ model User {
 }
 
 model Shipment {
-  id                 Int      @id @default(autoincrement())
+  id                 Int            @id @default(autoincrement())
   trackingId         String         @unique
   receiverName       String
   receiverEmail      String
@@ -57,8 +57,9 @@ model Shipment {
   status             ShipmentStatus @default(CREATED)
   createdAt          DateTime       @default(now())
 
-  convoyId String?
-  convoy   Convoy? @relation(fields: [convoyId], references: [id])
+  convoyId          String?
+  convoy            Convoy? @relation(fields: [convoyId], references: [id])
+  thankYouEmailSent Boolean @default(false) // NOUVEAU CHAMP
 
   events ShipmentEvent[]
 }

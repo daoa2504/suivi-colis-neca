@@ -1,19 +1,18 @@
-// src/app/api/shipments/notify-delivered/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { FROM, sendEmailSafe } from "@/lib/email";
+import { Direction } from "@prisma/client";
 
 export const runtime = "nodejs";
-
-/* ----------------------------- Helpers ----------------------------- */
 
 const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
 function normalizeEmail(raw: string) {
     return (raw || "").trim().toLowerCase();
 }
+
 function isValidEmail(e: string) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 }
@@ -36,70 +35,110 @@ async function sendWithRetry(
     return last!;
 }
 
-/* --------------------------------- Route --------------------------------- */
-
 export async function POST(req: NextRequest) {
+    // Auth
     const session = await getServerSession(authOptions);
     if (!session) {
         return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
+
     const role = session.user.role;
-    if (!["ADMIN", "AGENT_CA"].includes(role)) {
+    if (!["ADMIN", "AGENT_CA", "AGENT_NE"].includes(role)) {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
     }
 
     try {
         const body = await req.json();
-        const { shipmentId, customerEmail, customMessage } = body as {
-            shipmentId?: number | string;
-            customerEmail?: string;
-            customMessage?: string;
-        };
+        const { shipmentId, customerEmail } = body;
 
         if (!shipmentId || !customerEmail) {
-            return NextResponse.json({ ok: false, error: "shipmentId et customerEmail requis" }, { status: 400 });
-        }
-
-        const idNum = Number(shipmentId);
-        if (!Number.isFinite(idNum)) {
-            return NextResponse.json({ ok: false, error: "shipmentId invalide" }, { status: 400 });
+            return NextResponse.json(
+                { ok: false, error: "shipmentId et customerEmail requis" },
+                { status: 400 }
+            );
         }
 
         const targetEmail = normalizeEmail(customerEmail);
-        if (!targetEmail || !isValidEmail(targetEmail)) {
-            return NextResponse.json({ ok: false, error: "Email client invalide" }, { status: 400 });
+        if (!isValidEmail(targetEmail)) {
+            return NextResponse.json(
+                { ok: false, error: "Email invalide" },
+                { status: 400 }
+            );
         }
 
-        // ✅ ICI on récupère le colis
+        // Récupérer le colis avec son convoi
         const shipment = await prisma.shipment.findUnique({
-            where: { id: idNum },
-            select: {
-                id: true,
-                trackingId: true,
-                receiverName: true,
-                receiverEmail: true,
+            where: { id: shipmentId },
+            include: {
+                convoy: true,
             },
         });
 
         if (!shipment) {
-            return NextResponse.json({ ok: false, error: "Colis introuvable" }, { status: 404 });
+            return NextResponse.json(
+                { ok: false, error: "Colis introuvable" },
+                { status: 404 }
+            );
         }
 
-        // Vérifier que l'email correspond
-        if (normalizeEmail(shipment.receiverEmail ?? "") !== targetEmail) {
-            return NextResponse.json({ ok: false, error: "L'email ne correspond pas au destinataire du colis" }, { status: 400 });
+        // Vérifier que l'email n'a pas déjà été envoyé
+        if (shipment.thankYouEmailSent) {
+            return NextResponse.json(
+                { ok: false, error: "Email déjà envoyé pour ce colis" },
+                { status: 400 }
+            );
         }
 
-        // ✅ ICI on utilise shipment (même scope)
-        const name = shipment.receiverName ?? "client";
-        const trackingIds = [shipment.trackingId].filter(Boolean) as string[]; // prêt pour évoluer à N colis
+        // Vérifier les permissions
+        const direction = shipment.convoy?.direction;
+        if (role === "AGENT_CA" && direction !== Direction.NE_TO_CA) {
+            return NextResponse.json(
+                { ok: false, error: "Non autorisé pour cette direction" },
+                { status: 403 }
+            );
+        }
+        if (role === "AGENT_NE" && direction !== Direction.CA_TO_NE) {
+            return NextResponse.json(
+                { ok: false, error: "Non autorisé pour cette direction" },
+                { status: 403 }
+            );
+        }
+
+        // Trouver tous les colis du même client dans le même convoi
+        const customerShipments = await prisma.shipment.findMany({
+            where: {
+                convoyId: shipment.convoyId,
+                receiverEmail: {
+                    equals: shipment.receiverEmail,
+                    mode: "insensitive",
+                },
+            },
+        });
+
+        const trackingIds = customerShipments.map((s) => s.trackingId);
+        const shipmentIds = customerShipments.map((s) => s.id);
+        const name = shipment.receiverName;
         const isPlural = trackingIds.length > 1;
-        const heading = isPlural ? `Vos ${trackingIds.length} colis livrés :` : "Votre colis livré :";
 
-        const colisListText = trackingIds.map(t => `• ${t}`).join("\n");
-        const colisListHtml = trackingIds.map(t => `• ${t}`).join("<br>");
+        const FOOTER =
+            direction === Direction.NE_TO_CA
+                ? "— Équipe NE → CA"
+                : "— Équipe CA → NE";
 
+        const colisListText = trackingIds.map((t) => `• ${t}`).join("\n");
 
+        const txt = `Bonjour ${name},
+
+Nous confirmons que ${
+            isPlural ? "vos colis ont été récupérés" : "votre colis a été récupéré"
+        } avec succès. Merci de nous avoir fait confiance pour ${
+            isPlural ? "leur" : "son"
+        } acheminement. Nous espérons vous revoir très bientôt pour vos prochains envois !
+
+${isPlural ? `Colis (${trackingIds.length})` : "Colis"} :
+${colisListText}
+
+${FOOTER}`;
 
         const html = `
 <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #2c3e50; line-height: 1.8; max-width: 600px; margin: 0 auto;">
@@ -116,29 +155,35 @@ export async function POST(req: NextRequest) {
   </table>
 
   <div style="background-color: #f8f9fa; padding: 25px; border-radius: 8px; border-left: 4px solid #8B0000;">
-    <h2 style="color: #8B0000; margin: 0 0 20px 0; font-size: 20px; font-weight: 600;">Merci pour votre confiance</h2>
+    <h2 style="color: #8B0000; margin: 0 0 20px 0; font-size: 20px; font-weight: 600;">
+      Merci pour votre confiance
+    </h2>
+    
     <p style="margin: 0 0 15px 0;">Bonjour <strong>${name}</strong>,</p>
+
     <p style="margin: 0 0 20px 0;">
-      Nous confirmons que ${isPlural ? "vos colis ont été récupérés" : "votre colis a été récupéré"} avec succès. Merci de nous avoir fait confiance pour ${isPlural ? "leur" : "son"} acheminement.
+      Nous confirmons que ${
+            isPlural ? "vos colis ont été récupérés" : "votre colis a été récupéré"
+        } avec succès. Merci de nous avoir fait confiance pour ${
+            isPlural ? "leur" : "son"
+        } acheminement. Nous espérons vous revoir très bientôt pour vos prochains envois !
     </p>
-
+    
     <div style="background-color: #ffffff; padding: 20px; border-radius: 6px; margin: 20px 0;">
-      <p style="margin: 0 0 12px 0; font-weight: 600; color: #2c3e50; font-size: 15px;">${heading}</p>
-      <div style="padding-left: 10px; color: #495057; font-size: 14px; line-height: 1.8;">${colisListHtml}</div>
+      <p style="margin: 0 0 12px 0; font-weight: 600; color: #2c3e50; font-size: 15px;">
+        ${
+            isPlural
+                ? `Vos ${trackingIds.length} colis récupérés`
+                : "Votre colis récupéré"
+        } :
+      </p>
+      <div style="padding-left: 10px; color: #495057; font-size: 14px; line-height: 1.8;">
+        ${trackingIds.map((t) => `• ${t}`).join("<br>")}
+      </div>
     </div>
-
-    ${
-            customMessage?.trim()
-                ? `<div style="background-color: #d1ecf1; border-left: 3px solid #0c5460; padding: 12px 15px; border-radius: 4px; margin: 20px 0;">
-             <p style="margin: 0; color: #0c5460; font-size: 14px;">
-               <strong>Information :</strong> ${customMessage.trim()}
-             </p>
-           </div>`
-                : ""
-        }
-
+    
     <p style="margin: 20px 0 0 0; color: #6c757d; font-size: 14px; text-align: center;">
-      <strong>Bonne réception 📦😊 !</strong>
+      <strong>Bonne réception 😊 !</strong>
     </p>
   </div>
 
@@ -153,8 +198,11 @@ export async function POST(req: NextRequest) {
     <p style="margin: 0 0 10px 0; color: #6c757d; font-size: 13px;">
       Merci encore et à très bientôt,<br/>
       <strong style="color: #8B0000;">L'équipe NIMAPLEX</strong><br/>
-      <span style="font-size: 12px;">Niger → Canada</span>
+      <span style="font-size: 12px;">${
+            direction === Direction.NE_TO_CA ? "Niger → Canada" : "Canada → Niger"
+        }</span>
     </p>
+    
     <p style="margin: 15px 0 0 0; font-size: 11px; color: #adb5bd;">
       Cet email est envoyé automatiquement, merci de ne pas y répondre directement.<br/>
       Pour toute question, veuillez contacter notre service client.
@@ -163,26 +211,43 @@ export async function POST(req: NextRequest) {
 </div>
 `.trim();
 
+        // Envoyer l'email
         const resp = await sendWithRetry({
             from: FROM,
             to: targetEmail,
-            subject: `Merci pour votre confiance • ${trackingIds.join(", ")}`,
-
+            subject: `Merci pour votre confiance • ${
+                trackingIds.length > 1
+                    ? `${trackingIds.length} colis`
+                    : trackingIds[0]
+            }`,
+            text: txt,
             html,
         });
 
         if (!resp.ok) {
-            return NextResponse.json({ ok: false, error: resp.error }, { status: 500 });
+            return NextResponse.json(
+                { ok: false, error: resp.error || "Échec de l'envoi" },
+                { status: 500 }
+            );
         }
+
+        // ✅ METTRE À JOUR LA BASE DE DONNÉES
+        await prisma.shipment.updateMany({
+            where: { id: { in: shipmentIds } },
+            data: { thankYouEmailSent: true },
+        });
 
         return NextResponse.json({
             ok: true,
-            shipmentId: shipment.id,
-            trackingIds,
             customerEmail: targetEmail,
+            trackingIds,
             emailId: resp.id,
         });
     } catch (e: any) {
-        return NextResponse.json({ ok: false, error: e?.message ?? "Server error" }, { status: 500 });
+        console.error("Error in notify-delivered:", e);
+        return NextResponse.json(
+            { ok: false, error: e?.message ?? "Server error" },
+            { status: 500 }
+        );
     }
 }

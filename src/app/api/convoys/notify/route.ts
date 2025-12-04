@@ -160,6 +160,7 @@ export async function POST(req: NextRequest) {
                         receiverName: true,
                         receiverEmail: true,
                         notes: true,
+                        thankYouEmailSent: true,
                     },
                 },
             },
@@ -178,12 +179,6 @@ export async function POST(req: NextRequest) {
             direction === DirectionEnum.NE_TO_CA ? "— Équipe NE → CA" : "— Équipe CA → NE";
 
         const results: { email: string; ok: boolean; error?: string; id?: string; trackingIds?: string[] }[] = [];
-
-        // Base URL pour le logo
-        const BASE_URL =
-            process.env.NEXT_PUBLIC_BASE_URL ||
-            process.env.APP_URL ||
-            "https://nimaplex.com";
 
         // ========== DELIVERED : Rechercher par email client et envoyer UN seul email avec tous ses colis ==========
         if (template === "DELIVERED") {
@@ -208,9 +203,19 @@ export async function POST(req: NextRequest) {
                 );
             }
 
+            // Vérifier si l'email a déjà été envoyé pour au moins un colis
+            const alreadySent = customerShipments.some(s => s.thankYouEmailSent);
+            if (alreadySent) {
+                return NextResponse.json(
+                    { ok: false, error: "Email de remerciement déjà envoyé pour ce client" },
+                    { status: 400 }
+                );
+            }
+
             // Prendre le nom du premier colis (ils devraient tous avoir le même destinataire)
             const name = customerShipments[0].receiverName;
             const trackingIds = customerShipments.map(s => s.trackingId);
+            const shipmentIds = customerShipments.map(s => s.id);
             const isPlural = trackingIds.length > 1;
 
             const colisListText = trackingIds.map((t) => `• ${t}`).join("\n");
@@ -311,11 +316,18 @@ ${customMessage?.trim()
                     text: txt,
                     html,
                 });
-                results.push(
-                    resp.ok
-                        ? { email: targetEmail, ok: true, id: resp.id, trackingIds }
-                        : { email: targetEmail, ok: false, error: resp.error, trackingIds }
-                );
+
+                if (resp.ok) {
+                    // ✅ MARQUER TOUS LES COLIS COMME "EMAIL ENVOYÉ"
+                    await prisma.shipment.updateMany({
+                        where: { id: { in: shipmentIds } },
+                        data: { thankYouEmailSent: true },
+                    });
+
+                    results.push({ email: targetEmail, ok: true, id: resp.id, trackingIds });
+                } else {
+                    results.push({ email: targetEmail, ok: false, error: resp.error, trackingIds });
+                }
             } catch (e: any) {
                 results.push({ email: targetEmail, ok: false, error: e?.message || String(e), trackingIds });
             }
@@ -415,7 +427,7 @@ ${FOOTER}`;
 
   Suite à un imprévu avec la compagnie Royal Air Maroc, votre colis est resté à Casablanca plus longtemps que prévu. Cette situation exceptionnelle a entraîné un léger décalage dans la mise à disposition du colis, mais celui-ci est désormais bien arrivé et prêt pour récupération.
 
-  Nous souhaitons également préciser qu’il s’agissait d’un convoi dans des conditions particulières. En temps normal, l’expédition ne dure que 4 jours, et c’est justement pour ce type de cas que notre délai peut s’étendre jusqu’à 7 jours ouvrables.
+  Nous souhaitons également préciser qu'il s'agissait d'un convoi dans des conditions particulières. En temps normal, l'expédition ne dure que 4 jours, et c'est justement pour ce type de cas que notre délai peut s'étendre jusqu'à 7 jours ouvrables.
 </p>
 
     <!-- Encadré des colis -->
@@ -433,7 +445,7 @@ ${FOOTER}`;
                 ? `Votre colis est actuellement en transit et se dirige vers sa destination finale. Nous vous tiendrons informé de son arrivée.`
                 : template === "IN_CUSTOMS"
                     ? `Votre colis est maintenant arrivé à la douane et sera bientôt disponible pour récupération. Nous vous contacterons prochainement pour la collecte.`
-                    : `<strong> L’équipe NIMAPLEX </strong> vous présente ses excuses les plus sincères pour cette attente et vous remercie chaleureusement pour votre patience et votre confiance.`}
+                    : `<strong> L'équipe NIMAPLEX </strong> vous présente ses excuses les plus sincères pour cette attente et vous remercie chaleureusement pour votre patience et votre confiance.`}
 
             </p>
 

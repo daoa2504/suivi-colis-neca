@@ -1,6 +1,5 @@
 // src/lib/validators.ts
 import { z } from "zod";
-import { Direction as DirectionEnum } from "@prisma/client";
 // Formulaire Agent GN : enregistre un colis + date de convoi (obligatoire)
 export const createShipmentByGN = z.object({
     receiverName: z.string().min(1),
@@ -20,7 +19,7 @@ export const createShipmentByGN = z.object({
 });
 
 
-import { Direction } from "@prisma/client";
+
 
 
 
