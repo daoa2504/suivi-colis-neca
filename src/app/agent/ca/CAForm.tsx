@@ -35,13 +35,12 @@ export default function CAForm() {
             receiverPoBox: (fd.get("receiverPoBox") as string) || null,
             notes: (fd.get("notes") as string) || null,
 
-            // ✅ force le sens CA -> GN pour l'emailing et le suivi
-            originCountry: "Canada",
-            destinationCountry: "Niger",
+            // ✅ force le sens CA -> NE pour l'emailing et le suivi
+            direction: "CA_TO_NE",
         };
 
         try {
-            const res = await fetch("/api/shipments/ca", {
+            const res = await fetch("/api/shipments", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
 
-        if (!session || !["ADMIN", "AGENT_NE"].includes(session.user?.role ?? "")) {
+        if (!session || !["ADMIN", "AGENT_NE", "AGENT_CA"].includes(session.user?.role ?? "")) {
             return NextResponse.json(
                 { ok: false, error: "Unauthorized" },
                 { status: 401 }
@@ -30,7 +30,22 @@ export async function POST(req: NextRequest) {
 
         const body = await req.json().catch(() => ({} as any));
         const convoyDate = body.convoyDate ? new Date(body.convoyDate) : new Date();
-        const direction: Direction = "NE_TO_CA";
+
+        // Déterminer la direction depuis le body (par défaut NE_TO_CA)
+        const direction: Direction = body.direction === "CA_TO_NE" ? "CA_TO_NE" : "NE_TO_CA";
+
+        // Déterminer les pays d'origine et de destination (codes courts)
+        const isNeToCA = direction === "NE_TO_CA";
+        const originCountry = isNeToCA ? "NE" : "CA";
+        const destinationCountry = isNeToCA ? "CA" : "NE";
+        const routeDisplay = isNeToCA ? "Niger → Canada" : "Canada → Niger";
+
+        // 🔍 LOG DE DEBUG
+        console.log("📦 Création de colis:");
+        console.log("  - Direction:", direction);
+        console.log("  - Origin:", originCountry);
+        console.log("  - Destination:", destinationCountry);
+        console.log("  - Route:", routeDisplay);
 
         // 1) upsert du convoi
         const convoy = await prisma.convoy.upsert({
@@ -54,14 +69,24 @@ export async function POST(req: NextRequest) {
                 receiverPoBox: body.receiverPoBox || null,
                 notes: body.notes || null,
                 convoyId: convoy.id,
-                originCountry: "NE",
-                destinationCountry: "CA",
-                status: "RECEIVED_IN_NIGER",
+                originCountry,
+                destinationCountry,
+                status: isNeToCA ? "RECEIVED_IN_NIGER" : "RECEIVED_IN_CANADA",
+
             },
         });
 
+        // 🔍 LOG DE DEBUG
+        console.log("✅ Colis créé:", {
+            id: shipment.id,
+            originCountry: shipment.originCountry,
+            destinationCountry: shipment.destinationCountry,
+        });
+
         // 3) Mettre à jour le trackingId avec l'ID auto-incrémenté
-        const trackingId = `NECA-${shipment.id.toString().padStart(4, "0")}`;
+        // Format: NECA-XXXX pour NE→CA ou CANE-XXXX pour CA→NE
+        const trackingPrefix = isNeToCA ? "NECA" : "CANE";
+        const trackingId = `${trackingPrefix}-${shipment.id.toString().padStart(4, "0")}`;
 
         const updatedShipment = await prisma.shipment.update({
             where: { id: shipment.id },
@@ -75,7 +100,11 @@ export async function POST(req: NextRequest) {
                     ? `${String(updatedShipment.notes).trim()}\n`
                     : "";
 
-            const subject = `Réception de colis au Niger — N° ID: ${updatedShipment.trackingId}`;
+            // Adapter le contenu selon la direction
+            const receptionCountry = isNeToCA ? "Niger" : "Canada";
+            const destinationText = isNeToCA ? "Canada" : "Niger";
+
+            const subject = `Réception de colis au ${receptionCountry} — N° ID: ${updatedShipment.trackingId}`;
             const html = `
 <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #2c3e50; line-height: 1.8; max-width: 600px; margin: 0 auto;">
   
@@ -101,7 +130,7 @@ export async function POST(req: NextRequest) {
     <p style="margin: 0 0 15px 0;">Bonjour <strong>${updatedShipment.receiverName}</strong>,</p>
     
     <p style="margin: 0 0 15px 0;">
-      Nous avons le plaisir de vous informer que votre colis a été réceptionné avec succès au <strong>Niger</strong>.
+      Nous avons le plaisir de vous informer que votre colis a été réceptionné avec succès au <strong>${receptionCountry}</strong>.
     </p>
     
     <div style="background-color: #ffffff; padding: 15px; border-radius: 6px; margin: 20px 0;">
@@ -112,12 +141,12 @@ export async function POST(req: NextRequest) {
             ${updatedShipment.trackingId}
           </td>
         </tr>
-         <tr>
-      <td style="padding: 8px 0; color: #6c757d; font-size: 14px;">Poids :</td>
-      <td style="padding: 8px 0; text-align: right; font-weight: 600; color: #2c3e50; font-size: 14px;">
-        ${updatedShipment.weightKg} Kg
-      </td>
-    </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6c757d; font-size: 14px;">Poids :</td>
+          <td style="padding: 8px 0; text-align: right; font-weight: 600; color: #2c3e50; font-size: 14px;">
+            ${updatedShipment.weightKg} Kg
+          </td>
+        </tr>
       </table>
     </div>
     
@@ -130,7 +159,7 @@ export async function POST(req: NextRequest) {
     ` : ""}
     
     <p style="margin: 20px 0 0 0; color: #6c757d; font-size: 14px;">
-      Votre colis est actuellement en notre possession et sera acheminé vers le Canada dans les meilleurs délais.
+      Votre colis est actuellement en notre possession et sera acheminé vers le ${destinationText} dans les meilleurs délais.
     </p>
   </div>
 
@@ -139,7 +168,7 @@ export async function POST(req: NextRequest) {
     <p style="margin: 0 0 10px 0; color: #6c757d; font-size: 13px;">
       Cordialement,<br/>
       <strong style="color: #8B0000;">L'équipe NIMAPLEX</strong><br/>
-      <span style="font-size: 12px;">Niger → Canada</span>
+      <span style="font-size: 12px;">${routeDisplay}</span>
     </p>
     
     <p style="margin: 15px 0 0 0; font-size: 11px; color: #adb5bd;">
@@ -153,7 +182,7 @@ export async function POST(req: NextRequest) {
             try {
                 await sendEmailSafe({ from: FROM, to: updatedShipment.receiverEmail, subject, html });
             } catch (e) {
-                console.warn("[NE new-shipment] email send failed:", e);
+                console.warn(`[${direction} new-shipment] email send failed:`, e);
             }
         }
 
