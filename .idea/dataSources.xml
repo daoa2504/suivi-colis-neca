@@ -5,7 +5,7 @@
       <driver-ref>postgresql</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>org.postgresql.Driver</jdbc-driver>
-      <jdbc-url>jdbc:postgresql://yamanote.proxy.rlwy.net:35139/railway</jdbc-url>
+      <jdbc-url>jdbc:postgresql://nozomi.proxy.rlwy.net:11329/railway</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
     <data-source source="LOCAL" name="suivi_colis_neca@localhost" uuid="c45370f1-2697-46bb-8cf6-132e567d0133">

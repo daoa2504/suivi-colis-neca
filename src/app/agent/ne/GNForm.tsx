@@ -459,7 +459,7 @@ export default function GNForm() {
                         required
                         type="number"
                         step="0.5"
-                        min="0.1"
+                        min="1"
                         placeholder="ex: 2.5"
                         className="input border p-2 w-full rounded"
                     />
