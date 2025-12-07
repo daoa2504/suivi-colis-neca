@@ -9,10 +9,7 @@ import { sendEmailSafe, FROM } from "@/lib/email";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function canEdit(role?: string | null) {
-    return role === "ADMIN" || role === "AGENT_NE";
-}
-
+// Utils
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
@@ -31,67 +28,104 @@ async function sendWithRetry(args: Parameters<typeof sendEmailSafe>[0], max = 3)
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id: idStr } = await params;
     const id = Number(idStr);
-
     if (!Number.isInteger(id)) {
         return NextResponse.json({ ok: false, error: "Bad id" }, { status: 400 });
     }
 
+    // ✅ SESSION
     const session = await getServerSession(authOptions);
-    if (!session || !canEdit(session.user?.role)) {
+
+    if (!session) {
         return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await req.json();
+    const role = session.user?.role as "ADMIN" | "AGENT_CA" | "AGENT_NE" | undefined;
 
+    // ✅ COLIS AVANT MODIFICATION
     const before = await prisma.shipment.findUnique({
         where: { id },
         select: {
-            id: true, trackingId: true, receiverName: true, receiverEmail: true,
-            receiverPhone: true, weightKg: true, receiverAddress: true,
-            receiverCity: true, receiverPoBox: true, notes: true,
+            id: true,
+            trackingId: true,
+            receiverName: true,
+            receiverEmail: true,
+            receiverPhone: true,
+            weightKg: true,
+            receiverAddress: true,
+            receiverCity: true,
+            receiverPoBox: true,
+            notes: true,
+            originCountry: true, // ✅ OBLIGATOIRE POUR LES PERMISSIONS
         },
     });
+
     if (!before) {
         return NextResponse.json({ ok: false, error: "Colis introuvable" }, { status: 404 });
     }
 
-    // whitelist
+    // ✅ ✅ GESTION DES PERMISSIONS (SÉCURITÉ FINALE)
+    if (role === "ADMIN") {
+        // toujours autorisé
+    }
+    else if (role === "AGENT_CA" && before.originCountry !== "CA") {
+        return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+    }
+    else if (role === "AGENT_NE" && before.originCountry !== "NE") {
+        return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+    }
+
+    // ✅ BODY
+    const body = await req.json();
+
+    // ✅ WHITELIST DES CHAMPS MODIFIABLES
     const data: any = {};
-    if ("receiverName"    in body) data.receiverName    = String(body.receiverName ?? "");
-    if ("receiverEmail"   in body) data.receiverEmail   = String(body.receiverEmail ?? "");
-    if ("receiverPhone"   in body) data.receiverPhone   = body.receiverPhone ? String(body.receiverPhone) : null;
-    if ("weightKg"        in body) data.weightKg        = body.weightKg !== "" && body.weightKg !== undefined ? Number(body.weightKg) : null;
+    if ("receiverName" in body) data.receiverName = String(body.receiverName ?? "");
+    if ("receiverEmail" in body) data.receiverEmail = String(body.receiverEmail ?? "");
+    if ("receiverPhone" in body) data.receiverPhone = body.receiverPhone ? String(body.receiverPhone) : null;
+    if ("weightKg" in body) data.weightKg = body.weightKg !== "" && body.weightKg !== undefined ? Number(body.weightKg) : null;
     if ("receiverAddress" in body) data.receiverAddress = body.receiverAddress ? String(body.receiverAddress) : null;
-    if ("receiverCity"    in body) data.receiverCity    = body.receiverCity ? String(body.receiverCity) : null;
-    if ("receiverPoBox"   in body) data.receiverPoBox   = body.receiverPoBox ? String(body.receiverPoBox) : null;
-    if ("notes"           in body) data.notes           = body.notes ? String(body.notes) : null;
+    if ("receiverCity" in body) data.receiverCity = body.receiverCity ? String(body.receiverCity) : null;
+    if ("receiverPoBox" in body) data.receiverPoBox = body.receiverPoBox ? String(body.receiverPoBox) : null;
+    if ("notes" in body) data.notes = body.notes ? String(body.notes) : null;
 
     if (Object.keys(data).length === 0) {
         return NextResponse.json({ ok: false, error: "Aucun champ modifiable reçu" }, { status: 400 });
     }
 
+    // ✅ UPDATE
     const updated = await prisma.shipment.update({
-        where: { id }, data,
+        where: { id },
+        data,
         select: {
-            id: true, trackingId: true, receiverName: true, receiverEmail: true,
-            receiverPhone: true, weightKg: true, receiverAddress: true,
-            receiverCity: true, receiverPoBox: true, notes: true,
+            id: true,
+            trackingId: true,
+            receiverName: true,
+            receiverEmail: true,
+            receiverPhone: true,
+            weightKg: true,
+            receiverAddress: true,
+            receiverCity: true,
+            receiverPoBox: true,
+            notes: true,
+            originCountry: true,
         },
     });
 
-    // revalidate
+    // ✅ REVALIDATION
     revalidatePath("/dashboard/shipments");
     revalidatePath(`/dashboard/shipments/${id}/edit`);
 
-    // ------------- EMAIL -------------
+    // ✅ EMAIL
     const BASE_URL =
-        process.env.NEXT_PUBLIC_BASE_URL || process.env.APP_URL || "https://nimaplex.com";
+        process.env.NEXT_PUBLIC_BASE_URL ||
+        process.env.APP_URL ||
+        "https://nimaplex.com";
 
     const FROM_FALLBACK = process.env.RESEND_TEST_FROM || "onboarding@resend.dev";
     const FROM_SAFE = FROM || FROM_FALLBACK;
 
     const to = (updated.receiverEmail || "").trim();
-    const emailTried = !!to && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to);
+    const emailTried = !!to && isValidEmail(to);
     let emailResp: { ok?: boolean; id?: string; error?: string } | null = null;
 
     if (emailTried) {
@@ -99,6 +133,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
             updated.notes && String(updated.notes).trim().length > 0
                 ? `${String(updated.notes).trim()}\n`
                 : "";
+
         const subject = `Mise à jour • ${updated.trackingId}`;
 
         const text = `Bonjour ${updated.receiverName || ""},
@@ -107,13 +142,11 @@ Les informations de votre colis ont été mises à jour dans notre système.
 
 Numéro ID : ${updated.trackingId}
 
-Pour toute question, n'hésitez pas à nous contacter.
-
-— Équipe NE → CA`;
+— Équipe NIMAPLEX`;
 
         const html = `
 <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #2c3e50; line-height: 1.8; max-width: 600px; margin: 0 auto;">
-  
+
   <!-- En-tête avec logo -->
   <table role="presentation" style="border-collapse: collapse; border-spacing: 0; margin-bottom: 30px; width: 100%;">
     <tr>
@@ -121,7 +154,7 @@ Pour toute question, n'hésitez pas à nous contacter.
         <img src="https://nimaplex.com/img.png" alt="NIMAPLEX" width="60" height="60" style="display: block; border-radius: 8px;" />
       </td>
       <td style="padding-left: 12px; line-height: 1.3;">
-        <div style="font-weight: 700; color: #8B0000; font-size: 18px; letter-spacing: 0.5px;">NIMAPLEX</div>
+        <div style="font-weight: 700; color: #8B0000; font-size: 18px; letter-spacing: 0.5px;">MUGRALEX</div>
         <div style="font-size: 13px; color: #6c757d;">Plus qu'une solution, un service d'excellence global</div>
       </td>
     </tr>
@@ -132,14 +165,16 @@ Pour toute question, n'hésitez pas à nous contacter.
     <h2 style="color: #8B0000; margin: 0 0 20px 0; font-size: 20px; font-weight: 600;">
       Mise à jour de votre colis
     </h2>
-    
-    <p style="margin: 0 0 15px 0;">Bonjour <strong>${updated.receiverName || ""}</strong>,</p>
-    
-    <p style="margin: 0 0 20px 0;">
-      Les informations de votre colis ont été mises à jour dans notre système.
+
+    <p style="margin: 0 0 15px 0;">
+      Bonjour <strong>${updated.receiverName || ""}</strong>,
     </p>
-    
-    <!-- Encadré du numéro de suivi -->
+
+    <p style="margin: 0 0 20px 0; text-align: justify; text-justify: inter-word;">
+      Les informations de votre colis ont été mises à jour avec succès dans notre système.
+    </p>
+
+    <!-- Encadré du colis -->
     <div style="background-color: #ffffff; padding: 20px; border-radius: 6px; margin: 20px 0;">
       <table style="width: 100%; border-collapse: collapse;">
         <tr>
@@ -147,24 +182,29 @@ Pour toute question, n'hésitez pas à nous contacter.
           <td style="padding: 8px 0; text-align: right; font-weight: 600; color: #2c3e50; font-size: 14px;">
             ${updated.trackingId}
           </td>
-          <tr>
+        </tr>
+        <tr>
           <td style="padding: 8px 0; color: #6c757d; font-size: 14px;">Poids :</td>
           <td style="padding: 8px 0; text-align: right; font-weight: 600; color: #2c3e50; font-size: 14px;">
-            ${updated.weightKg} Kg
+            ${updated.weightKg ?? "—"} Kg
           </td>
-          </tr>
         </tr>
       </table>
     </div>
-       ${notes ? `
+
+    ${
+            notes
+                ? `
     <div style="background-color: #fff3cd; border-left: 3px solid #ffc107; padding: 12px 15px; border-radius: 4px; margin: 20px 0;">
       <p style="margin: 0; color: #856404; font-size: 14px;">
         <strong>Note :</strong> ${notes}
       </p>
     </div>
-    ` : ""}
-    
-    <p style="margin: 20px 0 0 0; color: #6c757d; font-size: 14px;">
+    `
+                : ""
+        }
+
+    <p style="margin: 20px 0 0 0; color: #6c757d; font-size: 14px; text-align: justify; text-justify: inter-word;">
       Pour toute question concernant votre colis, n'hésitez pas à nous contacter.
     </p>
   </div>
@@ -175,26 +215,25 @@ Pour toute question, n'hésitez pas à nous contacter.
       <strong style="color: #8B0000;">L'équipe NIMAPLEX</strong><br/>
       <span style="font-size: 12px;">Niger → Canada</span>
     </p>
-    
+
     <p style="margin: 15px 0 0 0; font-size: 11px; color: #adb5bd;">
       Cet email est envoyé automatiquement, merci de ne pas y répondre directement.<br/>
       Pour toute question, veuillez contacter notre service client.
     </p>
   </div>
-  
+
 </div>
 `.trim();
 
-        const resp = await sendWithRetry({ from: FROM_SAFE, to, subject, text, html }, 3);
-        emailResp = { ok: resp.ok, id: resp.id, error: resp.error };
-        if (!resp.ok) {
-            console.warn("[email:update] provider refused:", resp.error);
-        }
-    } else {
-        console.warn("[email:update] destinataire vide/invalide:", to);
-    }
-    // ------------- /EMAIL -------------
 
+        const resp = await sendWithRetry(
+            { from: FROM_SAFE, to, subject, text, html },
+            3
+        );
+        emailResp = { ok: resp.ok, id: resp.id, error: resp.error };
+    }
+
+    // ✅ RÉPONSE FINALE
     return NextResponse.json({
         ok: true,
         shipment: updated,

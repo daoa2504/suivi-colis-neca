@@ -326,7 +326,7 @@ export default async function ShipmentsPage({
                             <td className="p-3 space-x-2">
                                 {canEdit(s) && (
                                     <Link
-                                        href={`/dashboard/shipments/${s.id}`}
+                                        href={`/dashboard/shipments/${s.id}/edit`}
                                         className="text-blue-600 hover:underline text-xs"
                                     >
                                         Modifier

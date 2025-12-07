@@ -14,6 +14,40 @@ const toFloatOrNull = (v: unknown) => {
     return Number.isFinite(n) ? n : null;
 };
 
+// 📍 Fonction déplacée AVANT le POST handler
+async function getNextTrackingNumber(prefix: "NECA" | "CANE") {
+    const lastShipment = await prisma.shipment.findFirst({
+        where: {
+            trackingId: {
+                startsWith: prefix
+            }
+        },
+        orderBy: {
+            trackingId: 'desc'
+        }
+    });
+
+    if (!lastShipment || !lastShipment.trackingId) {
+        return 1;
+    }
+
+    const parts = lastShipment.trackingId.split('-');
+
+    if (parts.length < 2) {
+        console.warn("⚠️ Format trackingId invalide, on recommence à 1");
+        return 1;
+    }
+
+    const lastNumber = parseInt(parts[1], 10);
+
+    if (isNaN(lastNumber)) {
+        console.warn("⚠️ Impossible de parser le numéro, on recommence à 1");
+        return 1;
+    }
+
+    return lastNumber + 1;
+}
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -31,16 +65,13 @@ export async function POST(req: NextRequest) {
         const body = await req.json().catch(() => ({} as any));
         const convoyDate = body.convoyDate ? new Date(body.convoyDate) : new Date();
 
-        // Déterminer la direction depuis le body (par défaut NE_TO_CA)
         const direction: Direction = body.direction === "CA_TO_NE" ? "CA_TO_NE" : "NE_TO_CA";
 
-        // Déterminer les pays d'origine et de destination (codes courts)
         const isNeToCA = direction === "NE_TO_CA";
         const originCountry = isNeToCA ? "NE" : "CA";
         const destinationCountry = isNeToCA ? "CA" : "NE";
         const routeDisplay = isNeToCA ? "Niger → Canada" : "Canada → Niger";
 
-        // 🔍 LOG DE DEBUG
         console.log("📦 Création de colis:");
         console.log("  - Direction:", direction);
         console.log("  - Origin:", originCountry);
@@ -56,10 +87,17 @@ export async function POST(req: NextRequest) {
 
         const weightKg = toFloatOrNull(body.weightKg);
 
-        // 2) Créer le shipment (l'id s'auto-incrémente)
+        // 2) 🎯 GÉNÉRER LE TRACKING ID AVANT DE CRÉER LE SHIPMENT
+        const trackingPrefix = isNeToCA ? "NECA" : "CANE";
+        const nextNumber = await getNextTrackingNumber(trackingPrefix);
+        const trackingId = `${trackingPrefix}-${nextNumber.toString().padStart(4, "0")}`;
+
+        console.log("🎯 TrackingId généré:", trackingId);
+
+        // 3) Créer le shipment DIRECTEMENT avec le bon trackingId
         const shipment = await prisma.shipment.create({
             data: {
-                trackingId: "", // Temporaire, on va le mettre à jour
+                trackingId, // ✅ TrackingId correct dès la création
                 receiverName: body.receiverName?.trim() || "",
                 receiverEmail: body.receiverEmail?.trim() || "",
                 receiverPhone: body.receiverPhone || null,
@@ -72,39 +110,27 @@ export async function POST(req: NextRequest) {
                 originCountry,
                 destinationCountry,
                 status: isNeToCA ? "RECEIVED_IN_NIGER" : "RECEIVED_IN_CANADA",
-
             },
         });
 
-        // 🔍 LOG DE DEBUG
         console.log("✅ Colis créé:", {
             id: shipment.id,
+            trackingId: shipment.trackingId,
             originCountry: shipment.originCountry,
             destinationCountry: shipment.destinationCountry,
         });
 
-        // 3) Mettre à jour le trackingId avec l'ID auto-incrémenté
-        // Format: NECA-XXXX pour NE→CA ou CANE-XXXX pour CA→NE
-        const trackingPrefix = isNeToCA ? "NECA" : "CANE";
-        const trackingId = `${trackingPrefix}-${shipment.id.toString().padStart(4, "0")}`;
-
-        const updatedShipment = await prisma.shipment.update({
-            where: { id: shipment.id },
-            data: { trackingId },
-        });
-
         // 4) Email (optionnel)
-        if (updatedShipment.receiverEmail) {
+        if (shipment.receiverEmail) {
             const notes =
-                updatedShipment.notes && String(updatedShipment.notes).trim().length > 0
-                    ? `${String(updatedShipment.notes).trim()}\n`
+                shipment.notes && String(shipment.notes).trim().length > 0
+                    ? `${String(shipment.notes).trim()}\n`
                     : "";
 
-            // Adapter le contenu selon la direction
             const receptionCountry = isNeToCA ? "Niger" : "Canada";
             const destinationText = isNeToCA ? "Canada" : "Niger";
 
-            const subject = `Réception de colis au ${receptionCountry} — N° ID: ${updatedShipment.trackingId}`;
+            const subject = `Réception de colis au ${receptionCountry} — N° ID: ${shipment.trackingId}`;
             const html = `
 <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #2c3e50; line-height: 1.8; max-width: 600px; margin: 0 auto;">
   
@@ -127,7 +153,7 @@ export async function POST(req: NextRequest) {
       Confirmation de réception de votre colis
     </h2>
     
-    <p style="margin: 0 0 15px 0;">Bonjour <strong>${updatedShipment.receiverName}</strong>,</p>
+    <p style="margin: 0 0 15px 0;">Bonjour <strong>${shipment.receiverName}</strong>,</p>
     
     <p style="margin: 0 0 15px 0;">
       Nous avons le plaisir de vous informer que votre colis a été réceptionné avec succès au <strong>${receptionCountry}</strong>.
@@ -138,13 +164,13 @@ export async function POST(req: NextRequest) {
         <tr>
           <td style="padding: 8px 0; color: #6c757d; font-size: 14px;">Numéro ID :</td>
           <td style="padding: 8px 0; text-align: right; font-weight: 600; color: #2c3e50; font-size: 14px;">
-            ${updatedShipment.trackingId}
+            ${shipment.trackingId}
           </td>
         </tr>
         <tr>
           <td style="padding: 8px 0; color: #6c757d; font-size: 14px;">Poids :</td>
           <td style="padding: 8px 0; text-align: right; font-weight: 600; color: #2c3e50; font-size: 14px;">
-            ${updatedShipment.weightKg} Kg
+            ${shipment.weightKg} Kg
           </td>
         </tr>
       </table>
@@ -180,7 +206,7 @@ export async function POST(req: NextRequest) {
 </div>
 `;
             try {
-                await sendEmailSafe({ from: FROM, to: updatedShipment.receiverEmail, subject, html });
+                await sendEmailSafe({ from: FROM, to: shipment.receiverEmail, subject, html });
             } catch (e) {
                 console.warn(`[${direction} new-shipment] email send failed:`, e);
             }
@@ -188,8 +214,8 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({
             ok: true,
-            id: updatedShipment.id,
-            trackingId: updatedShipment.trackingId,
+            id: shipment.id,
+            trackingId: shipment.trackingId,
         });
     } catch (error: any) {
         console.error("POST /api/shipments error:", error);
