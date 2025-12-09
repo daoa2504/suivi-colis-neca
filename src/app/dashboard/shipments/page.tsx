@@ -161,6 +161,7 @@ export default async function ShipmentsPage({
                 createdAt: true,
                 originCountry: true,
                 thankYouEmailSent: true,
+                notes: true,
                 convoy: {
                     select: {
                         date: true,
@@ -285,6 +286,7 @@ export default async function ShipmentsPage({
                         <th className="text-left p-3">Poids</th>
                         <th className="text-left p-3">Ville</th>
                         <th className="text-left p-3">Créé le</th>
+                        <th className="text-left p-3">Note</th>
                         <th className="text-left p-3">Actions</th>
                     </tr>
                     </thead>
@@ -304,6 +306,7 @@ export default async function ShipmentsPage({
                             <td className="p-3">{s.weightKg ?? "—"}</td>
                             <td className="p-3">{s.receiverCity ?? "—"}</td>
                             <td className="p-3 text-xs">{fmtDate(s.createdAt)}</td>
+                            <td className="p-3">{s.notes ?? "—"}</td>
                             <td className="p-3 space-x-2">
                                 {canEdit(s) && (
                                     <Link
