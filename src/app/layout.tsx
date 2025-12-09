@@ -7,7 +7,7 @@ import Providers from "@/components/Providers"; // ✅
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-    title: "Suivi-Colis Niger → Canada",
+    title: "Suivi-Colis NIMAPLEX",
     icons: {
         icon: "/img.png", // ou /logo.png
     },
