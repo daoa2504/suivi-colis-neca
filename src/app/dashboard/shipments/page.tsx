@@ -236,57 +236,54 @@ export default async function ShipmentsPage({
 
             {/* Filtres */}
             <div className="mb-6 space-y-4">
-                {/* Onglets de direction */}
-                <div className="flex gap-2 border-b">
+                {/* Onglets de direction avec drapeaux locaux */}
+                <div className="flex gap-2 bg-gray-100 p-1.5 rounded-lg">
                     <Link
                         href="/dashboard/shipments?direction=NE_TO_CA"
-                        className={`px-4 py-2 ${
-                            direction === "NE_TO_CA"
-                                ? "border-b-2 border-blue-600 font-semibold text-blue-600"
-                                : "text-gray-600 hover:text-gray-800"
-                        }`}
+                        className={`
+            flex-1 px-4 py-3 rounded-md font-medium transition-all duration-200
+            flex items-center justify-center gap-3
+            ${direction === "NE_TO_CA"
+                            ? "bg-white text-blue-600 shadow-sm ring-2 ring-blue-500 ring-offset-2 ring-offset-gray-100"
+                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                        }
+        `}
                     >
-                        Niger → Canada
+                        <img
+                            src="/flags/ne.svg"
+                            alt="NE"
+                            className="w-6 h-4 object-cover rounded-sm border border-gray-200"
+                        />
+                        <span>Niger → Canada</span>
+                        <img
+                            src="/flags/ca.svg"
+                            alt="CA"
+                            className="w-6 h-4 object-cover rounded-sm border border-gray-200"
+                        />
                     </Link>
                     <Link
                         href="/dashboard/shipments?direction=CA_TO_NE"
-                        className={`px-4 py-2 ${
-                            direction === "CA_TO_NE"
-                                ? "border-b-2 border-blue-600 font-semibold text-blue-600"
-                                : "text-gray-600 hover:text-gray-800"
-                        }`}
+                        className={`
+            flex-1 px-4 py-3 rounded-md font-medium transition-all duration-200
+            flex items-center justify-center gap-3
+            ${direction === "CA_TO_NE"
+                            ? "bg-white text-blue-600 shadow-sm ring-2 ring-blue-500 ring-offset-2 ring-offset-gray-100"
+                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                        }
+        `}
                     >
-                        Canada → Niger
-                    </Link>
-                </div>
-
-                {/* Recherche et filtre par convoi */}
-                <div className="flex gap-4">
-                    <form method="get" className="flex gap-2 flex-1">
-                        <input type="hidden" name="direction" value={direction} />
-                        {convoyId && <input type="hidden" name="convoyId" value={convoyId} />}
-                        <input
-                            type="text"
-                            name="q"
-                            defaultValue={q}
-                            placeholder="Rechercher (tracking, nom, email)..."
-                            className="flex-1 border rounded px-3 py-2"
+                        <img
+                            src="/flags/ca.svg"
+                            alt="CA"
+                            className="w-6 h-4 object-cover rounded-sm border border-gray-200"
                         />
-                        <button
-                            type="submit"
-                            className="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300"
-                        >
-                            Rechercher
-                        </button>
-                    </form>
-
-                    {/* Filtre par convoi */}
-                    <ConvoyFilter
-                        convoys={convoys}
-                        currentConvoyId={convoyId}
-                        direction={direction}
-                        searchQuery={q}
-                    />
+                        <span>Canada → Niger</span>
+                        <img
+                            src="/flags/ne.svg"
+                            alt="NE"
+                            className="w-6 h-4 object-cover rounded-sm border border-gray-200"
+                        />
+                    </Link>
                 </div>
             </div>
 

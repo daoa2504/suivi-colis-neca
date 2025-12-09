@@ -1,5 +1,3 @@
-// prisma/schema.prisma
-
 generator client {
   provider   = "prisma-client-js"
   engineType = "library"
@@ -8,6 +6,55 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id       String  @id @default(cuid())
+  username String  @unique
+  email    String? @unique
+  password String
+  role     Role    @default(AGENT_NE)
+}
+
+model Shipment {
+  trackingId         String          @unique
+  receiverName       String
+  receiverEmail      String
+  receiverPhone      String?
+  originCountry      String
+  receiverAddress    String?
+  receiverCity       String?
+  receiverPoBox      String?
+  destinationCountry String
+  weightKg           Float?
+  notes              String?
+  status             ShipmentStatus  @default(CREATED)
+  createdAt          DateTime        @default(now())
+  convoyId           String?
+  id                 Int             @id @default(autoincrement())
+  thankYouEmailSent  Boolean         @default(false)
+  convoy             Convoy?         @relation(fields: [convoyId], references: [id])
+  events             ShipmentEvent[]
+}
+
+model ShipmentEvent {
+  id          String    @id @default(cuid())
+  type        String
+  description String?
+  location    String?
+  occurredAt  DateTime? @default(now())
+  createdAt   DateTime  @default(now())
+  shipmentId  Int
+  shipment    Shipment  @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+}
+
+model Convoy {
+  id        String     @id @default(cuid())
+  date      DateTime
+  direction Direction  @default(NE_TO_CA)
+  shipments Shipment[]
+
+  @@unique([date, direction])
 }
 
 enum Role {
@@ -32,57 +79,4 @@ enum ShipmentStatus {
 enum Direction {
   NE_TO_CA
   CA_TO_NE
-}
-
-model User {
-  id       String @id @default(cuid())
-  email    String @unique
-  password String
-  role     Role   @default(AGENT_NE)
-}
-
-model Shipment {
-  id                 Int            @id @default(autoincrement())
-  trackingId         String         @unique
-  receiverName       String
-  receiverEmail      String
-  receiverPhone      String?
-  originCountry      String
-  receiverAddress    String? // NEW
-  receiverCity       String? // NEW
-  receiverPoBox      String?
-  destinationCountry String
-  weightKg           Float?
-  notes              String?
-  status             ShipmentStatus @default(CREATED)
-  createdAt          DateTime       @default(now())
-
-  convoyId          String?
-  convoy            Convoy? @relation(fields: [convoyId], references: [id])
-  thankYouEmailSent Boolean @default(false) // NOUVEAU CHAMP
-
-  events ShipmentEvent[]
-}
-
-model ShipmentEvent {
-  id          String    @id @default(cuid())
-  shipmentId  Int
-  shipment    Shipment  @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
-  type        String
-  description String?
-  location    String?
-  occurredAt  DateTime? @default(now())
-  createdAt   DateTime  @default(now())
-}
-
-// prisma/schema.prisma
-
-model Convoy {
-  id        String    @id @default(cuid())
-  date      DateTime
-  direction Direction @default(NE_TO_CA)
-
-  shipments Shipment[]
-
-  @@unique([date, direction]) // un convoi par jour et par sens
 }

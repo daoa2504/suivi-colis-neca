@@ -1,60 +1,90 @@
 // src/lib/auth.ts
-// Configuration NextAuth v4 (Credentials) + callbacks pour propager id/email/role
-
-import type { NextAuthOptions } from "next-auth";
+import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "./prisma";
 import bcrypt from "bcrypt";
 
 export const authOptions: NextAuthOptions = {
-    session: { strategy: "jwt" },
-    pages: {
-        signIn: "/login", // ✅ utilise ta page custom
-    },
     providers: [
         CredentialsProvider({
             name: "Credentials",
             credentials: {
-                email: { label: "Email", type: "text" },
-                password: { label: "Mot de passe", type: "password" },
+                username: { label: "Username", type: "text" },
+                password: { label: "Password", type: "password" },
             },
             async authorize(credentials) {
-                if (!credentials?.email || !credentials.password) return null;
+                console.log("🔐 Tentative de connexion avec:", credentials?.username);
 
-                const user = await prisma.user.findUnique({
-                    where: { email: credentials.email },
-                });
-                if (!user) return null;
+                // ✅ Vérification avec typage correct
+                if (!credentials || !credentials.username || !credentials.password) {
+                    console.log("❌ Identifiants manquants");
+                    return null; // ✅ Retourner null au lieu de throw
+                }
 
-                const ok = await bcrypt.compare(credentials.password, user.password);
-                if (!ok) return null;
+                try {
+                    // Chercher par username
+                    const user = await prisma.user.findUnique({
+                        where: { username: credentials.username },
+                    });
 
-                // Objet User attendu par NextAuth (pas de password)
-                return {
-                    id: user.id,
-                    email: user.email,
-                    role: user.role,
-                } as any;
+                    console.log("👤 Utilisateur trouvé:", user ? `${user.username} (${user.role})` : "NULL");
+
+                    if (!user) {
+                        console.log("❌ Utilisateur introuvable");
+                        return null;
+                    }
+
+                    const isValid = await bcrypt.compare(
+                        credentials.password,
+                        user.password
+                    );
+
+                    console.log("🔑 Mot de passe valide:", isValid);
+
+                    if (!isValid) {
+                        console.log("❌ Mot de passe incorrect");
+                        return null;
+                    }
+
+                    console.log("✅ Connexion réussie");
+
+                    // ✅ Retourner l'objet user correctement typé
+                    return {
+                        id: user.id,
+                        username: user.username,
+                        email: user.email || "",
+                        role: user.role,
+                    };
+                } catch (error) {
+                    console.error("❌ Erreur lors de l'authentification:", error);
+                    return null;
+                }
             },
         }),
     ],
-
     callbacks: {
         async jwt({ token, user }) {
             if (user) {
-                token.id = (user as any).id;
-                token.email = (user as any).email ?? token.email;
+                token.id = user.id;
                 token.role = (user as any).role;
+                token.username = (user as any).username;
             }
             return token;
         },
         async session({ session, token }) {
-            session.user = {
-                id: token.id as string,
-                email: token.email as string,
-                role: token.role as any,
-            };
+            if (session.user) {
+                (session.user as any).id = token.id;
+                (session.user as any).role = token.role;
+                (session.user as any).username = token.username;
+            }
             return session;
         },
     },
+    pages: {
+        signIn: "/login",
+    },
+    session: {
+        strategy: "jwt",
+    },
+    secret: process.env.NEXTAUTH_SECRET, // ✅ Important !
 };

@@ -18,7 +18,21 @@ export const createShipmentByGN = z.object({
     convoyDate: z.union([z.string(), z.date()]), // ex: "2025-09-06" ou Date
 });
 
+// src/lib/validators.ts
 
+// ... vos autres schémas ...
+
+// Schéma de connexion avec username
+export const loginSchema = z.object({
+    username: z.string()
+        .min(3, "Le nom d'utilisateur doit contenir au moins 3 caractères")
+        .max(20, "Le nom d'utilisateur ne peut pas dépasser 20 caractères")
+        .regex(
+            /^[a-zA-Z0-9_]+$/,
+            "Le nom d'utilisateur ne peut contenir que des lettres, chiffres et underscores"
+        ),
+    password: z.string().min(6, "Le mot de passe doit contenir au moins 6 caractères"),
+});
 
 
 

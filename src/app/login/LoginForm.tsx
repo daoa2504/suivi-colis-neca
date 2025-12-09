@@ -1,49 +1,115 @@
+// src/app/login/page.tsx
 "use client";
 
-import { useState } from "react";
 import { signIn } from "next-auth/react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
-export default function LoginForm() {
+export default function LoginPage() {
+    const [username, setUsername] = useState("");
+    const [password, setPassword] = useState("");
+    const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
-    const [err, setErr] = useState<string | null>(null);
+    const router = useRouter();
 
-    async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setError("");
         setLoading(true);
-        setErr(null);
 
-        const form = e.currentTarget as any;
-        const email = form.email.value;
-        const password = form.password.value;
+        try {
+            const result = await signIn("credentials", {
+                username,
+                password,
+                redirect: false,
+            });
 
-        const res = await signIn("credentials", {
-            redirect: true,
-            callbackUrl: "/", // ← la home te redirige selon le rôle
-            email,
-            password,
-        });
+            if (result?.error) {
+                setError("Nom d'utilisateur ou mot de passe incorrect");
+            } else {
+                // ✅ Récupérer la session pour obtenir le rôle
+                const response = await fetch("/api/auth/session");
+                const session = await response.json();
 
-        // Si redirect:true, NextAuth gère la redirection.
-        // En cas d’erreur sans redirection, tu peux lire res?.error ici.
-        setLoading(false);
-    }
+                console.log("📋 Session:", session); // Debug
+
+                const role = session?.user?.role;
+
+                // ✅ Redirection selon le rôle
+                if (role === "AGENT_NE") {
+                    router.push("/agent/ne");
+                } else if (role === "AGENT_CA") {
+                    router.push("/agent/ca");
+                } else if (role === "ADMIN") {
+                    router.push("/dashboard");
+                } else {
+                    // Par défaut
+                    router.push("/dashboard");
+                }
+
+                router.refresh(); // Force le rafraîchissement
+            }
+        } catch (err) {
+            console.error("Erreur de connexion:", err);
+            setError("Une erreur est survenue");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
-        <form onSubmit={onSubmit} className="w-full max-w-sm space-y-3 bg-white p-6 rounded-xl shadow ring-1 ring-neutral-200">
-            <h1 className="text-xl font-semibold mb-2">Connexion</h1>
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
+                <h2 className="text-2xl font-bold text-center mb-6">Connexion</h2>
 
-            <label className="block text-sm">Email</label>
-            <input name="email" type="email" required className="w-full border p-2 rounded" placeholder="email@example.com" />
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium mb-2">
+                            Nom d'utilisateur
+                        </label>
+                        <input
+                            type="text"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            placeholder="Mananou"
+                            className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            required
+                        />
+                    </div>
 
-            <label className="block text-sm">Mot de passe</label>
-            <input name="password" type="password" required className="w-full border p-2 rounded" placeholder="••••••••" />
+                    <div>
+                        <label className="block text-sm font-medium mb-2">
+                            Mot de passe
+                        </label>
+                        <input
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            required
+                        />
+                    </div>
 
-            <button disabled={loading} className="w-full bg-black text-white px-4 py-2 rounded">
-                {loading ? "Connexion..." : "Se connecter"}
-            </button>
+                    {error && (
+                        <div className="bg-red-50 text-red-600 p-3 rounded text-sm">
+                            {error}
+                        </div>
+                    )}
 
-            {err && <p className="text-sm text-red-600">{err}</p>}
-            <p className="text-xs text-neutral-500">Utilisez les identifiants de votre compte (admin / agent).</p>
-        </form>
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full bg-black text-white py-2 rounded hover:bg-gray-800 disabled:opacity-50 transition-colors"
+                    >
+                        {loading ? "Connexion..." : "Se connecter"}
+                    </button>
+                </form>
+
+                <p className="text-center text-sm text-gray-600 mt-4">
+                    Utilisez les identifiants de votre compte (admin / agent).
+                </p>
+            </div>
+        </div>
     );
 }
