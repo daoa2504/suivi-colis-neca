@@ -273,23 +273,24 @@ export default async function ShipmentsPage({
             </div>
 
             {/* Tableau */}
-            <div className="overflow-x-auto bg-white rounded shadow">
+            <div className="bg-white rounded shadow">
                 <table className="w-full text-sm">
                     <thead className="bg-gray-100 border-b">
                     <tr>
                         <th className="text-left p-3">Tracking</th>
                         <th className="text-left p-3">Convoi</th>
-                        <th className="text-left p-3">Destinataire</th>
-                        <th className="text-left p-3">Email</th>
+                        <th className="text-left p-3 max-w-[220px]">Destinataire</th>
+                        <th className="text-left p-3 max-w-[260px]">Email</th>
                         <th className="text-left p-3">Tél</th>
                         <th className="text-left p-3">Statut</th>
                         <th className="text-left p-3">Poids</th>
                         <th className="text-left p-3">Ville</th>
                         <th className="text-left p-3">Créé le</th>
-                        <th className="text-left p-3">Note</th>
+                        <th className="text-left p-3 max-w-[160px]">Note</th>
                         <th className="text-left p-3">Actions</th>
                     </tr>
                     </thead>
+
                     <tbody>
                     {items.map((s) => (
                         <tr key={s.id} className="border-b hover:bg-gray-50">
@@ -306,7 +307,9 @@ export default async function ShipmentsPage({
                             <td className="p-3">{s.weightKg ?? "—"}</td>
                             <td className="p-3">{s.receiverCity ?? "—"}</td>
                             <td className="p-3 text-xs">{fmtDate(s.createdAt)}</td>
-                            <td className="p-3">{s.notes ?? "—"}</td>
+                            <td className="p-3 max-w-[160px] truncate" title={s.notes ?? ""}>
+                                {s.notes ?? "—"}
+                            </td>
                             <td className="p-3 space-x-2">
                                 {canEdit(s) && (
                                     <Link

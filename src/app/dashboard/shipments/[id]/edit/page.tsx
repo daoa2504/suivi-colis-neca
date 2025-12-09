@@ -19,7 +19,7 @@ export default async function EditShipmentPage({
 
     const session = await getServerSession(authOptions);
     const role = session?.user?.role;
-    if (!session || !["ADMIN", "AGENT_NE"].includes(role ?? "")) {
+    if (!session || !["ADMIN", "AGENT_NE", "AGENT_CA"].includes(role ?? "")) {
         redirect("/login");
     }
 
