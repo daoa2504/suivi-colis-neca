@@ -10,10 +10,10 @@ datasource db {
 
 model User {
   id       String  @id @default(cuid())
-  username String  @unique
   email    String? @unique
   password String
   role     Role    @default(AGENT_NE)
+  username String  @unique
 }
 
 model Shipment {

@@ -215,23 +215,7 @@ export default async function ShipmentsPage({
                         {direction === "NE_TO_CA" ? "NE → CA" : "CA → NE"}
                     </span>
                 </h1>
-                {/* Bouton d'ajout selon le rôle et la direction */}
-                {role === "AGENT_NE" && direction === "NE_TO_CA" && (
-                    <Link
-                        href="/dashboard/shipments/new?direction=NE_TO_CA"
-                        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                    >
-                        Ajouter colis (NE)
-                    </Link>
-                )}
-                {role === "AGENT_CA" && direction === "CA_TO_NE" && (
-                    <Link
-                        href="/dashboard/shipments/new?direction=CA_TO_NE"
-                        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                    >
-                        Ajouter colis (CA)
-                    </Link>
-                )}
+
             </div>
 
             {/* Filtres */}
