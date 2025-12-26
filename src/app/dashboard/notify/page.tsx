@@ -1,81 +1,185 @@
-// src/app/dashboard/notify/page.tsx
-import NotifyByConvoyForm from "./NotifyByConvoyForm";
-import Link from "next/link";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
-import { redirect } from "next/navigation";
+// src/app/(dashboard)/notify/page.tsx
+"use client";
 
-type SearchParams = {
-    direction?: string;
-};
+import { useState } from "react";
+import EmailPreview from "@/components/EmailPreview";
+import type { ConvoyStatus, Direction } from "@/lib/emailTemplates";
 
-// ✅ IMPORTANT : export default
-export default async function Page({
-                                       searchParams,
-                                   }: {
-    searchParams: Promise<SearchParams>;
-}) {
-    const session = await getServerSession(authOptions);
-    const role = session?.user?.role as "ADMIN" | "AGENT_NE" | "AGENT_CA" | undefined;
+export default function NotifyPage() {
+    const [showPreview, setShowPreview] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
+    const [formData, setFormData] = useState({
+        convoyDate: "",
+        template: "EN_ROUTE" as ConvoyStatus,
+        customMessage: "",
+        direction: "NE_TO_CA" as Direction,
+    });
 
-    if (!session || !["ADMIN", "AGENT_CA", "AGENT_NE"].includes(role ?? "")) {
-        redirect("/login");
-    }
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
 
-    const sp = await searchParams;
-    let direction = (sp.direction === "CA_TO_NE" ? "CA_TO_NE" : "NE_TO_CA") as "NE_TO_CA" | "CA_TO_NE";
+        setIsLoading(true);
 
-    if (role === "AGENT_NE") {
-        direction = "CA_TO_NE";
-    }
+        try {
+            const response = await fetch('/api/convoys/notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    convoyDate: formData.convoyDate,
+                    template: formData.template,
+                    customMessage: formData.customMessage,
+                    direction: formData.direction,
+                }),
+            });
 
-    const directionLabel = direction === "NE_TO_CA" ? "Niger → Canada" : "Canada → Niger";
-    const canSwitchDirection = role === "ADMIN" || role === "AGENT_CA";
+            const data = await response.json();
+
+            if (data.ok) {
+                alert(`✅ ${data.sent} email(s) envoyé(s) avec succès !`);
+                // Optionnel : réinitialiser le formulaire
+                // setFormData({ ...formData, convoyDate: "", customMessage: "" });
+            } else {
+                alert(`❌ Erreur : ${data.error}`);
+            }
+        } catch (error) {
+            console.error('Erreur lors de l\'envoi:', error);
+            alert('❌ Erreur lors de l\'envoi des notifications');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
-        <main className="min-h-screen bg-gray-50 py-8">
-            <div className="max-w-4xl mx-auto px-6">
-                <div className="bg-white rounded-xl shadow-lg p-8">
-                    <h1 className="text-3xl font-bold text-gray-900 mb-6">
-                        Notifier un convoi — {directionLabel}
+        <div className="min-h-screen bg-gray-50 p-6">
+            <div className="max-w-7xl mx-auto">
+                {/* En-tête */}
+                <div className="mb-6">
+                    <h1 className="text-3xl font-bold text-gray-900">
+                        Notifier un convoi — Niger → Canada
                     </h1>
+                </div>
 
-                    {canSwitchDirection && (
-                        <div className="flex gap-2 border-b mb-6">
-                            <Link
-                                href="/dashboard/notify?direction=NE_TO_CA"
-                                className={`px-4 py-2 ${
-                                    direction === "NE_TO_CA"
-                                        ? "border-b-2 border-blue-600 font-semibold text-blue-600"
-                                        : "text-gray-600 hover:text-gray-800"
-                                }`}
-                            >
-                                Niger → Canada
-                            </Link>
-                            <Link
-                                href="/dashboard/notify?direction=CA_TO_NE"
-                                className={`px-4 py-2 ${
-                                    direction === "CA_TO_NE"
-                                        ? "border-b-2 border-blue-600 font-semibold text-blue-600"
-                                        : "text-gray-600 hover:text-gray-800"
-                                }`}
-                            >
-                                Canada → Niger
-                            </Link>
+                {/* Layout à deux colonnes */}
+                <div className="flex gap-6">
+                    {/* Colonne de gauche - Formulaire */}
+                    <div className="flex-1">
+                        <div className="bg-white rounded-lg shadow p-6">
+                            {/* Onglets Direction */}
+                            <div className="flex gap-2 mb-6 border-b">
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, direction: "NE_TO_CA" })}
+                                    className={`px-4 py-2 font-medium transition-colors ${
+                                        formData.direction === "NE_TO_CA"
+                                            ? "text-blue-600 border-b-2 border-blue-600"
+                                            : "text-gray-600 hover:text-gray-900"
+                                    }`}
+                                >
+                                    Niger → Canada
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, direction: "CA_TO_NE" })}
+                                    className={`px-4 py-2 font-medium transition-colors ${
+                                        formData.direction === "CA_TO_NE"
+                                            ? "text-blue-600 border-b-2 border-blue-600"
+                                            : "text-gray-600 hover:text-gray-900"
+                                    }`}
+                                >
+                                    Canada → Niger
+                                </button>
+                            </div>
+
+                            <form onSubmit={handleSubmit} className="space-y-5">
+                                {/* Date du convoi */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Date du convoi <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="date"
+                                        required
+                                        value={formData.convoyDate}
+                                        onChange={(e) =>
+                                            setFormData({ ...formData, convoyDate: e.target.value })
+                                        }
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    />
+                                </div>
+
+                                {/* Action / Statut */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Action / Statut <span className="text-red-500">*</span>
+                                    </label>
+                                    <select
+                                        required
+                                        value={formData.template}
+                                        onChange={(e) =>
+                                            setFormData({ ...formData, template: e.target.value as ConvoyStatus })
+                                        }
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    >
+                                        <option value="EN_ROUTE">En route</option>
+                                        <option value="IN_CUSTOMS">À la douane</option>
+                                        <option value="OUT_FOR_DELIVERY">Prêt pour récupération</option>
+                                    </select>
+                                </div>
+
+                                {/* Message personnalisé */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Message (optionnel)
+                                    </label>
+                                    <textarea
+                                        rows={4}
+                                        placeholder="Ex: Détails utiles qui seront ajoutés dans l'email"
+                                        value={formData.customMessage}
+                                        onChange={(e) =>
+                                            setFormData({ ...formData, customMessage: e.target.value })
+                                        }
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                    />
+                                </div>
+
+                                {/* Boutons d'action */}
+                                <div className="flex gap-3 pt-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPreview(!showPreview)}
+                                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors flex items-center gap-2"
+                                    >
+                                        <span>{showPreview ? "👁️" : "👁️‍🗨️"}</span>
+                                        <span>{showPreview ? "Masquer aperçu" : "Voir aperçu"}</span>
+                                    </button>
+
+                                    <button
+                                        type="submit"
+                                        disabled={isLoading}
+                                        className="flex-1 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                    >
+                                        {isLoading ? "Envoi en cours..." : "Envoyer les notifications"}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    {/* Colonne de droite - Aperçu */}
+                    {showPreview && (
+                        <div className="flex-1">
+                            <div className="bg-white rounded-lg shadow p-6 sticky top-6 max-h-[calc(100vh-3rem)] overflow-hidden">
+                                <EmailPreview
+                                    template={formData.template}
+                                    direction={formData.direction}
+                                    convoyDate={formData.convoyDate}
+                                    customMessage={formData.customMessage}
+                                />
+                            </div>
                         </div>
                     )}
-
-                    {role === "AGENT_NE" && (
-                        <div className="bg-blue-50 border border-blue-200 rounded p-4 mb-6">
-                            <p className="text-sm text-blue-800">
-                                ℹ️ En tant qu'agent Niger, vous pouvez uniquement notifier les convois <strong>Canada → Niger</strong>.
-                            </p>
-                        </div>
-                    )}
-
-                    <NotifyByConvoyForm direction={direction} />
                 </div>
             </div>
-        </main>
+        </div>
     );
 }

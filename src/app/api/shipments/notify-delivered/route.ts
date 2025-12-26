@@ -118,7 +118,6 @@ export async function POST(req: NextRequest) {
         const trackingIds = customerShipments.map((s) => s.trackingId);
         const shipmentIds = customerShipments.map((s) => s.id);
         const name = shipment.receiverName;
-        const isPlural = trackingIds.length > 1;
 
         const FOOTER =
             direction === Direction.NE_TO_CA
@@ -126,16 +125,13 @@ export async function POST(req: NextRequest) {
                 : "— Équipe CA → NE";
 
         const colisListText = trackingIds.map((t) => `• ${t}`).join("\n");
+        const colisListHtml = trackingIds.map((t) => `• ${t}`).join("<br>");
 
         const txt = `Bonjour ${name},
 
-Nous confirmons que ${
-            isPlural ? "vos colis ont été récupérés" : "votre colis a été récupéré"
-        } avec succès. Merci de nous avoir fait confiance pour ${
-            isPlural ? "leur" : "son"
-        } acheminement. Nous espérons vous revoir très bientôt pour vos prochains envois !
+Nous confirmons que votre colis a été récupéré avec succès. Merci de nous avoir fait confiance pour son acheminement. Nous espérons vous revoir très bientôt pour vos prochains envois !
 
-${isPlural ? `Colis (${trackingIds.length})` : "Colis"} :
+Colis :
 ${colisListText}
 
 ${FOOTER}`;
@@ -162,23 +158,15 @@ ${FOOTER}`;
     <p style="margin: 0 0 15px 0;">Bonjour <strong>${name}</strong>,</p>
 
     <p style="margin: 0 0 20px 0;">
-      Nous confirmons que ${
-            isPlural ? "vos colis ont été récupérés" : "votre colis a été récupéré"
-        } avec succès. Merci de nous avoir fait confiance pour ${
-            isPlural ? "leur" : "son"
-        } acheminement. Nous espérons vous revoir très bientôt pour vos prochains envois !
+      Nous confirmons que votre colis a été récupéré avec succès. Merci de nous avoir fait confiance pour son acheminement. Nous espérons vous revoir très bientôt pour vos prochains envois !
     </p>
     
     <div style="background-color: #ffffff; padding: 20px; border-radius: 6px; margin: 20px 0;">
       <p style="margin: 0 0 12px 0; font-weight: 600; color: #2c3e50; font-size: 15px;">
-        ${
-            isPlural
-                ? `Vos ${trackingIds.length} colis récupérés`
-                : "Votre colis récupéré"
-        } :
+        Votre colis récupéré :
       </p>
       <div style="padding-left: 10px; color: #495057; font-size: 14px; line-height: 1.8;">
-        ${trackingIds.map((t) => `• ${t}`).join("<br>")}
+        ${colisListHtml}
       </div>
     </div>
     
@@ -198,9 +186,7 @@ ${FOOTER}`;
     <p style="margin: 0 0 10px 0; color: #6c757d; font-size: 13px;">
       Merci encore et à très bientôt,<br/>
       <strong style="color: #8B0000;">L'équipe NIMAPLEX</strong><br/>
-      <span style="font-size: 12px;">${
-            direction === Direction.NE_TO_CA ? "Niger → Canada" : "Canada → Niger"
-        }</span>
+      <span style="font-size: 12px;">${direction === Direction.NE_TO_CA ? "Niger → Canada" : "Canada → Niger"}</span>
     </p>
     
     <p style="margin: 15px 0 0 0; font-size: 11px; color: #adb5bd;">
@@ -215,11 +201,7 @@ ${FOOTER}`;
         const resp = await sendWithRetry({
             from: FROM,
             to: targetEmail,
-            subject: `Merci pour votre confiance • ${
-                trackingIds.length > 1
-                    ? `${trackingIds.length} colis`
-                    : trackingIds[0]
-            }`,
+            subject: `Merci pour votre confiance • ${trackingIds[0]}`,
             text: txt,
             html,
         });
