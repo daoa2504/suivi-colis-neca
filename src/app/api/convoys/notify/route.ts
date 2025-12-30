@@ -107,6 +107,7 @@ export async function POST(req: NextRequest) {
                         trackingId: true,
                         receiverName: true,
                         receiverEmail: true,
+                        receiverCity: true,  // ✅ AJOUT ICI
                         notes: true,
                         thankYouEmailSent: true,
                     },
@@ -128,7 +129,8 @@ export async function POST(req: NextRequest) {
 
         // ========== EN_ROUTE, IN_CUSTOMS, OUT_FOR_DELIVERY : Emails groupés ==========
 
-        type RecipientGroup = { name: string; ids: string[] };
+        // ✅ MODIFICATION DU TYPE POUR INCLURE CITY
+        type RecipientGroup = { name: string; ids: string[]; city: string };
         const grouped = new Map<string, RecipientGroup>();
         const invalidEmails: Array<{ emailRaw: string; id: number; trackingId: string }> = [];
 
@@ -140,11 +142,20 @@ export async function POST(req: NextRequest) {
                 invalidEmails.push({ emailRaw, id: s.id, trackingId: s.trackingId });
                 continue;
             }
-            const entry = grouped.get(email);
+
+            // ✅ CLÉ UNIQUE : email + ville
+            const groupKey = `${email}|${s.receiverCity || ""}`;
+
+            const entry = grouped.get(groupKey);
             if (entry) {
                 entry.ids.push(s.trackingId);
             } else {
-                grouped.set(email, { name: s.receiverName, ids: [s.trackingId] });
+                // ✅ STOCKAGE DE LA VILLE
+                grouped.set(groupKey, {
+                    name: s.receiverName,
+                    ids: [s.trackingId],
+                    city: s.receiverCity || ""
+                });
             }
         }
 
@@ -160,15 +171,27 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        for (const [email, { name, ids }] of grouped.entries()) {
-            // 🎯 Utilisation de emailTemplates.ts
+        // ✅ BOUCLE MODIFIÉE POUR UTILISER city
+        for (const [groupKey, { name, ids, city }] of grouped.entries()) {
+            // Extraire l'email de la clé
+            const email = groupKey.split("|")[0];
+
+            // 🔍 LOG POUR DÉBOGUER
+            console.log("=== ENVOI EMAIL ===");
+            console.log("Email:", email);
+            console.log("Ville (receiverCity):", city);
+            console.log("Tracking IDs:", ids);
+            console.log("==================");
+
+            // ✅ PASSAGE DE city À getEmailContent
             const { subject, text, html } = getEmailContent(
                 template as ConvoyStatus,
                 emailDirection,
                 name,
                 ids,
                 dateStr,
-                customMessage
+                customMessage,
+                city  // ✅ PARAMÈTRE AJOUTÉ ICI
             );
 
             try {
