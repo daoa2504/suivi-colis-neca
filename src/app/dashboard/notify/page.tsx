@@ -13,6 +13,7 @@ export default function NotifyPage() {
         template: "EN_ROUTE" as ConvoyStatus,
         customMessage: "",
         direction: "NE_TO_CA" as Direction,
+        pickupCity: "Sherbrooke",
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -29,6 +30,8 @@ export default function NotifyPage() {
                     template: formData.template,
                     customMessage: formData.customMessage,
                     direction: formData.direction,
+                    // ✅ N'envoyer pickupCity que si OUT_FOR_DELIVERY
+                    ...(formData.template === "OUT_FOR_DELIVERY" && { pickupCity: formData.pickupCity }),
                 }),
             });
 
@@ -36,8 +39,6 @@ export default function NotifyPage() {
 
             if (data.ok) {
                 alert(`✅ ${data.sent} email(s) envoyé(s) avec succès !`);
-                // Optionnel : réinitialiser le formulaire
-                // setFormData({ ...formData, convoyDate: "", customMessage: "" });
             } else {
                 alert(`❌ Erreur : ${data.error}`);
             }
@@ -125,6 +126,31 @@ export default function NotifyPage() {
                                         <option value="OUT_FOR_DELIVERY">Prêt pour récupération</option>
                                     </select>
                                 </div>
+
+                                {/* ✅ AFFICHAGE CONDITIONNEL : Point de cueillette */}
+                                {formData.template === "OUT_FOR_DELIVERY" && (
+                                    <div className="animate-fadeIn">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Point de cueillette <span className="text-red-500">*</span>
+                                        </label>
+                                        <select
+                                            required
+                                            value={formData.pickupCity}
+                                            onChange={(e) =>
+                                                setFormData({ ...formData, pickupCity: e.target.value })
+                                            }
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        >
+                                            <option value="Sherbrooke">📍 Sherbrooke</option>
+                                            <option value="Québec">📍 Québec</option>
+                                            <option value="Montréal">📍 Montréal</option>
+                                            <option value="Autre">📍 Autre ville</option>
+                                        </select>
+                                        <p className="mt-1 text-xs text-gray-500">
+                                            Cette adresse sera affichée dans tous les emails de ce convoi
+                                        </p>
+                                    </div>
+                                )}
 
                                 {/* Message personnalisé */}
                                 <div>

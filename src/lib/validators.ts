@@ -44,6 +44,7 @@ export const notifyConvoySchema = z.object({
     template: z.enum(["EN_ROUTE", "IN_CUSTOMS", "OUT_FOR_DELIVERY", "DELIVERED"]),
     customMessage: z.string().optional().default(""),
     direction: z.enum(["NE_TO_CA", "CA_TO_NE"]),
+    pickupCity: z.string().optional(),
     customerEmail: z.string().email().optional(), // sera raffermi par refine ci-dessous
 }).superRefine((data, ctx) => {
     if (data.template === "DELIVERED" && !data.customerEmail) {

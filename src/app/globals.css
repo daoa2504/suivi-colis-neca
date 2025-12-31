@@ -16,3 +16,17 @@ html, body { @apply bg-neutral-50 text-neutral-900; }
 .help { @apply text-xs text-neutral-500; }
 .title { @apply text-2xl font-bold; }
 .subtitle { @apply text-lg font-semibold; }
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fadeIn {
+    animation: fadeIn 0.3s ease-in-out;
+}

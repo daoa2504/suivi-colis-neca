@@ -260,14 +260,14 @@ ${customMessage || ""}
         } else if (cityNormalized === "québec" || cityNormalized === "quebec") {
             console.log("✅ Condition QUÉBEC activée");
             pickupCityName = "Québec";
-            pickupAddress = "1234 Rue Saint-Jean, Québec, QC G1R 1S4";
-            pickupPhone = "+1 (418) 123-4567";
+            pickupAddress = "1530 Avenue de la Vérendrye, Québec, QC G1J 4V8";
+            pickupPhone = "+1 (418) 264-2869";
             pickupHours = "Lundi - Vendredi : 9h - 17h, Samedi : 10h - 14h";
         } else if (cityNormalized === "montréal" || cityNormalized === "montreal") {
             console.log("✅ Condition MONTRÉAL activée");
             pickupCityName = "Montréal";
-            pickupAddress = "5678 Boulevard Saint-Laurent, Montréal, QC H2T 1R5";
-            pickupPhone = "+1 (514) 987-6543";
+            pickupAddress = "8927 Rue Berri, Montréal, QC H2M MP8";
+            pickupPhone = "+1 (514) 953-7203";
             pickupHours = "Lundi - Vendredi : 9h - 18h, Samedi : 10h - 15h";
         } else {
             console.log("⚠️ Condition DEFAULT activée - ville non reconnue");
@@ -330,9 +330,9 @@ ${customMessage || ""}
     
     <!-- Bloc d'adresse selon receiverCity -->
     <div style="background-color: #d4edda; border-left: 3px solid #28a745; padding: 20px; border-radius: 4px; margin: 20px 0;">
-      <p style="margin: 0 0 15px 0; color: #155724; font-size: 16px; font-weight: 600; text-align: center;">
-        📍 Point de récupération${pickupCityName ? ` - ${pickupCityName}` : ""}
-      </p>
+        <p style="margin: 0 0 15px 0; color: #155724; font-size: 16px; font-weight: 600; text-align: center;">
+  📍 Point de récupération${pickupCityName ? ` - Ville de : ${pickupCityName}` : ""}
+        </p>
       <div style="text-align: center; color: #155724;">
         <p style="margin: 5px 0; font-size: 14px; line-height: 1.6;">
           <strong>Adresse :</strong><br/>

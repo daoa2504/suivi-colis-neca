@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const { convoyDate, template, customMessage, direction, customerEmail } = parsed.data;
+        const { convoyDate, template, customMessage, direction, pickupCity } = parsed.data;
 
         // Règles d'accès
         if (role === "AGENT_CA" && direction !== DirectionEnum.NE_TO_CA) {
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
                         trackingId: true,
                         receiverName: true,
                         receiverEmail: true,
-                        receiverCity: true,  // ✅ AJOUT ICI
+                        receiverCity: true,  // ✅ ON A BESOIN DE receiverCity POUR FILTRER
                         notes: true,
                         thankYouEmailSent: true,
                     },
@@ -122,19 +122,61 @@ export async function POST(req: NextRequest) {
             );
         }
 
+        // ✅ FILTRER LES COLIS SELON LA VILLE SÉLECTIONNÉE (seulement pour OUT_FOR_DELIVERY)
+        let shipmentsToNotify = convoy.shipments;
+
+        if (template === "OUT_FOR_DELIVERY" && pickupCity) {
+            // Normaliser la ville pour la comparaison
+            const normalizedPickupCity = pickupCity.trim().toLowerCase();
+
+            // Si "Autre" est sélectionné, prendre tous les colis qui ne sont PAS dans les 3 villes principales
+            if (pickupCity === "Autre") {
+                shipmentsToNotify = convoy.shipments.filter(s => {
+                    const city = (s.receiverCity || "").trim().toLowerCase();
+                    return city !== "sherbrooke" && city !== "québec" && city !== "quebec" && city !== "montréal" && city !== "montreal";
+                });
+                console.log(`📦 Filtrage "Autre ville": ${shipmentsToNotify.length} colis trouvés`);
+            } else {
+                // Filtrer pour la ville spécifique
+                shipmentsToNotify = convoy.shipments.filter(s => {
+                    const city = (s.receiverCity || "").trim().toLowerCase();
+                    // Gérer les variations d'orthographe
+                    if (normalizedPickupCity === "québec") {
+                        return city === "québec" || city === "quebec";
+                    }
+                    if (normalizedPickupCity === "montréal") {
+                        return city === "montréal" || city === "montreal";
+                    }
+                    return city === normalizedPickupCity;
+                });
+                console.log(`📦 Filtrage pour "${pickupCity}": ${shipmentsToNotify.length} colis trouvés sur ${convoy.shipments.length} total`);
+            }
+        }
+
+        if (!shipmentsToNotify.length) {
+            return NextResponse.json(
+                {
+                    ok: false,
+                    error: `Aucun colis trouvé pour la ville "${pickupCity}"`,
+                    totalShipments: convoy.shipments.length,
+                    filteredShipments: 0
+                },
+                { status: 404 }
+            );
+        }
+
         const dateStr = convoy.date.toLocaleDateString("fr-CA", { timeZone: "UTC" });
         const emailDirection = toEmailDirection(direction);
 
         const results: { email: string; ok: boolean; error?: string; id?: string; trackingIds?: string[] }[] = [];
 
-        // ========== EN_ROUTE, IN_CUSTOMS, OUT_FOR_DELIVERY : Emails groupés ==========
-
-        // ✅ MODIFICATION DU TYPE POUR INCLURE CITY
-        type RecipientGroup = { name: string; ids: string[]; city: string };
+        // ========== Groupement par EMAIL ==========
+        type RecipientGroup = { name: string; ids: string[] };
         const grouped = new Map<string, RecipientGroup>();
         const invalidEmails: Array<{ emailRaw: string; id: number; trackingId: string }> = [];
 
-        for (const s of convoy.shipments) {
+        // ✅ UTILISER shipmentsToNotify AU LIEU DE convoy.shipments
+        for (const s of shipmentsToNotify) {
             const emailRaw = s.receiverEmail ?? "";
             const email = normalizeEmail(emailRaw);
 
@@ -143,18 +185,13 @@ export async function POST(req: NextRequest) {
                 continue;
             }
 
-            // ✅ CLÉ UNIQUE : email + ville
-            const groupKey = `${email}|${s.receiverCity || ""}`;
-
-            const entry = grouped.get(groupKey);
+            const entry = grouped.get(email);
             if (entry) {
                 entry.ids.push(s.trackingId);
             } else {
-                // ✅ STOCKAGE DE LA VILLE
-                grouped.set(groupKey, {
+                grouped.set(email, {
                     name: s.receiverName,
-                    ids: [s.trackingId],
-                    city: s.receiverCity || ""
+                    ids: [s.trackingId]
                 });
             }
         }
@@ -171,19 +208,15 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // ✅ BOUCLE MODIFIÉE POUR UTILISER city
-        for (const [groupKey, { name, ids, city }] of grouped.entries()) {
-            // Extraire l'email de la clé
-            const email = groupKey.split("|")[0];
-
+        for (const [email, { name, ids }] of grouped.entries()) {
             // 🔍 LOG POUR DÉBOGUER
             console.log("=== ENVOI EMAIL ===");
             console.log("Email:", email);
-            console.log("Ville (receiverCity):", city);
+            console.log("Ville de cueillette:", pickupCity);
             console.log("Tracking IDs:", ids);
             console.log("==================");
 
-            // ✅ PASSAGE DE city À getEmailContent
+            // ✅ UTILISATION DE pickupCity du formulaire
             const { subject, text, html } = getEmailContent(
                 template as ConvoyStatus,
                 emailDirection,
@@ -191,7 +224,7 @@ export async function POST(req: NextRequest) {
                 ids,
                 dateStr,
                 customMessage,
-                city  // ✅ PARAMÈTRE AJOUTÉ ICI
+                pickupCity
             );
 
             try {
@@ -217,7 +250,9 @@ export async function POST(req: NextRequest) {
             ok: true,
             convoyId: convoy.id,
             totalShipments: convoy.shipments.length,
+            filteredShipments: shipmentsToNotify.length,  // ✅ NOMBRE DE COLIS FILTRÉS
             uniqueRecipients: grouped.size,
+            pickupCity: pickupCity || "Tous",  // ✅ VILLE SÉLECTIONNÉE
             sent,
             failedCount: failed.length,
             failed,
