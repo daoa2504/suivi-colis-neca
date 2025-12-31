@@ -127,8 +127,8 @@ export default function NotifyPage() {
                                     </select>
                                 </div>
 
-                                {/* ✅ AFFICHAGE CONDITIONNEL : Point de cueillette */}
-                                {formData.template === "OUT_FOR_DELIVERY" && (
+                                {/* ✅ AFFICHAGE CONDITIONNEL : Point de cueillette (seulement pour NE→CA) */}
+                                {formData.template === "OUT_FOR_DELIVERY" && formData.direction === "NE_TO_CA" && (
                                     <div className="animate-fadeIn">
                                         <label className="block text-sm font-medium text-gray-700 mb-2">
                                             Point de cueillette <span className="text-red-500">*</span>

@@ -44,7 +44,7 @@ export function getEmailContent(
     customMessage?: string,
     receiverCity?: string
 ): EmailContent {
-    const directionLabel = direction === "NE_TO_CA" ? "Guinée → Canada" : "Canada → Guinée";
+    const directionLabel = direction === "NE_TO_CA" ? "Niger → Canada" : "Canada → Niger";
     const colisListText = trackingIds.map((t) => `• ${t}`).join("\n");
     const colisListHtml = trackingIds.map((t) => `• ${t}`).join("<br>");
 
@@ -55,12 +55,12 @@ export function getEmailContent(
             : "dix (10) jours ouvrables";
 
         const statusMessage = direction === "NE_TO_CA"
-            ? `a quitté la Guinée en destination du Canada. Votre colis sera disponible pour récupération dans un délai maximum de <strong>${delaiText}</strong>.`
-            : `est en route vers la Guinée. Votre colis sera disponible pour récupération dans un délai maximum de <strong>${delaiText}</strong>.`;
+            ? `a quitté le Niger en destination du Canada. Votre colis sera disponible pour récupération dans un délai maximum de <strong>${delaiText}</strong>.`
+            : `est en route vers le Niger. Votre colis sera disponible pour récupération dans un délai maximum de <strong>${delaiText}</strong>.`;
 
         const text = `Bonjour ${name},
 
-Le convoi du ${dateStr} ${direction === "NE_TO_CA" ? "a quitté la Guinée en destination du Canada" : "est en route vers la Guinée"}. Votre colis sera disponible pour récupération dans un délai maximum de ${delaiText}.
+Le convoi du ${dateStr} ${direction === "NE_TO_CA" ? "a quitté le Niger en destination du Canada" : "est en route vers le Niger"}. Votre colis sera disponible pour récupération dans un délai maximum de ${delaiText}.
 
 Colis :
 ${colisListText}
@@ -144,7 +144,7 @@ ${customMessage || ""}
 
     // ========== IN_CUSTOMS ==========
     if (template === "IN_CUSTOMS") {
-        const locationText = direction === "NE_TO_CA" ? "du Canada" : "de la Guinée";
+        const locationText = direction === "NE_TO_CA" ? "du Canada" : "du Niger";
 
         const text = `Bonjour ${name},
 
@@ -230,51 +230,54 @@ ${customMessage || ""}
     }
 
     // ========== OUT_FOR_DELIVERY ==========
+    // ========== OUT_FOR_DELIVERY ==========
     if (template === "OUT_FOR_DELIVERY") {
-        const locationText = direction === "NE_TO_CA" ? "au Canada" : "en Guinée";
+        const locationText = direction === "NE_TO_CA" ? "au Canada" : "au Niger";
 
         // 🔍 LOGS POUR DÉBOGUER
         console.log("=== DEBUG PICKUP ADDRESS ===");
+        console.log("Direction:", direction);
         console.log("receiverCity reçue:", receiverCity);
-        console.log("Type de receiverCity:", typeof receiverCity);
-        console.log("Longueur:", receiverCity?.length);
-        console.log("Valeur brute (JSON):", JSON.stringify(receiverCity));
         console.log("========================");
 
-        // ✅ CONDITIONS POUR CHAQUE VILLE
+        // ✅ CONDITIONS POUR CHAQUE DIRECTION
         let pickupAddress = "";
         let pickupPhone = "";
-        let pickupHours = "";
         let pickupCityName = "";
 
-        // Normaliser la ville (enlever espaces et mettre en minuscules)
-        const cityNormalized = receiverCity?.trim().toLowerCase();
-        console.log("Ville normalisée:", cityNormalized);
+        // ✅ SI CANADA → NIGER : Tout le monde va à Niamey
+        if (direction === "CA_TO_NE") {
+            console.log("✅ Direction CA_TO_NE - Adresse Niamey");
+            pickupCityName = "Niamey";
+            pickupAddress = "Quartier Plateau, Rue de la République, Niamey, Niger";
+            pickupPhone = "+227 XX XX XX XX";  // ← Remplacez par le vrai numéro
+        }
+        // ✅ SI NIGER → CANADA : Selon la ville sélectionnée
+        else if (direction === "NE_TO_CA") {
+            const cityNormalized = receiverCity?.trim().toLowerCase();
+            console.log("Ville normalisée:", cityNormalized);
 
-        if (cityNormalized === "sherbrooke") {
-            console.log("✅ Condition SHERBROOKE activée");
-            pickupCityName = "Sherbrooke";
-            pickupAddress = "2500 Boulevard de l'Université, Sherbrooke, QC J1K 2R1";
-            pickupPhone = "+1 (367) 331-0402";
-            pickupHours = "Lundi - Vendredi : 9h - 17h, Samedi : 10h - 14h";
-        } else if (cityNormalized === "québec" || cityNormalized === "quebec") {
-            console.log("✅ Condition QUÉBEC activée");
-            pickupCityName = "Québec";
-            pickupAddress = "1530 Avenue de la Vérendrye, Québec, QC G1J 4V8";
-            pickupPhone = "+1 (418) 264-2869";
-            pickupHours = "Lundi - Vendredi : 9h - 17h, Samedi : 10h - 14h";
-        } else if (cityNormalized === "montréal" || cityNormalized === "montreal") {
-            console.log("✅ Condition MONTRÉAL activée");
-            pickupCityName = "Montréal";
-            pickupAddress = "8927 Rue Berri, Montréal, QC H2M MP8";
-            pickupPhone = "+1 (514) 953-7203";
-            pickupHours = "Lundi - Vendredi : 9h - 18h, Samedi : 10h - 15h";
-        } else {
-            console.log("⚠️ Condition DEFAULT activée - ville non reconnue");
-            pickupCityName = receiverCity || "";
-            pickupAddress = "Contactez-nous pour connaître le point de retrait le plus proche";
-            pickupPhone = "+1 (XXX) XXX-XXXX";
-            pickupHours = "Lundi - Vendredi : 9h - 17h";
+            if (cityNormalized === "sherbrooke") {
+                console.log("✅ Condition SHERBROOKE activée");
+                pickupCityName = "Sherbrooke";
+                pickupAddress = "2500 Boulevard de l'Université, Sherbrooke, QC J1K 2R1";
+                pickupPhone = "+1 (367) 331-0402";
+            } else if (cityNormalized === "québec" || cityNormalized === "quebec") {
+                console.log("✅ Condition QUÉBEC activée");
+                pickupCityName = "Québec";
+                pickupAddress = "1530 Avenue de la Vérendrye, Québec, QC G1J 4V8";
+                pickupPhone = "+1 (418) 264-2869";
+            } else if (cityNormalized === "montréal" || cityNormalized === "montreal") {
+                console.log("✅ Condition MONTRÉAL activée");
+                pickupCityName = "Montréal";
+                pickupAddress = "8927 Rue Berri, Montréal, QC H2M MP8";
+                pickupPhone = "+1 (514) 953-7203";
+            } else {
+                console.log("⚠️ Condition DEFAULT activée - ville non reconnue");
+                pickupCityName = receiverCity || "";
+                pickupAddress = "Contactez-nous pour connaître le point de retrait le plus proche";
+                pickupPhone = "+1 (XXX) XXX-XXXX";
+            }
         }
 
         const text = `Bonjour ${name},
@@ -287,7 +290,6 @@ ${colisListText}
 Point de récupération${pickupCityName ? ` - ${pickupCityName}` : ""} :
 ${pickupAddress}
 📞 ${pickupPhone}
-Heures d'ouverture : ${pickupHours}
 
 ${customMessage || ""}
 
@@ -302,7 +304,7 @@ ${customMessage || ""}
         <img src="https://nimaplex.com/img.png" alt="NIMAPLEX" width="60" height="60" style="display: block; border-radius: 8px;" />
       </td>
       <td style="padding-left: 12px; line-height: 1.3;">
-        <div style="font-weight: 700; color: #8B0000; font-size: 18px; letter-spacing: 0.5px;">nimaplex</div>
+        <div style="font-weight: 700; color: #8B0000; font-size: 18px; letter-spacing: 0.5px;">NIMAPLEX</div>
         <div style="font-size: 13px; color: #6c757d;">Plus qu'une solution, un service d'excellence global</div>
       </td>
     </tr>
@@ -328,11 +330,11 @@ ${customMessage || ""}
       </div>
     </div>
     
-    <!-- Bloc d'adresse selon receiverCity -->
+    <!-- Bloc d'adresse selon direction -->
     <div style="background-color: #d4edda; border-left: 3px solid #28a745; padding: 20px; border-radius: 4px; margin: 20px 0;">
-        <p style="margin: 0 0 15px 0; color: #155724; font-size: 16px; font-weight: 600; text-align: center;">
-  📍 Point de récupération${pickupCityName ? ` - Ville de : ${pickupCityName}` : ""}
-        </p>
+      <p style="margin: 0 0 15px 0; color: #155724; font-size: 16px; font-weight: 600; text-align: center;">
+        📍 Point de récupération${pickupCityName ? ` - Ville de : ${pickupCityName}` : ""}
+      </p>
       <div style="text-align: center; color: #155724;">
         <p style="margin: 5px 0; font-size: 14px; line-height: 1.6;">
           <strong>Adresse :</strong><br/>
@@ -341,10 +343,10 @@ ${customMessage || ""}
         <p style="margin: 10px 0 5px 0; font-size: 14px;">
           <strong>📞 Téléphone :</strong> ${pickupPhone}
         </p>
-        <p style="margin: 5px 0; font-size: 13px; color: #28a745;">
-            <strong>⚠️ Important :</strong><br/>
-                Veuillez nous appeler avant de vous déplacer pour confirmer notre disponibilité.
-         </p>
+        <p style="margin: 10px 0; font-size: 14px; color: #155724; background-color: #fff3cd; padding: 10px; border-radius: 4px; border-left: 3px solid #ffc107;">
+          <strong>⚠️ Avant de vous déplacer :</strong><br/>
+          <span style="font-size: 13px;">Veuillez nous contacter par téléphone pour confirmer notre disponibilité et faciliter la récupération de votre colis.</span>
+        </p>
       </div>
     </div>
   </div>
