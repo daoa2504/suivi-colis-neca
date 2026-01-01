@@ -30,7 +30,6 @@ export default function NotifyPage() {
                     template: formData.template,
                     customMessage: formData.customMessage,
                     direction: formData.direction,
-                    // ✅ N'envoyer pickupCity que si OUT_FOR_DELIVERY
                     ...(formData.template === "OUT_FOR_DELIVERY" && { pickupCity: formData.pickupCity }),
                 }),
             });
@@ -50,13 +49,18 @@ export default function NotifyPage() {
         }
     };
 
+    // ✅ TITRE DYNAMIQUE SELON LA DIRECTION
+    const pageTitle = formData.direction === "NE_TO_CA"
+        ? "Notifier un convoi — Niger → Canada"
+        : "Notifier un convoi — Canada → Niger";
+
     return (
         <div className="min-h-screen bg-gray-50 p-6">
             <div className="max-w-7xl mx-auto">
-                {/* En-tête */}
+                {/* ✅ EN-TÊTE DYNAMIQUE AVEC DRAPEAUX */}
                 <div className="mb-6">
-                    <h1 className="text-3xl font-bold text-gray-900">
-                        Notifier un convoi — Niger → Canada
+                    <h1 className="text-3xl font-bold text-gray-900 mb-4">
+                        {pageTitle}
                     </h1>
                 </div>
 
@@ -65,29 +69,54 @@ export default function NotifyPage() {
                     {/* Colonne de gauche - Formulaire */}
                     <div className="flex-1">
                         <div className="bg-white rounded-lg shadow p-6">
-                            {/* Onglets Direction */}
-                            <div className="flex gap-2 mb-6 border-b">
+                            {/* ✅ ONGLETS DIRECTION AVEC DRAPEAUX */}
+                            {/* ✅ ONGLETS DIRECTION AVEC DRAPEAUX SVG */}
+                            <div className="flex gap-2 mb-6">
                                 <button
                                     type="button"
                                     onClick={() => setFormData({ ...formData, direction: "NE_TO_CA" })}
-                                    className={`px-4 py-2 font-medium transition-colors ${
+                                    className={`flex-1 px-6 py-3 font-medium rounded-lg transition-all ${
                                         formData.direction === "NE_TO_CA"
-                                            ? "text-blue-600 border-b-2 border-blue-600"
-                                            : "text-gray-600 hover:text-gray-900"
+                                            ? "bg-blue-600 text-white shadow-md"
+                                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                                     }`}
                                 >
-                                    Niger → Canada
+        <span className="flex items-center justify-center gap-2">
+            <img
+                src="/flags/ne.svg"
+                alt="Niger"
+                className="w-6 h-4 object-cover rounded-sm border border-gray-200"
+            />
+            <span>Niger → Canada</span>
+            <img
+                src="/flags/ca.svg"
+                alt="Canada"
+                className="w-6 h-4 object-cover rounded-sm border border-gray-200"
+            />
+        </span>
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => setFormData({ ...formData, direction: "CA_TO_NE" })}
-                                    className={`px-4 py-2 font-medium transition-colors ${
+                                    className={`flex-1 px-6 py-3 font-medium rounded-lg transition-all ${
                                         formData.direction === "CA_TO_NE"
-                                            ? "text-blue-600 border-b-2 border-blue-600"
-                                            : "text-gray-600 hover:text-gray-900"
+                                            ? "bg-blue-600 text-white shadow-md"
+                                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                                     }`}
                                 >
-                                    Canada → Niger
+        <span className="flex items-center justify-center gap-2">
+            <img
+                src="/flags/ca.svg"
+                alt="Canada"
+                className="w-6 h-4 object-cover rounded-sm border border-gray-200"
+            />
+            <span>Canada → Niger</span>
+            <img
+                src="/flags/ne.svg"
+                alt="Niger"
+                className="w-6 h-4 object-cover rounded-sm border border-gray-200"
+            />
+        </span>
                                 </button>
                             </div>
 
