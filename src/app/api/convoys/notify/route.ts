@@ -79,15 +79,9 @@ export async function POST(req: NextRequest) {
         const { convoyDate, template, customMessage, direction, pickupCity } = parsed.data;
 
         // Règles d'accès
-        if (role === "AGENT_CA" && direction !== DirectionEnum.NE_TO_CA) {
+        if (role === "AGENT_NE" && direction !== DirectionEnum.CA_TO_NE) {
             return NextResponse.json(
-                { ok: false, error: "AGENT_CA ne peut notifier que NE_TO_CA" },
-                { status: 403 }
-            );
-        }
-        if (role === "AGENT_NE") {
-            return NextResponse.json(
-                { ok: false, error: "AGENT_NE n'est pas autorisé à notifier des convois" },
+                { ok: false, error: "AGENT_NE ne peut notifier que CA_TO_NE" },
                 { status: 403 }
             );
         }
