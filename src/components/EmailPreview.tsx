@@ -8,6 +8,7 @@ interface EmailPreviewProps {
     direction: Direction;
     convoyDate: string;
     customMessage?: string;
+    pickupCity?: string;
 }
 
 export default function EmailPreview({
@@ -15,6 +16,7 @@ export default function EmailPreview({
                                          direction,
                                          convoyDate,
                                          customMessage,
+                                         pickupCity,
                                      }: EmailPreviewProps) {
     // Données d'exemple pour l'aperçu
     const sampleName = "Jean Dupont";
@@ -38,7 +40,8 @@ export default function EmailPreview({
         sampleName,
         sampleTrackingIds,
         dateStr,
-        customMessage
+        customMessage,
+        pickupCity
     );
 
     return (

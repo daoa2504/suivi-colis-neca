@@ -229,6 +229,7 @@ export default function NotifyPage() {
                                     direction={formData.direction}
                                     convoyDate={formData.convoyDate}
                                     customMessage={formData.customMessage}
+                                    pickupCity={formData.pickupCity}
                                 />
                             </div>
                         </div>

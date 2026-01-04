@@ -249,8 +249,8 @@ ${customMessage || ""}
         if (direction === "CA_TO_NE") {
             console.log("✅ Direction CA_TO_NE - Adresse Niamey");
             pickupCityName = "Niamey";
-            pickupAddress = "Quartier Plateau, Rue de la République, Niamey, Niger";
-            pickupPhone = "+227 XX XX XX XX";  // ← Remplacez par le vrai numéro
+            pickupAddress = "Quartier Banifandou, Niamey, Niger";
+            pickupPhone = "+227 80 98 25 61";  // ← Remplacez par le vrai numéro
         }
         // ✅ SI NIGER → CANADA : Selon la ville sélectionnée
         else if (direction === "NE_TO_CA") {
@@ -276,7 +276,7 @@ ${customMessage || ""}
                 console.log("⚠️ Condition DEFAULT activée - ville non reconnue");
                 pickupCityName = receiverCity || "";
                 pickupAddress = "Contactez-nous pour connaître le point de retrait le plus proche";
-                pickupPhone = "+1 (XXX) XXX-XXXX";
+                pickupPhone = "+1 (367) 331-0402";
             }
         }
 
