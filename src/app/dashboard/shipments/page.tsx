@@ -20,16 +20,14 @@ type SearchParams = {
 const PAGE_SIZE = 12;
 
 const STATUS_FR: Record<ShipmentStatus, string> = {
-    RECEIVED_IN_NIGER: "Reçu (Niger)",
-    RECEIVED_IN_CANADA: "Reçu (Canada)",
-    IN_TRANSIT: "En route",
-    IN_CUSTOMS: "À la douane",
-    OUT_FOR_DELIVERY: "Prêt à être livré",
-    DELIVERED: "Livré",
     CREATED: "Créé",
-    ARRIVED_IN_CANADA: "Arrivé au Canada",
-    ARRIVED_IN_NIGER: "Arrivé au Niger",
-    PICKED_UP: "Ramassé",
+    RECEIVED_IN_NIGER: "Reçu au Niger",
+    RECEIVED_IN_CANADA: "Reçu au Canada",
+    IN_TRANSIT: "En route",
+    IN_TRANSIT_STOP: "En escale",
+    IN_CUSTOMS: "À la douane",
+    READY_FOR_PICKUP: "Prêt à être récupéré",
+    DELIVERED: "Récupéré",
 };
 
 function fmtDate(d: Date) {
