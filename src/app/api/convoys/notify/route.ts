@@ -116,14 +116,13 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // ✅ FILTRER LES COLIS SELON LA VILLE SÉLECTIONNÉE (seulement pour OUT_FOR_DELIVERY)
+        // ✅ FILTRER LES COLIS SELON LA VILLE SÉLECTIONNÉE (seulement pour OUT_FOR_DELIVERY + NE_TO_CA)
         let shipmentsToNotify = convoy.shipments;
 
-        if (template === "OUT_FOR_DELIVERY" && pickupCity) {
-            // Normaliser la ville pour la comparaison
+// ✅ AJOUTEZ LA CONDITION: direction === DirectionEnum.NE_TO_CA
+        if (template === "OUT_FOR_DELIVERY" && pickupCity && direction === DirectionEnum.NE_TO_CA) {
             const normalizedPickupCity = pickupCity.trim().toLowerCase();
 
-            // Si "Autre" est sélectionné, prendre tous les colis qui ne sont PAS dans les 3 villes principales
             if (pickupCity === "Autre") {
                 shipmentsToNotify = convoy.shipments.filter(s => {
                     const city = (s.receiverCity || "").trim().toLowerCase();
@@ -146,6 +145,7 @@ export async function POST(req: NextRequest) {
                 console.log(`📦 Filtrage pour "${pickupCity}": ${shipmentsToNotify.length} colis trouvés sur ${convoy.shipments.length} total`);
             }
         }
+// ✅ POUR CA_TO_NE : Aucun filtrage, tout le monde reçoit le mail avec l'adresse de Niamey
 
         if (!shipmentsToNotify.length) {
             return NextResponse.json(

@@ -17,7 +17,7 @@ model User {
 }
 
 model Shipment {
-  trackingId         String          @unique
+  trackingId         String         @unique
   receiverName       String
   receiverEmail      String
   receiverPhone      String?
@@ -28,13 +28,17 @@ model Shipment {
   destinationCountry String
   weightKg           Float?
   notes              String?
-  status             ShipmentStatus  @default(CREATED)
-  createdAt          DateTime        @default(now())
-  convoyId           String?
-  id                 Int             @id @default(autoincrement())
-  thankYouEmailSent  Boolean         @default(false)
-  convoy             Convoy?         @relation(fields: [convoyId], references: [id])
-  events             ShipmentEvent[]
+  status             ShipmentStatus @default(CREATED)
+  statusHistory      Json?
+  currentLocation    String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt // ✅ AJOUTEZ CETTE LIGNE
+
+  convoyId          String?
+  id                Int             @id @default(autoincrement())
+  thankYouEmailSent Boolean         @default(false)
+  convoy            Convoy?         @relation(fields: [convoyId], references: [id])
+  events            ShipmentEvent[]
 }
 
 model ShipmentEvent {
@@ -65,15 +69,13 @@ enum Role {
 
 enum ShipmentStatus {
   CREATED
-  RECEIVED_IN_NIGER
-  RECEIVED_IN_CANADA
-  IN_TRANSIT
-  IN_CUSTOMS
-  ARRIVED_IN_CANADA
-  ARRIVED_IN_NIGER
-  PICKED_UP
-  OUT_FOR_DELIVERY
-  DELIVERED
+  RECEIVED_IN_NIGER // ✅ Statut initial pour NE→CA
+  RECEIVED_IN_CANADA // ✅ Statut initial pour CA→NE
+  IN_TRANSIT // En route
+  IN_TRANSIT_STOP // En escale
+  IN_CUSTOMS // À la douane
+  READY_FOR_PICKUP // Prêt
+  DELIVERED // Récupéré
 }
 
 enum Direction {

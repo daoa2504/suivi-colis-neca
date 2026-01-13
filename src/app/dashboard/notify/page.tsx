@@ -30,7 +30,7 @@ export default function NotifyPage() {
                     template: formData.template,
                     customMessage: formData.customMessage,
                     direction: formData.direction,
-                    ...(formData.template === "OUT_FOR_DELIVERY" && { pickupCity: formData.pickupCity }),
+                    ...(formData.template === "OUT_FOR_DELIVERY" && formData.direction === "NE_TO_CA" && { pickupCity: formData.pickupCity }),
                 }),
             });
 

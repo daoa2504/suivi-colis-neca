@@ -1,4 +1,4 @@
-// src/app/api/shipments/[trackingId]/route.ts
+// src/app/api/shipments/ss/route.ts
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -31,7 +31,7 @@ export async function GET(_req: NextRequest, ctx: any) {
 
         return NextResponse.json({ ok: true, shipment });
     } catch (err) {
-        console.error("GET /api/shipments/[trackingId] error:", err);
+        console.error("GET /api/shipments/ss error:", err);
         return NextResponse.json(
             { ok: false, error: "Server error" },
             { status: 500 }

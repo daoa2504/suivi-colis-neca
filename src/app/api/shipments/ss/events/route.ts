@@ -1,4 +1,4 @@
-// src/app/api/shipments/[trackingId]/events/route.ts
+// src/app/api/shipments/ss/events/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
@@ -170,12 +170,12 @@ export async function POST(req: NextRequest, ctx: Ctx) {
             });
 
             const newStatus = STATUS_BY_EVENT[type as keyof typeof STATUS_BY_EVENT];
-            if (newStatus) {
-                await tx.shipment.update({
-                    where: { id: shipment.id },
-                    data: { status: newStatus },
-                });
-            }
+           // if (newStatus) {
+                //await tx.shipment.update({
+                //    where: { id: shipment.id },
+                //    data: { status: newStatus },
+              //  });
+           // }
 
             return ev;
         });
