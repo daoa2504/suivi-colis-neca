@@ -5,12 +5,14 @@ import { useState } from "react";
 type Props = { trackingId: string };
 
 const LABELS: Record<string, string> = {
-    RECEIVED_IN_CANADA: "Reçu (Canada)",
-    RECEIVED_IN_GUINEA: "Reçu (Guinée)",
+    CREATED: "Créé",
+    RECEIVED_IN_NIGER: "Reçu au Niger",
+    RECEIVED_IN_CANADA: "Reçu au Canada",
     IN_TRANSIT: "En route",
+    IN_TRANSIT_STOP: "En escale",
     IN_CUSTOMS: "À la douane",
-    OUT_FOR_DELIVERY: "Prêt à être livré",
-    DELIVERED: "Livré",
+    READY_FOR_PICKUP: "Prêt à être récupéré",
+    DELIVERED: "Récupéré",
 };
 
 export default function QuickActionsForm({ trackingId }: Props) {
