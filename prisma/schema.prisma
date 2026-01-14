@@ -32,7 +32,7 @@ model Shipment {
   statusHistory      Json?
   currentLocation    String?
   createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt // ✅ AJOUTEZ CETTE LIGNE
+  updatedAt          DateTime?      @updatedAt // ✅ AJOUTEZ CETTE LIGNE
 
   convoyId          String?
   id                Int             @id @default(autoincrement())
