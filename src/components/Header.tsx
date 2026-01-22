@@ -2,13 +2,20 @@
 
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
-
+import { usePathname } from "next/navigation";
 type AppRole = 'ADMIN' | 'AGENT_NE' | 'AGENT_CA';
 
 export default function Header() {
     const { data: session } = useSession();
     const role = session?.user?.role as AppRole | undefined;
+    const pathname = usePathname();
 
+    // Pages où le header doit être caché
+    const hideHeaderRoutes = ["/track", "/tracking"];
+
+    if (hideHeaderRoutes.includes(pathname)) {
+        return null;
+    }
     return (
         <header className="w-full bg-white shadow-md border-b-2 border-gray-100">
             <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
