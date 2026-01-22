@@ -6,21 +6,21 @@ import { prisma } from "@/lib/prisma";
 
 export async function PATCH(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     const session = await getServerSession(authOptions);
     if (!session || !["ADMIN", "AGENT_CA", "AGENT_NE"].includes(session.user.role)) {
         return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
-
+    const {id}= await params;
     try {
         const { city, status } = await req.json();
-        const convoyId = params.id;
+
 
         // Mettre à jour tous les colis de cette ville dans ce convoi
         const result = await prisma.shipment.updateMany({
             where: {
-                convoyId,
+                convoyId: id,
                 receiverCity: city,
             },
             data: {

@@ -6,20 +6,20 @@ import { prisma } from "@/lib/prisma";
 
 export async function PATCH(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     const session = await getServerSession(authOptions);
     if (!session || !["ADMIN", "AGENT_CA", "AGENT_NE"].includes(session.user.role)) {
         return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
-
+    const {id}= await params;
     try {
         const { status, currentLocation } = await req.json();
-        const convoyId = params.id;
+        const convoyId = await params;
 
         // Mettre à jour tous les colis du convoi
         const result = await prisma.shipment.updateMany({
-            where: { convoyId },
+            where: { convoyId: id, },
             data: {
                 status,
                 currentLocation,
