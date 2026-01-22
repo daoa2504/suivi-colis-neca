@@ -14,7 +14,7 @@ type ShipmentStatus =
     | "DELIVERED";
 
 interface TrackingStep {
-    status: ShipmentStatus[];  // ✅ Peut accepter plusieurs statuts
+    status: ShipmentStatus[];
     label: string;
     icon: string;
     description: string;
@@ -31,7 +31,7 @@ interface ShipmentTrackerProps {
 
 const TRACKING_STEPS: TrackingStep[] = [
     {
-        status: ["CREATED", "RECEIVED_IN_NIGER", "RECEIVED_IN_CANADA"],  // ✅ Groupe les statuts initiaux
+        status: ["CREATED", "RECEIVED_IN_NIGER", "RECEIVED_IN_CANADA"],
         label: "Reçu",
         icon: "📝",
         description: "Colis enregistré",
@@ -73,11 +73,9 @@ export default function ShipmentTracker({
                                             origin,
                                             destination,
                                             weight,
-
                                             trackingId,
                                         }: ShipmentTrackerProps) {
     const currentStepIndex = useMemo(() => {
-        // ✅ Trouver l'étape qui contient le statut actuel
         return TRACKING_STEPS.findIndex((step) => step.status.includes(currentStatus));
     }, [currentStatus]);
 
@@ -86,46 +84,42 @@ export default function ShipmentTracker({
         if (codes === "CA") return "Canada";
         return codes;
     };
+
     return (
-        <div className="bg-white rounded-lg shadow-lg p-8">
+        <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 md:p-8">
             {/* En-tête avec numéro AWB */}
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                    Suivi No : {trackingId}
+            <div className="mb-6 sm:mb-8">
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-2 break-words">
+                    Suivi : {trackingId}
                 </h1>
 
-                {/* Informations du colis */}
-
-
-                <div className="grid grid-cols-3 gap-4 mt-6 p-4 bg-gray-50 rounded-lg">
-
+                {/* Informations du colis - Responsive */}
+                <div className="grid grid-cols-3 gap-2 sm:gap-4 mt-4 sm:mt-6 p-3 sm:p-4 bg-gray-50 rounded-lg">
                     <div className="text-center">
-                        <p className="text-sm text-gray-600 mb-1">Origine</p>
-                        <p className="font-semibold text-lg text-[#8B0000]">
+                        <p className="text-xs sm:text-sm text-gray-600 mb-1">Origine</p>
+                        <p className="font-semibold text-sm sm:text-base md:text-lg text-[#8B0000]">
                             {countryLabel(origin)}
                         </p>
                     </div>
 
                     <div className="text-center">
-                        <p className="text-sm text-gray-600 mb-1">Destination</p>
-                        <p className="font-semibold text-lg text-[#8B0000]">
+                        <p className="text-xs sm:text-sm text-gray-600 mb-1">Destination</p>
+                        <p className="font-semibold text-sm sm:text-base md:text-lg text-[#8B0000]">
                             {countryLabel(destination)}
                         </p>
                     </div>
 
                     <div className="text-center">
-                        <p className="text-sm text-gray-600 mb-1">Poids</p>
-                        <p className="font-semibold text-lg">
+                        <p className="text-xs sm:text-sm text-gray-600 mb-1">Poids</p>
+                        <p className="font-semibold text-sm sm:text-base md:text-lg">
                             {weight} Kg
                         </p>
                     </div>
-
                 </div>
-
             </div>
 
-            {/* Barre de progression */}
-            <div className="relative">
+            {/* Barre de progression - Version Desktop (md et plus) */}
+            <div className="hidden md:block relative">
                 {/* Ligne de fond */}
                 <div className="absolute top-14 left-0 right-0 h-1 bg-gray-200 z-0" />
 
@@ -137,7 +131,7 @@ export default function ShipmentTracker({
                     }}
                 />
 
-                {/* Étapes */}
+                {/* Étapes Desktop */}
                 <div className="relative flex justify-between items-start z-10">
                     {TRACKING_STEPS.map((step, index) => {
                         const isCompleted = index <= currentStepIndex;
@@ -148,7 +142,7 @@ export default function ShipmentTracker({
                             <div key={step.label} className="flex flex-col items-center flex-1">
                                 {/* Cercle avec icône */}
                                 <div
-                                    className={`w-28 h-28 rounded-full flex items-center justify-center text-4xl transition-all duration-300 border-4 ${
+                                    className={`w-20 h-20 lg:w-28 lg:h-28 rounded-full flex items-center justify-center text-3xl lg:text-4xl transition-all duration-300 border-4 ${
                                         isCompleted
                                             ? "bg-gradient-to-br from-[#E57373] to-[#EF5350] border-[#E57373]"
                                             : isNext
@@ -164,9 +158,9 @@ export default function ShipmentTracker({
                                 {/* Label et description */}
                                 <div className="mt-4 text-center">
                                     <p
-                                        className={`font-semibold text-sm mb-1 ${
+                                        className={`font-semibold text-xs lg:text-sm mb-1 ${
                                             isActive
-                                                ? "text-[#8B0000] text-lg"
+                                                ? "text-[#8B0000] text-sm lg:text-lg"
                                                 : isCompleted
                                                     ? "text-gray-900"
                                                     : "text-gray-400"
@@ -174,7 +168,7 @@ export default function ShipmentTracker({
                                     >
                                         {step.label}
                                     </p>
-                                    <p className="text-xs text-gray-500 max-w-[100px]">
+                                    <p className="text-xs text-gray-500 max-w-[80px] lg:max-w-[100px]">
                                         {step.description}
                                     </p>
                                 </div>
@@ -182,7 +176,7 @@ export default function ShipmentTracker({
                                 {/* Indicateur d'état actif */}
                                 {isActive && (
                                     <div className="mt-2">
-                                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-[#8B0000] text-white animate-pulse">
+                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[#8B0000] text-white animate-pulse">
                                             En cours
                                         </span>
                                     </div>
@@ -193,9 +187,63 @@ export default function ShipmentTracker({
                 </div>
             </div>
 
+            {/* Version Mobile - Liste verticale (sm et moins) */}
+            <div className="md:hidden space-y-4">
+                {TRACKING_STEPS.map((step, index) => {
+                    const isCompleted = index <= currentStepIndex;
+                    const isActive = index === currentStepIndex;
+                    const isNext = index === currentStepIndex + 1;
+
+                    return (
+                        <div key={step.label} className="flex items-center gap-4">
+                            {/* Cercle avec icône - Plus petit sur mobile */}
+                            <div
+                                className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl border-4 flex-shrink-0 ${
+                                    isCompleted
+                                        ? "bg-gradient-to-br from-[#E57373] to-[#EF5350] border-[#E57373]"
+                                        : isNext
+                                            ? "bg-white border-[#DC143C] border-dashed"
+                                            : "bg-gray-100 border-gray-300"
+                                }`}
+                            >
+                                {step.icon}
+                            </div>
+
+                            {/* Informations */}
+                            <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <p
+                                        className={`font-semibold text-sm ${
+                                            isActive
+                                                ? "text-[#8B0000]"
+                                                : isCompleted
+                                                    ? "text-gray-900"
+                                                    : "text-gray-400"
+                                        }`}
+                                    >
+                                        {step.label}
+                                    </p>
+                                    {isActive && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#8B0000] text-white">
+                                            En cours
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-xs text-gray-500">{step.description}</p>
+                            </div>
+
+                            {/* Check pour étapes complétées */}
+                            {isCompleted && index < currentStepIndex && (
+                                <div className="text-green-500 text-xl">✓</div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+
             {/* Message de statut */}
-            <div className="mt-12 p-6 bg-gradient-to-r from-[#8B0000]/10 to-[#DC143C]/10 rounded-lg border-l-4 border-[#8B0000]">
-                <p className="text-lg font-medium text-gray-900">
+            <div className="mt-8 sm:mt-12 p-4 sm:p-6 bg-gradient-to-r from-[#8B0000]/10 to-[#DC143C]/10 rounded-lg border-l-4 border-[#8B0000]">
+                <p className="text-sm sm:text-base md:text-lg font-medium text-gray-900">
                     {currentStepIndex === TRACKING_STEPS.length - 1
                         ? "🎉 Votre colis a été récupéré avec succès !"
                         : currentStepIndex >= 0
