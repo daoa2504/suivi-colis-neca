@@ -15,7 +15,7 @@ export async function PATCH(
     const {id}= await params;
     try {
         const { status, currentLocation } = await req.json();
-        const convoyId = await params;
+
 
         // Mettre à jour tous les colis du convoi
         const result = await prisma.shipment.updateMany({
