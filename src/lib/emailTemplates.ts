@@ -52,7 +52,7 @@ export function getEmailContent(
     if (template === "EN_ROUTE") {
         const delaiText = direction === "NE_TO_CA"
             ? "sept (7) jours ouvrables"
-            : "dix (10) jours ouvrables";
+            : "sept  (07) jours ouvrables";
 
         const statusMessage = direction === "NE_TO_CA"
             ? `a quitté le Niger en destination du Canada. Votre colis sera disponible pour récupération dans un délai maximum de <strong>${delaiText}</strong>.`
