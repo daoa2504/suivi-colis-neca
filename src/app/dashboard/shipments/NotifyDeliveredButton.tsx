@@ -62,20 +62,20 @@ export default function NotifyDeliveredButton({
     return (
         <div className="relative">
             <button
-                className={`px-2 py-1 text-sm rounded transition-all ${
+                className={`text-lg transition-transform ${
                     isDisabled
-                        ? "bg-gray-200 text-gray-400 cursor-not-allowed opacity-50"
-                        : "bg-green-600 text-white hover:bg-green-700"
+                        ? "cursor-not-allowed opacity-40"
+                        : "hover:scale-110"
                 }`}
                 onClick={() => !isDisabled && setOpen((v) => !v)}
                 disabled={isDisabled}
                 title={
                     isDisabled
-                        ? "Email déjà envoyé"
+                        ? "Email de remerciement déjà envoyé"
                         : "Envoyer un email de remerciement"
                 }
             >
-                {isDisabled ? "✓ Envoyé" : "Remercier"}
+                {isDisabled ? "✅" : "🙏"}
             </button>
 
             {open && !isDisabled && (

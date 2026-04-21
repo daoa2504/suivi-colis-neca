@@ -25,6 +25,40 @@ export default function CAForm() {
     const [loading, setLoading] = useState(false);
     const [receiverName, setReceiverName] = useState('');
 
+    // États pour le récupérateur au Niger
+    const [pickupLastName, setPickupLastName] = useState('');
+    const [pickupFirstName, setPickupFirstName] = useState('');
+
+    // États pour les convois disponibles
+    const [availableConvoys, setAvailableConvoys] = useState<
+        { id: string; date: string }[]
+    >([]);
+    const [selectedConvoyId, setSelectedConvoyId] = useState('');
+    const [convoysLoading, setConvoysLoading] = useState(true);
+
+    // Charger les convois CA → NE
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await fetch("/api/convoys/list?direction=CA_TO_NE&upcomingOnly=true");
+                const data = await res.json();
+                if (data.ok) {
+                    const list = (data.convoys as any[])
+                        .map((c) => ({
+                            id: c.id,
+                            date: new Date(c.date).toISOString().slice(0, 10),
+                        }))
+                        .sort((a, b) => (a.date < b.date ? 1 : -1));
+                    setAvailableConvoys(list);
+                }
+            } catch {
+                // silent
+            } finally {
+                setConvoysLoading(false);
+            }
+        })();
+    }, []);
+
     // Fonction pour capitaliser les noms
     const capitalizeNames = (input: string) => {
         return input
@@ -104,6 +138,16 @@ export default function CAForm() {
         const poBoxInput = document.getElementById("receiverPoBox") as HTMLInputElement;
         if (poBoxInput) poBoxInput.value = client.receiverPoBox || "";
 
+        // Pré-remplissage du récupérateur au Niger
+        setPickupLastName(client.pickupLastName || "");
+        setPickupFirstName(client.pickupFirstName || "");
+
+        const pickupQuartierInput = document.getElementById("pickupQuartier") as HTMLInputElement;
+        if (pickupQuartierInput) pickupQuartierInput.value = client.pickupQuartier || "";
+
+        const pickupPhoneInput = document.getElementById("pickupPhone") as HTMLInputElement;
+        if (pickupPhoneInput) pickupPhoneInput.value = client.pickupPhone || "";
+
         setShowSuggestions(false);
         setSearchPhone(client.receiverPhone || "");
         setMsg("✅ Client trouvé – formulaire rempli automatiquement");
@@ -151,8 +195,14 @@ export default function CAForm() {
         const form = e.currentTarget;
         const fd = new FormData(form);
 
+        if (!selectedConvoyId) {
+            setMsg("❌ Sélectionnez un convoi");
+            setLoading(false);
+            return;
+        }
+
         const payload = {
-            convoyDate: String(fd.get("convoyDate") || "").trim(),
+            convoyId: selectedConvoyId,
             receiverName: String(fd.get("receiverName") || "").trim(),
             receiverEmail: String(fd.get("receiverEmail") || "").trim(),
             receiverPhone: (fd.get("receiverPhone") as string) || null,
@@ -163,6 +213,10 @@ export default function CAForm() {
             receiverAddress: (fd.get("receiverAddress") as string) || null,
             receiverCity: (fd.get("receiverCity") as string) || null,
             receiverPoBox: (fd.get("receiverPoBox") as string) || null,
+            pickupLastName: String(fd.get("pickupLastName") || "").trim(),
+            pickupFirstName: String(fd.get("pickupFirstName") || "").trim(),
+            pickupQuartier: String(fd.get("pickupQuartier") || "").trim(),
+            pickupPhone: String(fd.get("pickupPhone") || "").trim(),
             notes: (fd.get("notes") as string) || null,
             direction: "CA_TO_NE",
         };
@@ -183,11 +237,25 @@ export default function CAForm() {
                     : { ok: false, error: await res.text() };
 
             if (!res.ok || !(data as any).ok) {
-                throw new Error((data as any).error || "Création échouée");
+                const rawErr = (data as any).error;
+                let errMsg = "Création échouée";
+                if (typeof rawErr === "string") {
+                    errMsg = rawErr;
+                } else if (rawErr && typeof rawErr === "object") {
+                    const fieldErrors = rawErr.fieldErrors || {};
+                    const msgs = Object.entries(fieldErrors)
+                        .map(([k, v]) => `${k}: ${(v as string[]).join(", ")}`)
+                        .join(" | ");
+                    errMsg = msgs || rawErr.formErrors?.join(", ") || "Validation échouée";
+                }
+                throw new Error(errMsg);
             }
 
             form.reset();
             setReceiverName('');
+            setPickupLastName('');
+            setPickupFirstName('');
+            setSelectedConvoyId('');
             setSearchPhone('');
             setMsg(`✅ Colis enregistré. Tracking: ${(data as any).trackingId}`);
             router.refresh();
@@ -263,75 +331,93 @@ export default function CAForm() {
                 )}
             </div>
 
-            {/* Date du convoi */}
+            {/* Convoi (CA → NE) */}
             <div>
-                <label htmlFor="convoyDate" className="label block mb-1 text-sm font-medium text-neutral-700">
-                    Date du convoi (CA → NE) <span className="text-red-600">*</span>
+                <label htmlFor="convoyId" className="label block mb-1 text-sm font-medium text-neutral-700">
+                    Convoi (CA → NE) <span className="text-red-600">*</span>
                 </label>
-                <input
-                    id="convoyDate"
-                    name="convoyDate"
-                    type="date"
-                    className="input border p-2 w-full rounded"
-                    required
-                />
+                {convoysLoading ? (
+                    <p className="text-sm text-gray-500 italic">Chargement des convois…</p>
+                ) : availableConvoys.length === 0 ? (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded text-sm text-amber-900">
+                        ⚠️ Aucun convoi disponible. Contactez l'administrateur pour qu'il en crée un.
+                    </div>
+                ) : (
+                    <select
+                        id="convoyId"
+                        value={selectedConvoyId}
+                        onChange={(e) => setSelectedConvoyId(e.target.value)}
+                        required
+                        className="input border p-2 w-full rounded bg-white"
+                    >
+                        <option value="">-- Sélectionner un convoi --</option>
+                        {availableConvoys.map((c) => (
+                            <option key={c.id} value={c.id}>
+                                {c.date} (CA → NE)
+                            </option>
+                        ))}
+                    </select>
+                )}
             </div>
 
-            {/* Informations destinataire */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label htmlFor="receiverName" className="label block mb-1 text-sm font-medium text-neutral-700">
-                        Nom destinataire <span className="text-red-600">*</span>
-                    </label>
-                    <input
-                        id="receiverName"
-                        name="receiverName"
-                        className="input border p-2 w-full rounded"
-                        required
-                        value={receiverName}
-                        onChange={(e) => setReceiverName(capitalizeNames(e.target.value))}
-                    />
-                </div>
-                <div>
-                    <label htmlFor="receiverEmail" className="label block mb-1 text-sm font-medium text-neutral-700">
-                        Email destinataire <span className="text-red-600">*</span>
-                    </label>
-                    <input
-                        id="receiverEmail"
-                        name="receiverEmail"
-                        type="email"
-                        className="input border p-2 w-full rounded"
-                        required
-                    />
-                </div>
-                <div>
-                    <label htmlFor="receiverPhone" className="label block mb-1 text-sm font-medium text-neutral-700">
-                        Téléphone
-                    </label>
-                    <input
-                        id="receiverPhone"
-                        name="receiverPhone"
-                        className="input border p-2 w-full rounded"
-                        placeholder="(optionnel)"
-                    />
-                </div>
-                <div>
-                    <label htmlFor="weightKg" className="label block mb-1 text-sm font-medium text-neutral-700">
-                        Poids (kg)
-                    </label>
-                    <input
-                        id="weightKg"
-                        name="weightKg"
-                        type="number"
-                        step="0.01"
-                        className="input border p-2 w-full rounded"
-                    />
-                </div>
-            </div>
+            {/* Expéditeur au Canada */}
+            <fieldset className="space-y-4 bg-red-50 p-4 rounded-lg border border-red-200">
+                <legend className="label font-semibold text-red-900 px-2 flex items-center gap-2">
+                    <img src="/flags/ca.svg" alt="CA" className="w-5 h-3.5 rounded-sm border border-gray-200" />
+                    Expéditeur au Canada
+                </legend>
 
-            {/* Adresse (Niger) */}
-            <fieldset className="space-y-4">
-                <legend className="label font-semibold text-neutral-800">Adresse (Niger)</legend>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label htmlFor="receiverName" className="label block mb-1 text-sm font-medium text-neutral-700">
+                            Nom destinataire <span className="text-red-600">*</span>
+                        </label>
+                        <input
+                            id="receiverName"
+                            name="receiverName"
+                            className="input border p-2 w-full rounded"
+                            required
+                            value={receiverName}
+                            onChange={(e) => setReceiverName(capitalizeNames(e.target.value))}
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="receiverEmail" className="label block mb-1 text-sm font-medium text-neutral-700">
+                            Email destinataire <span className="text-red-600">*</span>
+                        </label>
+                        <input
+                            id="receiverEmail"
+                            name="receiverEmail"
+                            type="email"
+                            className="input border p-2 w-full rounded"
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="receiverPhone" className="label block mb-1 text-sm font-medium text-neutral-700">
+                            Téléphone
+                        </label>
+                        <input
+                            id="receiverPhone"
+                            name="receiverPhone"
+                            className="input border p-2 w-full rounded"
+                            placeholder="(optionnel)"
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="weightKg" className="label block mb-1 text-sm font-medium text-neutral-700">
+                            Poids (kg)
+                        </label>
+                        <input
+                            id="weightKg"
+                            name="weightKg"
+                            type="number"
+                            step="0.01"
+                            className="input border p-2 w-full rounded"
+                        />
+                    </div>
+                </div>
+
                 <div>
                     <label htmlFor="receiverAddress" className="label block mb-1 text-sm font-medium text-neutral-700">
                         Adresse
@@ -352,7 +438,7 @@ export default function CAForm() {
                             id="receiverCity"
                             name="receiverCity"
                             className="input border p-2 w-full rounded"
-                            placeholder="ex: Niamey"
+                            placeholder="ex: Montréal"
                         />
                     </div>
                     <div>
@@ -364,6 +450,66 @@ export default function CAForm() {
                             name="receiverPoBox"
                             className="input border p-2 w-full rounded"
                             placeholder="(optionnel)"
+                        />
+                    </div>
+                </div>
+            </fieldset>
+
+            {/* Récupérateur au Niger */}
+            <fieldset className="space-y-4 bg-amber-50 p-4 rounded-lg border border-amber-200">
+                <legend className="label font-semibold text-amber-900 px-2 flex items-center gap-2">
+                    <img src="/flags/ne.svg" alt="NE" className="w-5 h-3.5 rounded-sm border border-gray-200" />
+                    Récupérateur au Niger
+                </legend>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label htmlFor="pickupLastName" className="label block mb-1 text-sm font-medium text-neutral-700">
+                            Nom <span className="text-red-600">*</span>
+                        </label>
+                        <input
+                            id="pickupLastName"
+                            name="pickupLastName"
+                            className="input border p-2 w-full rounded"
+                            required
+                            value={pickupLastName}
+                            onChange={(e) => setPickupLastName(capitalizeNames(e.target.value))}
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="pickupFirstName" className="label block mb-1 text-sm font-medium text-neutral-700">
+                            Prénoms <span className="text-red-600">*</span>
+                        </label>
+                        <input
+                            id="pickupFirstName"
+                            name="pickupFirstName"
+                            className="input border p-2 w-full rounded"
+                            required
+                            value={pickupFirstName}
+                            onChange={(e) => setPickupFirstName(capitalizeNames(e.target.value))}
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="pickupQuartier" className="label block mb-1 text-sm font-medium text-neutral-700">
+                            Quartier
+                        </label>
+                        <input
+                            id="pickupQuartier"
+                            name="pickupQuartier"
+                            className="input border p-2 w-full rounded"
+                            placeholder="ex: Banifandou (optionnel)"
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="pickupPhone" className="label block mb-1 text-sm font-medium text-neutral-700">
+                            Téléphone <span className="text-red-600">*</span>
+                        </label>
+                        <input
+                            id="pickupPhone"
+                            name="pickupPhone"
+                            type="tel"
+                            className="input border p-2 w-full rounded"
+                            placeholder="+227 ..."
+                            required
                         />
                     </div>
                 </div>

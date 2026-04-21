@@ -105,6 +105,18 @@ export default function Header() {
                         </Link>
                     )}
 
+                    {role === "ADMIN" && (
+                        <Link
+                            href="/admin/convoys"
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors shadow-sm font-medium"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                            </svg>
+                            <span className="hidden lg:inline">Convois</span>
+                        </Link>
+                    )}
+
                     {session && (
                         <>
                             <div className="w-px h-8 bg-gray-300 mx-2 hidden sm:block"></div>

@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import Link from "next/link";
 import type { Prisma, ShipmentStatus } from "@prisma/client";
 import NotifyDeliveredButton from "./NotifyDeliveredButton";
+import DeleteShipmentButton from "./DeleteShipmentButton";
 import ConvoyFilter from "./ConvoyFilter";
 
 export const runtime = "nodejs";
@@ -156,6 +157,10 @@ export default async function ShipmentsPage({
                 receiverCity: true,
                 receiverAddress: true,
                 receiverPoBox: true,
+                pickupLastName: true,
+                pickupFirstName: true,
+                pickupQuartier: true,
+                pickupPhone: true,
                 createdAt: true,
                 originCountry: true,
                 thankYouEmailSent: true,
@@ -306,6 +311,9 @@ export default async function ShipmentsPage({
                         <th className="text-left p-3 max-w-[220px]">Destinataire</th>
                         <th className="text-left p-3 max-w-[260px]">Email</th>
                         <th className="text-left p-3">Tél</th>
+                        {direction === "CA_TO_NE" && (
+                            <th className="text-left p-3 max-w-[220px]">Récupérateur (Niger)</th>
+                        )}
                         <th className="text-left p-3">Statut</th>
                         <th className="text-left p-3">Poids</th>
                         <th className="text-left p-3">Ville</th>
@@ -325,6 +333,27 @@ export default async function ShipmentsPage({
                             <td className="p-3">{s.receiverName}</td>
                             <td className="p-3 text-xs">{s.receiverEmail}</td>
                             <td className="p-3 text-xs">{s.receiverPhone || "—"}</td>
+                            {direction === "CA_TO_NE" && (
+                                <td className="p-3 text-xs max-w-[220px]">
+                                    {(s.pickupLastName || s.pickupFirstName || s.pickupQuartier || s.pickupPhone) ? (
+                                        <div className="space-y-0.5">
+                                            {(s.pickupFirstName || s.pickupLastName) && (
+                                                <div className="font-medium text-gray-900">
+                                                    {[s.pickupFirstName, s.pickupLastName].filter(Boolean).join(" ")}
+                                                </div>
+                                            )}
+                                            {s.pickupQuartier && (
+                                                <div className="text-gray-600">📍 {s.pickupQuartier}</div>
+                                            )}
+                                            {s.pickupPhone && (
+                                                <div className="text-gray-600">📞 {s.pickupPhone}</div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <span className="text-gray-400">—</span>
+                                    )}
+                                </td>
+                            )}
                             <td className="p-3">
                                 <StatusBadge status={s.status} />
                             </td>
@@ -334,30 +363,36 @@ export default async function ShipmentsPage({
                             <td className="p-3 max-w-[160px] truncate" title={s.notes ?? ""}>
                                 {s.notes ?? "—"}
                             </td>
-                            <td className="p-3 space-x-2">
-                                {canEdit(s) && (
-                                    <Link
-                                        href={`/dashboard/shipments/${s.id}/edit`}
-                                        className="text-blue-600 hover:underline text-xs"
-                                    >
-                                        Modifier
-                                    </Link>
-                                )}
-                                {canNotify(s) && (
-                                    <NotifyDeliveredButton
-                                        shipmentId={s.id}
-                                        receiverName={s.receiverName}
-                                        receiverEmail={s.receiverEmail}
-                                        trackingId={s.trackingId}
-                                        thankYouEmailSent={s.thankYouEmailSent}
-                                    />
-                                )}
+                            <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                    {canEdit(s) && (
+                                        <Link
+                                            href={`/dashboard/shipments/${s.id}/edit`}
+                                            title="Modifier"
+                                            className="text-lg hover:scale-110 transition-transform"
+                                        >
+                                            ✏️
+                                        </Link>
+                                    )}
+                                    {canNotify(s) && (
+                                        <NotifyDeliveredButton
+                                            shipmentId={s.id}
+                                            receiverName={s.receiverName}
+                                            receiverEmail={s.receiverEmail}
+                                            trackingId={s.trackingId}
+                                            thankYouEmailSent={s.thankYouEmailSent}
+                                        />
+                                    )}
+                                    {role === "ADMIN" && (
+                                        <DeleteShipmentButton id={s.id} trackingId={s.trackingId} />
+                                    )}
+                                </div>
                             </td>
                         </tr>
                     ))}
                     {items.length === 0 && (
                         <tr>
-                            <td colSpan={10} className="p-6 text-center text-gray-500">
+                            <td colSpan={direction === "CA_TO_NE" ? 12 : 11} className="p-6 text-center text-gray-500">
                                 Aucun colis trouvé.
                             </td>
                         </tr>

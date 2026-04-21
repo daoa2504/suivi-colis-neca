@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { FROM, sendEmailSafe } from "@/lib/email";
 import { notifyConvoySchema } from "@/lib/validators";
 import { Direction as DirectionEnum } from "@prisma/client";
-import { getEmailContent, getEmailSubject, type ConvoyStatus, type Direction } from "@/lib/emailTemplates";
+import { getEmailContent, getEmailSubject, type ConvoyStatus, type Direction, type PickupInfo } from "@/lib/emailTemplates";
 
 export const runtime = "nodejs";
 
@@ -104,6 +104,10 @@ export async function POST(req: NextRequest) {
                         receiverCity: true,  // ✅ ON A BESOIN DE receiverCity POUR FILTRER
                         notes: true,
                         thankYouEmailSent: true,
+                        pickupLastName: true,
+                        pickupFirstName: true,
+                        pickupQuartier: true,
+                        pickupPhone: true,
                     },
                 },
             },
@@ -165,7 +169,7 @@ export async function POST(req: NextRequest) {
         const results: { email: string; ok: boolean; error?: string; id?: string; trackingIds?: string[] }[] = [];
 
         // ========== Groupement par EMAIL ==========
-        type RecipientGroup = { name: string; ids: string[] };
+        type RecipientGroup = { name: string; ids: string[]; pickups: PickupInfo[] };
         const grouped = new Map<string, RecipientGroup>();
         const invalidEmails: Array<{ emailRaw: string; id: number; trackingId: string }> = [];
 
@@ -179,13 +183,23 @@ export async function POST(req: NextRequest) {
                 continue;
             }
 
+            const pickupInfo: PickupInfo = {
+                trackingId: s.trackingId,
+                lastName: s.pickupLastName,
+                firstName: s.pickupFirstName,
+                quartier: s.pickupQuartier,
+                phone: s.pickupPhone,
+            };
+
             const entry = grouped.get(email);
             if (entry) {
                 entry.ids.push(s.trackingId);
+                entry.pickups.push(pickupInfo);
             } else {
                 grouped.set(email, {
                     name: s.receiverName,
-                    ids: [s.trackingId]
+                    ids: [s.trackingId],
+                    pickups: [pickupInfo],
                 });
             }
         }
@@ -202,7 +216,7 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        for (const [email, { name, ids }] of grouped.entries()) {
+        for (const [email, { name, ids, pickups }] of grouped.entries()) {
             // 🔍 LOG POUR DÉBOGUER
             console.log("=== ENVOI EMAIL ===");
             console.log("Email:", email);
@@ -218,7 +232,8 @@ export async function POST(req: NextRequest) {
                 ids,
                 dateStr,
                 customMessage,
-                pickupCity
+                pickupCity,
+                pickups
             );
 
             try {

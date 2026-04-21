@@ -31,6 +31,10 @@ export async function GET(req: Request) {
                 receiverAddress: true,
                 receiverCity: true,
                 receiverPoBox: true,
+                pickupLastName: true,
+                pickupFirstName: true,
+                pickupQuartier: true,
+                pickupPhone: true,
                 createdAt: true,
             },
         });

@@ -9,6 +9,15 @@ export interface EmailContent {
     html: string;
 }
 
+// Infos du récupérateur au Niger (CA → NE uniquement)
+export interface PickupInfo {
+    trackingId: string;
+    lastName?: string | null;
+    firstName?: string | null;
+    quartier?: string | null;
+    phone?: string | null;
+}
+
 export function getEmailSubject(
     template: ConvoyStatus,
     direction: Direction,
@@ -42,11 +51,54 @@ export function getEmailContent(
     trackingIds: string[],
     dateStr: string,
     customMessage?: string,
-    receiverCity?: string
+    receiverCity?: string,
+    pickupInfos?: PickupInfo[]
 ): EmailContent {
     const directionLabel = direction === "NE_TO_CA" ? "Niger → Canada" : "Canada → Niger";
     const colisListText = trackingIds.map((t) => `• ${t}`).join("\n");
     const colisListHtml = trackingIds.map((t) => `• ${t}`).join("<br>");
+
+    // Bloc récupérateur(s) au Niger — utilisé uniquement pour CA → NE + OUT_FOR_DELIVERY
+    const shouldShowPickup =
+        direction === "CA_TO_NE" &&
+        template === "OUT_FOR_DELIVERY" &&
+        Array.isArray(pickupInfos) &&
+        pickupInfos.some((p) => p.lastName || p.firstName || p.quartier || p.phone);
+
+    const pickupBlockText = shouldShowPickup
+        ? "\n\nRécupérateur(s) au Niger :\n" +
+          pickupInfos!
+              .map((p) => {
+                  const full = [p.firstName, p.lastName].filter(Boolean).join(" ");
+                  const lines = [`• ${p.trackingId}`];
+                  if (full) lines.push(`   Nom : ${full}`);
+                  if (p.quartier) lines.push(`   Quartier : ${p.quartier}`);
+                  if (p.phone) lines.push(`   Téléphone : ${p.phone}`);
+                  return lines.join("\n");
+              })
+              .join("\n\n")
+        : "";
+
+    const pickupBlockHtml = shouldShowPickup
+        ? `
+    <div style="background-color: #e8f4f8; border-left: 3px solid #17a2b8; padding: 15px 20px; border-radius: 4px; margin: 20px 0;">
+      <p style="margin: 0 0 12px 0; color: #0c5460; font-size: 14px; font-weight: 600;">
+        👤 Récupérateur(s) au Niger
+      </p>
+      ${pickupInfos!
+          .map((p) => {
+              const full = [p.firstName, p.lastName].filter(Boolean).join(" ");
+              return `
+      <div style="background-color: #ffffff; padding: 10px 12px; border-radius: 4px; margin: 8px 0; color: #0c5460; font-size: 13px;">
+        <div style="font-weight: 600; margin-bottom: 4px;">${p.trackingId}</div>
+        ${full ? `<div><strong>Nom & Prénoms :</strong> ${full}</div>` : ""}
+        ${p.quartier ? `<div><strong>Quartier :</strong> ${p.quartier}</div>` : ""}
+        ${p.phone ? `<div><strong>Téléphone :</strong> ${p.phone}</div>` : ""}
+      </div>`;
+          })
+          .join("")}
+    </div>`
+        : "";
 
     // ========== EN_ROUTE ==========
     if (template === "EN_ROUTE") {
@@ -286,6 +338,7 @@ Bonne nouvelle ! Le convoi du ${dateStr} a passé avec succès les formalités d
 
 Colis :
 ${colisListText}
+${pickupBlockText}
 
 Point de récupération${pickupCityName ? ` - ${pickupCityName}` : ""} :
 ${pickupAddress}
@@ -329,7 +382,9 @@ ${customMessage || ""}
         ${colisListHtml}
       </div>
     </div>
-    
+
+    ${pickupBlockHtml}
+
     <!-- Bloc d'adresse selon direction -->
     <div style="background-color: #d4edda; border-left: 3px solid #28a745; padding: 20px; border-radius: 4px; margin: 20px 0;">
       <p style="margin: 0 0 15px 0; color: #155724; font-size: 16px; font-weight: 600; text-align: center;">

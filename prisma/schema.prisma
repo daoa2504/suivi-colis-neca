@@ -37,6 +37,13 @@ model Shipment {
   convoyId          String?
   id                Int             @id @default(autoincrement())
   thankYouEmailSent Boolean         @default(false)
+
+  // Infos du récupérateur au Niger (CA → NE uniquement)
+  pickupLastName    String?
+  pickupFirstName   String?
+  pickupQuartier    String?
+  pickupPhone       String?
+
   convoy            Convoy?         @relation(fields: [convoyId], references: [id])
   events            ShipmentEvent[]
 }

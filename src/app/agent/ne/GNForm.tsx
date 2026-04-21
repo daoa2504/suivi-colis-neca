@@ -26,6 +26,36 @@ export default function GNForm() {
     const [otherCity, setOtherCity] = useState("");
     const [receiverName, setReceiverName] = useState('');
 
+    // États pour les convois disponibles
+    const [availableConvoys, setAvailableConvoys] = useState<
+        { id: string; date: string }[]
+    >([]);
+    const [selectedConvoyId, setSelectedConvoyId] = useState('');
+    const [convoysLoading, setConvoysLoading] = useState(true);
+
+    // Charger les convois NE → CA
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await fetch("/api/convoys/list?direction=NE_TO_CA&upcomingOnly=true");
+                const data = await res.json();
+                if (data.ok) {
+                    const list = (data.convoys as any[])
+                        .map((c) => ({
+                            id: c.id,
+                            date: new Date(c.date).toISOString().slice(0, 10),
+                        }))
+                        .sort((a, b) => (a.date < b.date ? 1 : -1));
+                    setAvailableConvoys(list);
+                }
+            } catch {
+                // silent
+            } finally {
+                setConvoysLoading(false);
+            }
+        })();
+    }, []);
+
     // Fonction pour capitaliser les noms
     const capitalizeNames = (input: string) => {
         return input
@@ -163,9 +193,16 @@ export default function GNForm() {
         setMsg(null);
         setLoading(true);
 
+        if (!selectedConvoyId) {
+            setMsg("❌ Sélectionnez un convoi");
+            setLoading(false);
+            return;
+        }
+
         try {
             const fd = new FormData(e.currentTarget);
-            const body = Object.fromEntries(fd.entries());
+            const body: Record<string, any> = Object.fromEntries(fd.entries());
+            body.convoyId = selectedConvoyId;
 
             const res = await fetch('/api/shipments', {
                 method: 'POST',
@@ -188,6 +225,7 @@ export default function GNForm() {
             setOtherCity('');
             setPostalCode('');
             setReceiverName('');
+            setSelectedConvoyId('');
             setSearchPhone('');
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Erreur inconnue';
@@ -348,16 +386,31 @@ export default function GNForm() {
                 </div>
 
                 <div>
-                    <label htmlFor="convoyDate" className="label block mb-1 text-sm font-medium text-neutral-700">
-                        Date du convoi <span className="text-red-600">*</span>
+                    <label htmlFor="convoyId" className="label block mb-1 text-sm font-medium text-neutral-700">
+                        Convoi (NE → CA) <span className="text-red-600">*</span>
                     </label>
-                    <input
-                        id="convoyDate"
-                        name="convoyDate"
-                        type="date"
-                        required
-                        className="input border p-2 w-full rounded"
-                    />
+                    {convoysLoading ? (
+                        <p className="text-sm text-gray-500 italic">Chargement des convois…</p>
+                    ) : availableConvoys.length === 0 ? (
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded text-sm text-amber-900">
+                            ⚠️ Aucun convoi disponible. Contactez l'administrateur.
+                        </div>
+                    ) : (
+                        <select
+                            id="convoyId"
+                            value={selectedConvoyId}
+                            onChange={(e) => setSelectedConvoyId(e.target.value)}
+                            required
+                            className="input border p-2 w-full rounded bg-white"
+                        >
+                            <option value="">-- Sélectionner un convoi --</option>
+                            {availableConvoys.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                    {c.date} (NE → CA)
+                                </option>
+                            ))}
+                        </select>
+                    )}
                 </div>
             </div>
 

@@ -4,18 +4,28 @@ import { z } from "zod";
 export const createShipmentByGN = z.object({
     receiverName: z.string().min(1),
     receiverEmail: z.string().email(),
-    receiverPhone: z.string().optional(),
+    receiverPhone: z.string().nullish(),
     originCountry: z.string().default("Niger"),
     destinationCountry: z.string().default("Canada"),
     weightKg: z.preprocess(
         (v) => (v === "" || v === null ? undefined : Number(v)),
         z.number().positive().optional()
     ),
-    receiverAddress: z.string().optional().nullable(),
-    receiverCity: z.string().optional().nullable(),
-    receiverPoBox: z.string().optional().nullable(),
-    notes: z.string().optional(),
+    receiverAddress: z.string().nullish(),
+    receiverCity: z.string().nullish(),
+    receiverPoBox: z.string().nullish(),
+    notes: z.string().nullish(),
     convoyDate: z.union([z.string(), z.date()]), // ex: "2025-09-06" ou Date
+});
+
+// Formulaire Agent CA : identique à GN + infos du récupérateur au Niger (obligatoires)
+export const createShipmentByCA = createShipmentByGN.extend({
+    originCountry: z.string().default("Canada"),
+    destinationCountry: z.string().default("Niger"),
+    pickupLastName: z.string().min(1, "Nom du récupérateur requis"),
+    pickupFirstName: z.string().min(1, "Prénoms du récupérateur requis"),
+    pickupQuartier: z.string().nullish(),
+    pickupPhone: z.string().min(1, "Téléphone du récupérateur requis"),
 });
 
 // src/lib/validators.ts
@@ -82,4 +92,8 @@ export const updateShipmentSchema = z.object({
     receiverAddress: z.string().optional().nullable(),
     receiverCity: z.string().optional().nullable(),
     receiverPoBox: z.string().optional().nullable(),
+    pickupLastName: z.string().optional().nullable(),
+    pickupFirstName: z.string().optional().nullable(),
+    pickupQuartier: z.string().optional().nullable(),
+    pickupPhone: z.string().optional().nullable(),
 });

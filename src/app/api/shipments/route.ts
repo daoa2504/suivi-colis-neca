@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { Direction } from "@prisma/client";
 import { sendEmailSafe, FROM } from "@/lib/email";
+import { createShipmentByCA } from "@/lib/validators";
 
 const toFloatOrNull = (v: unknown) => {
     if (v === undefined || v === null) return null;
@@ -63,9 +64,39 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json().catch(() => ({} as any));
-        const convoyDate = body.convoyDate ? new Date(body.convoyDate) : new Date();
 
-        const direction: Direction = body.direction === "CA_TO_NE" ? "CA_TO_NE" : "NE_TO_CA";
+        // 1) Récupérer le convoi : on exige désormais convoyId (créé par l'admin à l'avance)
+        if (!body.convoyId || typeof body.convoyId !== "string") {
+            return NextResponse.json(
+                { ok: false, error: "convoyId requis — sélectionnez un convoi existant" },
+                { status: 400 }
+            );
+        }
+
+        const convoy = await prisma.convoy.findUnique({
+            where: { id: body.convoyId },
+        });
+
+        if (!convoy) {
+            return NextResponse.json(
+                { ok: false, error: "Convoi introuvable" },
+                { status: 404 }
+            );
+        }
+
+        // La direction provient du convoi, source de vérité
+        const direction: Direction = convoy.direction;
+
+        // Validation spécifique CA→NE : infos du récupérateur au Niger obligatoires
+        if (direction === "CA_TO_NE") {
+            const parsed = createShipmentByCA.safeParse(body);
+            if (!parsed.success) {
+                return NextResponse.json(
+                    { ok: false, error: parsed.error.flatten() },
+                    { status: 400 }
+                );
+            }
+        }
 
         const isNeToCA = direction === "NE_TO_CA";
         const originCountry = isNeToCA ? "NE" : "CA";
@@ -73,17 +104,12 @@ export async function POST(req: NextRequest) {
         const routeDisplay = isNeToCA ? "Niger → Canada" : "Canada → Niger";
 
         console.log("📦 Création de colis:");
+        console.log("  - ConvoyId:", convoy.id);
+        console.log("  - Date convoi:", convoy.date.toISOString());
         console.log("  - Direction:", direction);
         console.log("  - Origin:", originCountry);
         console.log("  - Destination:", destinationCountry);
         console.log("  - Route:", routeDisplay);
-
-        // 1) upsert du convoi
-        const convoy = await prisma.convoy.upsert({
-            where: { date_direction: { date: convoyDate, direction } },
-            update: {},
-            create: { date: convoyDate, direction },
-        });
 
         const weightKg = toFloatOrNull(body.weightKg);
 
@@ -105,6 +131,10 @@ export async function POST(req: NextRequest) {
                 receiverAddress: body.receiverAddress || null,
                 receiverCity: body.receiverCity || null,
                 receiverPoBox: body.receiverPoBox || null,
+                pickupLastName: body.pickupLastName?.trim() || null,
+                pickupFirstName: body.pickupFirstName?.trim() || null,
+                pickupQuartier: body.pickupQuartier?.trim() || null,
+                pickupPhone: body.pickupPhone?.trim() || null,
                 notes: body.notes || null,
                 convoyId: convoy.id,
                 originCountry,
@@ -129,6 +159,33 @@ export async function POST(req: NextRequest) {
 
             const receptionCountry = isNeToCA ? "Niger" : "Canada";
             const destinationText = isNeToCA ? "Canada" : "Niger";
+
+            // Bloc récupérateur au Niger (CA → NE uniquement)
+            const pickupFullName = [shipment.pickupFirstName, shipment.pickupLastName]
+                .filter(Boolean)
+                .join(" ");
+            const pickupBlockHtml = !isNeToCA && pickupFullName ? `
+    <div style="background-color: #e8f4f8; border-left: 3px solid #17a2b8; padding: 15px; border-radius: 4px; margin: 20px 0;">
+      <p style="margin: 0 0 10px 0; color: #0c5460; font-size: 14px; font-weight: 600;">
+        👤 Récupérateur au Niger
+      </p>
+      <table style="width: 100%; border-collapse: collapse; color: #0c5460; font-size: 14px;">
+        <tr>
+          <td style="padding: 4px 0;"><strong>Nom & Prénoms :</strong></td>
+          <td style="padding: 4px 0; text-align: right;">${pickupFullName}</td>
+        </tr>
+        ${shipment.pickupQuartier ? `
+        <tr>
+          <td style="padding: 4px 0;"><strong>Quartier :</strong></td>
+          <td style="padding: 4px 0; text-align: right;">${shipment.pickupQuartier}</td>
+        </tr>` : ""}
+        ${shipment.pickupPhone ? `
+        <tr>
+          <td style="padding: 4px 0;"><strong>Téléphone :</strong></td>
+          <td style="padding: 4px 0; text-align: right;">${shipment.pickupPhone}</td>
+        </tr>` : ""}
+      </table>
+    </div>` : "";
 
             const subject = `Réception de colis au ${receptionCountry} — N° ID: ${shipment.trackingId}`;
             const html = `
@@ -183,7 +240,9 @@ export async function POST(req: NextRequest) {
       </p>
     </div>
     ` : ""}
-    
+
+    ${pickupBlockHtml}
+
     <p style="margin: 20px 0 0 0; color: #6c757d; font-size: 14px;">
       Votre colis est actuellement en notre possession et sera acheminé vers le ${destinationText} dans les meilleurs délais.
     </p>
