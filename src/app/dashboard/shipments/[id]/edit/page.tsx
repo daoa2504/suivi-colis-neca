@@ -35,7 +35,16 @@ export default async function EditShipmentPage({
             receiverAddress: true,
             receiverCity: true,
             receiverPoBox: true,
+            pickupLastName: true,
+            pickupFirstName: true,
+            pickupQuartier: true,
+            pickupPhone: true,
             notes: true,
+            originCountry: true,
+            convoyId: true,
+            convoy: {
+                select: { id: true, date: true, direction: true },
+            },
         },
     });
 
@@ -43,11 +52,14 @@ export default async function EditShipmentPage({
         redirect("/dashboard/shipments");
     }
 
+    const direction = shipment.convoy?.direction ??
+        (shipment.originCountry === "CA" ? "CA_TO_NE" : "NE_TO_CA");
+
     return (
         <main className="container-page">
             <div className="card">
                 <h1 className="title">Modifier — {shipment!.trackingId}</h1>
-                <EditForm shipment={shipment!} />
+                <EditForm shipment={shipment!} direction={direction as "CA_TO_NE" | "NE_TO_CA"} />
             </div>
         </main>
     );

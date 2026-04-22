@@ -86,7 +86,27 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if ("receiverAddress" in body) data.receiverAddress = body.receiverAddress ? String(body.receiverAddress) : null;
     if ("receiverCity" in body) data.receiverCity = body.receiverCity ? String(body.receiverCity) : null;
     if ("receiverPoBox" in body) data.receiverPoBox = body.receiverPoBox ? String(body.receiverPoBox) : null;
+    if ("pickupLastName" in body) data.pickupLastName = body.pickupLastName ? String(body.pickupLastName) : null;
+    if ("pickupFirstName" in body) data.pickupFirstName = body.pickupFirstName ? String(body.pickupFirstName) : null;
+    if ("pickupQuartier" in body) data.pickupQuartier = body.pickupQuartier ? String(body.pickupQuartier) : null;
+    if ("pickupPhone" in body) data.pickupPhone = body.pickupPhone ? String(body.pickupPhone) : null;
     if ("notes" in body) data.notes = body.notes ? String(body.notes) : null;
+
+    // Changement de convoi : autorisé, mais on vérifie qu'il existe et que la direction colle
+    if ("convoyId" in body && body.convoyId) {
+        const newConvoy = await prisma.convoy.findUnique({ where: { id: String(body.convoyId) } });
+        if (!newConvoy) {
+            return NextResponse.json({ ok: false, error: "Convoi introuvable" }, { status: 404 });
+        }
+        const expectedDirection = before.originCountry === "CA" ? "CA_TO_NE" : "NE_TO_CA";
+        if (newConvoy.direction !== expectedDirection) {
+            return NextResponse.json(
+                { ok: false, error: "Direction du convoi incompatible avec ce colis" },
+                { status: 400 }
+            );
+        }
+        data.convoyId = newConvoy.id;
+    }
 
     if (Object.keys(data).length === 0) {
         return NextResponse.json({ ok: false, error: "Aucun champ modifiable reçu" }, { status: 400 });
