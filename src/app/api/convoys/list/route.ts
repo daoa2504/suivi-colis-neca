@@ -20,12 +20,11 @@ export async function GET(req: NextRequest) {
         where.direction = directionParam;
     }
 
-    // Filtre "date ≥ aujourd'hui − 30 jours"
+    // Filtre "date ≥ aujourd'hui" — n'affiche que les convois à venir ou du jour
     if (upcomingOnly) {
-        const cutoff = new Date();
-        cutoff.setUTCHours(0, 0, 0, 0);
-        cutoff.setUTCDate(cutoff.getUTCDate() - 30);
-        where.date = { gte: cutoff };
+        const today = new Date();
+        today.setUTCHours(0, 0, 0, 0);
+        where.date = { gte: today };
     }
 
     try {
