@@ -15,7 +15,8 @@ export const createShipmentByGN = z.object({
     receiverCity: z.string().nullish(),
     receiverPoBox: z.string().nullish(),
     notes: z.string().nullish(),
-    convoyDate: z.union([z.string(), z.date()]), // ex: "2025-09-06" ou Date
+    convoyId: z.string().min(1).optional(),
+    convoyDate: z.union([z.string(), z.date()]).optional(), // legacy, remplacé par convoyId
 });
 
 // Formulaire Agent CA : identique à GN + infos du récupérateur au Niger (obligatoires)
