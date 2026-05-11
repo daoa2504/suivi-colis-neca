@@ -174,7 +174,7 @@ Numéro ID : ${updated.trackingId}
         <img src="https://nimaplex.com/img.png" alt="NIMAPLEX" width="60" height="60" style="display: block; border-radius: 8px;" />
       </td>
       <td style="padding-left: 12px; line-height: 1.3;">
-        <div style="font-weight: 700; color: #8B0000; font-size: 18px; letter-spacing: 0.5px;">MUGRALEX</div>
+        <div style="font-weight: 700; color: #8B0000; font-size: 18px; letter-spacing: 0.5px;">NIMAPLEX</div>
         <div style="font-size: 13px; color: #6c757d;">Plus qu'une solution, un service d'excellence global</div>
       </td>
     </tr>
