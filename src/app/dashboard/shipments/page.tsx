@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import Link from "next/link";
-import type { Prisma, ShipmentStatus } from "@prisma/client";
+import type { Prisma, ShipmentStatus, PaymentStatus } from "@prisma/client";
 import NotifyDeliveredButton from "./NotifyDeliveredButton";
 import DeleteShipmentButton from "./DeleteShipmentButton";
 import ConvoyFilter from "./ConvoyFilter";
@@ -37,6 +37,30 @@ function fmtDate(d: Date) {
     const month = String(date.getUTCMonth() + 1).padStart(2, '0');
     const day = String(date.getUTCDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+}
+
+const PAYMENT_FR: Record<PaymentStatus, string> = {
+    PAID: "Payé",
+    PARTIAL: "Partiel",
+    UNPAID: "Non payé",
+};
+
+function PaymentBadge({ status, amountPaid }: { status: PaymentStatus; amountPaid: number | null }) {
+    const tone =
+        status === "PAID"
+            ? "bg-green-100 text-green-800"
+            : status === "PARTIAL"
+                ? "bg-amber-100 text-amber-800"
+                : "bg-red-100 text-red-800";
+    return (
+        <span
+            className={`inline-block px-2 py-1 rounded text-xs ${tone}`}
+            title={status === "PARTIAL" && amountPaid != null ? `Payé : ${amountPaid}` : ""}
+        >
+            {PAYMENT_FR[status]}
+            {status === "PARTIAL" && amountPaid != null && ` (${amountPaid})`}
+        </span>
+    );
 }
 
 function StatusBadge({ status }: { status: ShipmentStatus }) {
@@ -161,6 +185,8 @@ export default async function ShipmentsPage({
                 pickupFirstName: true,
                 pickupQuartier: true,
                 pickupPhone: true,
+                paymentStatus: true,
+                amountPaid: true,
                 createdAt: true,
                 originCountry: true,
                 thankYouEmailSent: true,
@@ -170,6 +196,7 @@ export default async function ShipmentsPage({
                         date: true,
                     },
                 },
+                _count: { select: { items: true } },
             },
         }),
         prisma.shipment.count({ where }),
@@ -315,10 +342,11 @@ export default async function ShipmentsPage({
                             <th className="text-left p-3 max-w-[220px]">Récupérateur (Niger)</th>
                         )}
                         <th className="text-left p-3">Statut</th>
+                        <th className="text-left p-3">Paiement</th>
+                        <th className="text-left p-3">Colis</th>
                         <th className="text-left p-3">Poids</th>
                         <th className="text-left p-3">Ville</th>
                         <th className="text-left p-3">Créé le</th>
-                        <th className="text-left p-3 max-w-[160px]">Note</th>
                         <th className="text-left p-3">Actions</th>
                     </tr>
                     </thead>
@@ -357,12 +385,20 @@ export default async function ShipmentsPage({
                             <td className="p-3">
                                 <StatusBadge status={s.status} />
                             </td>
+                            <td className="p-3">
+                                <PaymentBadge status={s.paymentStatus} amountPaid={s.amountPaid} />
+                            </td>
+                            <td className="p-3">
+                                <Link
+                                    href={`/dashboard/shipments/${s.id}/items`}
+                                    className="inline-flex items-center gap-1 text-blue-600 hover:underline text-xs"
+                                >
+                                    📦 {s._count.items}
+                                </Link>
+                            </td>
                             <td className="p-3">{s.weightKg ?? "—"}</td>
                             <td className="p-3">{s.receiverCity ?? "—"}</td>
                             <td className="p-3 text-xs">{fmtDate(s.createdAt)}</td>
-                            <td className="p-3 max-w-[160px] truncate" title={s.notes ?? ""}>
-                                {s.notes ?? "—"}
-                            </td>
                             <td className="p-3">
                                 <div className="flex items-center gap-2">
                                     {canEdit(s) && (
@@ -392,7 +428,7 @@ export default async function ShipmentsPage({
                     ))}
                     {items.length === 0 && (
                         <tr>
-                            <td colSpan={direction === "CA_TO_NE" ? 12 : 11} className="p-6 text-center text-gray-500">
+                            <td colSpan={direction === "CA_TO_NE" ? 13 : 12} className="p-6 text-center text-gray-500">
                                 Aucun colis trouvé.
                             </td>
                         </tr>

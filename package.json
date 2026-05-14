@@ -19,6 +19,8 @@
     "@prisma/client": "^6.15.0",
     "bcrypt": "^5.1.1",
     "groq-sdk": "^0.37.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.7",
     "next": "^15.5.9",
     "next-auth": "^4.24.7",
     "react": "^18.3.1",

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import ExportPdfButtons from "./ExportPdfButtons";
 
 type Convoy = {
     id: string;
@@ -130,6 +131,7 @@ export default function ConvoysManager({ initialConvoys }: { initialConvoys: Con
                         <th className="text-left p-3">Date</th>
                         <th className="text-left p-3">Direction</th>
                         <th className="text-left p-3">Colis</th>
+                        <th className="text-left p-3">Export PDF</th>
                         <th className="text-left p-3">Actions</th>
                     </tr>
                     </thead>
@@ -150,6 +152,17 @@ export default function ConvoysManager({ initialConvoys }: { initialConvoys: Con
                             </td>
                             <td className="p-3">{c.totalShipments}</td>
                             <td className="p-3">
+                                {c.totalShipments > 0 ? (
+                                    <ExportPdfButtons
+                                        convoyId={c.id}
+                                        convoyDate={c.date}
+                                        direction={c.direction}
+                                    />
+                                ) : (
+                                    <span className="text-xs text-gray-400">—</span>
+                                )}
+                            </td>
+                            <td className="p-3">
                                 <button
                                     onClick={() => onDelete(c.id)}
                                     disabled={c.totalShipments > 0}
@@ -163,7 +176,7 @@ export default function ConvoysManager({ initialConvoys }: { initialConvoys: Con
                     ))}
                     {convoys.length === 0 && (
                         <tr>
-                            <td colSpan={4} className="p-6 text-center text-gray-500">
+                            <td colSpan={5} className="p-6 text-center text-gray-500">
                                 Aucun convoi. Créez-en un ci-dessus.
                             </td>
                         </tr>

@@ -44,8 +44,23 @@ model Shipment {
   pickupQuartier    String?
   pickupPhone       String?
 
+  // Paiement
+  paymentStatus     PaymentStatus   @default(UNPAID)
+  amountPaid        Float?
+
   convoy            Convoy?         @relation(fields: [convoyId], references: [id])
   events            ShipmentEvent[]
+  items             ShipmentItem[]
+}
+
+model ShipmentItem {
+  id         String   @id @default(cuid())
+  shipmentId Int
+  shipment   Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  label      String
+  quantity   Int      @default(1)
+  weightKg   Float?
+  createdAt  DateTime @default(now())
 }
 
 model ShipmentEvent {
@@ -88,4 +103,10 @@ enum ShipmentStatus {
 enum Direction {
   NE_TO_CA
   CA_TO_NE
+}
+
+enum PaymentStatus {
+  PAID
+  PARTIAL
+  UNPAID
 }
