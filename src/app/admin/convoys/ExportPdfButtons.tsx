@@ -62,7 +62,7 @@ export default function ExportPdfButtons({
             const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
 
             const title = `Liste du convoi ${formatDate(convoyDate)} (${
-                direction === "CA_TO_NE" ? "CA → NE" : "NE → CA"
+                direction === "CA_TO_NE" ? "CA -> NE" : "NE -> CA"
             })`;
             doc.setFontSize(14);
             doc.text(title, 40, 40);
@@ -82,7 +82,7 @@ export default function ExportPdfButtons({
                 const shipments = byCity.get(city)!;
                 doc.setFontSize(12);
                 doc.setTextColor(139, 0, 0); // dark red
-                doc.text(`📍 ${city} (${shipments.length} client${shipments.length > 1 ? "s" : ""})`, 40, y);
+                doc.text(`${city} (${shipments.length} client${shipments.length > 1 ? "s" : ""})`, 40, y);
                 y += 8;
 
                 autoTable(doc, {
@@ -134,7 +134,7 @@ export default function ExportPdfButtons({
             const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
 
             const title = `Détails du convoi ${formatDate(convoyDate)} (${
-                direction === "CA_TO_NE" ? "CA → NE" : "NE → CA"
+                direction === "CA_TO_NE" ? "CA -> NE" : "NE -> CA"
             })`;
             doc.setFontSize(14);
             doc.text(title, 40, 40);
@@ -206,7 +206,7 @@ export default function ExportPdfButtons({
             const finalY = (doc as any).lastAutoTable.finalY ?? 60;
             doc.setFontSize(10);
             doc.text(
-                `Poids total du convoi : ${grandTotal.toFixed(2)} kg • ${data.shipments.length} client(s)`,
+                `Poids total du convoi : ${grandTotal.toFixed(2)} kg | ${data.shipments.length} client(s)`,
                 40,
                 finalY + 25
             );
