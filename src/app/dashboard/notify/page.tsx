@@ -1,7 +1,7 @@
 // src/app/(dashboard)/notify/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import EmailPreview from "@/components/EmailPreview";
 import type { ConvoyStatus, Direction } from "@/lib/emailTemplates";
 
@@ -15,6 +15,40 @@ export default function NotifyPage() {
         direction: "NE_TO_CA" as Direction,
         pickupCity: "Sherbrooke",
     });
+
+    // Convois disponibles pour la direction sélectionnée
+    const [availableConvoys, setAvailableConvoys] = useState<
+        { id: string; date: string }[]
+    >([]);
+    const [convoysLoading, setConvoysLoading] = useState(false);
+
+    useEffect(() => {
+        setConvoysLoading(true);
+        setFormData((prev) => ({ ...prev, convoyDate: "" }));
+        (async () => {
+            try {
+                const res = await fetch(
+                    `/api/convoys/list?direction=${formData.direction}&upcomingOnly=true`
+                );
+                const data = await res.json();
+                if (data.ok) {
+                    const list = (data.convoys as any[])
+                        .map((c) => ({
+                            id: c.id,
+                            date: new Date(c.date).toISOString().slice(0, 10),
+                        }))
+                        .sort((a, b) => (a.date < b.date ? 1 : -1));
+                    setAvailableConvoys(list);
+                } else {
+                    setAvailableConvoys([]);
+                }
+            } catch {
+                setAvailableConvoys([]);
+            } finally {
+                setConvoysLoading(false);
+            }
+        })();
+    }, [formData.direction]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -121,20 +155,34 @@ export default function NotifyPage() {
                             </div>
 
                             <form onSubmit={handleSubmit} className="space-y-5">
-                                {/* Date du convoi */}
+                                {/* Convoi à notifier */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Date du convoi <span className="text-red-500">*</span>
+                                        Convoi à notifier <span className="text-red-500">*</span>
                                     </label>
-                                    <input
-                                        type="date"
-                                        required
-                                        value={formData.convoyDate}
-                                        onChange={(e) =>
-                                            setFormData({ ...formData, convoyDate: e.target.value })
-                                        }
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    />
+                                    {convoysLoading ? (
+                                        <p className="text-sm text-gray-500 italic">Chargement des convois…</p>
+                                    ) : availableConvoys.length === 0 ? (
+                                        <div className="p-3 bg-amber-50 border border-amber-200 rounded text-sm text-amber-900">
+                                            ⚠️ Aucun convoi disponible pour cette direction. Demandez à l'administrateur d'en créer un.
+                                        </div>
+                                    ) : (
+                                        <select
+                                            required
+                                            value={formData.convoyDate}
+                                            onChange={(e) =>
+                                                setFormData({ ...formData, convoyDate: e.target.value })
+                                            }
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        >
+                                            <option value="">-- Sélectionner un convoi --</option>
+                                            {availableConvoys.map((c) => (
+                                                <option key={c.id} value={c.date}>
+                                                    {c.date} ({formData.direction === "CA_TO_NE" ? "CA → NE" : "NE → CA"})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
                                 </div>
 
                                 {/* Action / Statut */}
