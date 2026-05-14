@@ -139,7 +139,16 @@ export default function ExportPdfButtons({
             doc.setFontSize(14);
             doc.text(title, 40, 40);
 
-            // Build flat table : each row = a client, with items as columns "Colis 1, Colis 2…"
+            // Group by city
+            const byCity = new Map<string, ConvoyShipment[]>();
+            for (const s of data.shipments) {
+                const city = (s.receiverCity || "Sans ville").trim();
+                if (!byCity.has(city)) byCity.set(city, []);
+                byCity.get(city)!.push(s);
+            }
+            const sortedCities = Array.from(byCity.keys()).sort();
+
+            // Max items across the entire convoy → fixe le nombre de colonnes "Colis N"
             const maxItems = data.shipments.reduce((m, s) => Math.max(m, s.items.length), 0);
             const itemHeaders = Array.from({ length: maxItems }, (_, i) => `Colis ${i + 1}`);
 
@@ -147,68 +156,107 @@ export default function ExportPdfButtons({
                 "Tracking",
                 "Nom",
                 "Téléphone",
-                "Ville",
                 "Nb colis",
                 "Poids (kg)",
                 "Paiement",
                 ...itemHeaders,
             ];
 
-            const body: string[][] = [];
             let grandTotal = 0;
+            let y = 65;
 
-            for (const s of data.shipments) {
-                const totalQty = s.items.reduce((acc, it) => acc + it.quantity, 0);
-                const totalWeight = s.items.reduce((acc, it) => acc + (it.weightKg ?? 0), 0);
-                grandTotal += totalWeight;
+            for (const city of sortedCities) {
+                const shipments = byCity.get(city)!;
 
-                const payment =
-                    s.paymentStatus === "PARTIAL" && s.amountPaid != null
-                        ? `${PAYMENT_LABEL[s.paymentStatus]} (${s.amountPaid})`
-                        : PAYMENT_LABEL[s.paymentStatus];
+                // En-tête de section "Ville (N clients)"
+                doc.setFontSize(12);
+                doc.setTextColor(139, 0, 0);
+                doc.text(
+                    `${city} (${shipments.length} client${shipments.length > 1 ? "s" : ""})`,
+                    30,
+                    y
+                );
+                y += 8;
+                doc.setTextColor(0);
 
-                const row = [
-                    s.trackingId,
-                    s.receiverName,
-                    s.receiverPhone ?? "—",
-                    s.receiverCity ?? "—",
-                    String(totalQty || s.items.length || 0),
-                    totalWeight.toFixed(2),
-                    payment,
-                    ...s.items.map((it) =>
-                        `${it.quantity > 1 ? `${it.quantity}× ` : ""}${it.label}${
-                            it.weightKg != null ? ` (${it.weightKg}kg)` : ""
-                        }`
-                    ),
-                ];
-                while (row.length < head.length) row.push("");
-                body.push(row);
+                let cityWeight = 0;
+                const body: string[][] = [];
+
+                for (const s of shipments) {
+                    const totalQty = s.items.reduce((acc, it) => acc + it.quantity, 0);
+                    const totalWeight = s.items.reduce(
+                        (acc, it) => acc + (it.weightKg ?? 0),
+                        0
+                    );
+                    cityWeight += totalWeight;
+
+                    const payment =
+                        s.paymentStatus === "PARTIAL" && s.amountPaid != null
+                            ? `${PAYMENT_LABEL[s.paymentStatus]} (${s.amountPaid})`
+                            : PAYMENT_LABEL[s.paymentStatus];
+
+                    const row = [
+                        s.trackingId,
+                        s.receiverName,
+                        s.receiverPhone ?? "—",
+                        String(totalQty || s.items.length || 0),
+                        totalWeight.toFixed(2),
+                        payment,
+                        ...s.items.map(
+                            (it) =>
+                                `${it.quantity > 1 ? `${it.quantity}x ` : ""}${it.label}${
+                                    it.weightKg != null ? ` (${it.weightKg}kg)` : ""
+                                }`
+                        ),
+                    ];
+                    while (row.length < head.length) row.push("");
+                    body.push(row);
+                }
+
+                grandTotal += cityWeight;
+
+                autoTable(doc, {
+                    startY: y,
+                    head: [head],
+                    body,
+                    styles: { fontSize: 8, cellPadding: 3 },
+                    headStyles: { fillColor: [139, 0, 0], textColor: 255 },
+                    margin: { left: 30, right: 30 },
+                    columnStyles: {
+                        0: { cellWidth: 60 },
+                        1: { cellWidth: 90 },
+                        2: { cellWidth: 75 },
+                        3: { cellWidth: 40 },
+                        4: { cellWidth: 50 },
+                        5: { cellWidth: 65 },
+                    },
+                });
+
+                const after = (doc as any).lastAutoTable.finalY ?? y;
+
+                // Sous-total par ville
+                doc.setFontSize(9);
+                doc.setTextColor(80);
+                doc.text(
+                    `Sous-total ${city} : ${cityWeight.toFixed(2)} kg`,
+                    30,
+                    after + 14
+                );
+                doc.setTextColor(0);
+
+                y = after + 30;
+
+                if (y > 520) {
+                    doc.addPage();
+                    y = 40;
+                }
             }
 
-            autoTable(doc, {
-                startY: 65,
-                head: [head],
-                body,
-                styles: { fontSize: 8, cellPadding: 3 },
-                headStyles: { fillColor: [139, 0, 0], textColor: 255 },
-                margin: { left: 30, right: 30 },
-                columnStyles: {
-                    0: { cellWidth: 60 },
-                    1: { cellWidth: 90 },
-                    2: { cellWidth: 75 },
-                    3: { cellWidth: 70 },
-                    4: { cellWidth: 40 },
-                    5: { cellWidth: 50 },
-                    6: { cellWidth: 65 },
-                },
-            });
-
-            const finalY = (doc as any).lastAutoTable.finalY ?? 60;
-            doc.setFontSize(10);
+            doc.setFontSize(11);
             doc.text(
                 `Poids total du convoi : ${grandTotal.toFixed(2)} kg | ${data.shipments.length} client(s)`,
-                40,
-                finalY + 25
+                30,
+                y + 10
             );
 
             doc.save(`convoi_${formatDate(convoyDate)}_${direction}_details.pdf`);
