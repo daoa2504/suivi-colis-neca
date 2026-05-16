@@ -184,10 +184,8 @@ export default function ExportPdfButtons({
 
                 for (const s of shipments) {
                     const totalQty = s.items.reduce((acc, it) => acc + it.quantity, 0);
-                    const totalWeight = s.items.reduce(
-                        (acc, it) => acc + (it.weightKg ?? 0),
-                        0
-                    );
+                    // Poids saisi par l'agent au niveau du colis, pas la somme des items
+                    const totalWeight = s.weightKg ?? 0;
                     cityWeight += totalWeight;
 
                     const payment =
