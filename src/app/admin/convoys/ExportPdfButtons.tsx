@@ -30,6 +30,23 @@ function formatDate(d: string | Date) {
     return `${y}-${m}-${day}`;
 }
 
+// Ouvre le PDF dans un nouvel onglet pour aperçu (le user peut télécharger via la visionneuse)
+function openInNewTab(doc: jsPDF, filename: string) {
+    // @ts-expect-error: jsPDF internals
+    doc.setProperties?.({ title: filename });
+    const blob = doc.output("blob");
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, "_blank");
+    if (!win) {
+        // Bloqueur de popup : fallback en téléchargement
+        doc.save(filename);
+        URL.revokeObjectURL(url);
+        return;
+    }
+    // Libère l'URL après que la fenêtre l'a chargée
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
 export default function ExportPdfButtons({
     convoyId,
     convoyDate,
@@ -120,7 +137,7 @@ export default function ExportPdfButtons({
             doc.setTextColor(0);
             doc.text(`Total : ${data.shipments.length} client(s)`, 40, doc.internal.pageSize.height - 30);
 
-            doc.save(`convoi_${formatDate(convoyDate)}_${direction}_liste.pdf`);
+            openInNewTab(doc, `convoi_${formatDate(convoyDate)}_${direction}_liste.pdf`);
         } finally {
             setLoading(null);
         }
@@ -257,7 +274,7 @@ export default function ExportPdfButtons({
                 y + 10
             );
 
-            doc.save(`convoi_${formatDate(convoyDate)}_${direction}_details.pdf`);
+            openInNewTab(doc, `convoi_${formatDate(convoyDate)}_${direction}_details.pdf`);
         } finally {
             setLoading(null);
         }
