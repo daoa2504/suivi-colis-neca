@@ -49,9 +49,9 @@ export default async function FinancesPage() {
                 </div>
             </div>
 
-            <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg text-sm text-amber-900">
-                ⚙️ Module en cours de construction. Les pages Dépenses et Dashboard arrivent
-                dans les prochaines mises à jour.
+            <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg text-sm text-blue-900">
+                💡 Les paiements clients se saisissent depuis la page de chaque colis
+                (clic sur 📦 dans la liste des colis), section « Historique des paiements ».
             </div>
         </main>
     );
