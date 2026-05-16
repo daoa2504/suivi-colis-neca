@@ -95,7 +95,11 @@ export default async function AdminConvoysPage({
                 </Link>
             </div>
 
-            <ConvoysManager initialConvoys={formatted} currentDirection={direction} />
+            <ConvoysManager
+                key={direction}
+                initialConvoys={formatted}
+                currentDirection={direction}
+            />
         </main>
     );
 }

@@ -351,6 +351,7 @@ export default async function ShipmentsPage({
                         <th data-col="poids" className="text-left p-3">Poids</th>
                         <th data-col="ville" className="text-left p-3">Ville</th>
                         <th data-col="cree" className="text-left p-3">Créé le</th>
+                        <th data-col="notes" className="text-left p-3 max-w-[160px]">Note</th>
                         <th data-col="actions" className="text-left p-3">Actions</th>
                     </tr>
                     </thead>
@@ -403,6 +404,9 @@ export default async function ShipmentsPage({
                             <td data-col="poids" className="p-3">{s.weightKg ?? "—"}</td>
                             <td data-col="ville" className="p-3">{s.receiverCity ?? "—"}</td>
                             <td data-col="cree" className="p-3 text-xs">{fmtDate(s.createdAt)}</td>
+                            <td data-col="notes" className="p-3 max-w-[160px] truncate" title={s.notes ?? ""}>
+                                {s.notes ?? "—"}
+                            </td>
                             <td data-col="actions" className="p-3">
                                 <div className="flex items-center gap-2">
                                     {canEdit(s) && (
@@ -432,7 +436,7 @@ export default async function ShipmentsPage({
                     ))}
                     {items.length === 0 && (
                         <tr>
-                            <td colSpan={direction === "CA_TO_NE" ? 13 : 12} className="p-6 text-center text-gray-500">
+                            <td colSpan={direction === "CA_TO_NE" ? 14 : 13} className="p-6 text-center text-gray-500">
                                 Aucun colis trouvé.
                             </td>
                         </tr>

@@ -21,10 +21,11 @@ const COLUMNS: ColumnDef[] = [
     { id: "poids", label: "Poids" },
     { id: "ville", label: "Ville" },
     { id: "cree", label: "Créé le" },
+    { id: "notes", label: "Note" },
     { id: "actions", label: "Actions", required: true },
 ];
 
-const DEFAULT_HIDDEN = new Set(["email", "cree"]);
+const DEFAULT_HIDDEN = new Set(["email", "cree", "notes"]);
 
 export default function ColumnsFilter() {
     const [hidden, setHidden] = useState<Set<string>>(DEFAULT_HIDDEN);
