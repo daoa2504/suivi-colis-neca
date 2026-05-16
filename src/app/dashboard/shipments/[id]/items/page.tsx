@@ -33,6 +33,7 @@ export default async function ShipmentItemsPage({
             paymentStatus: true,
             amountPaid: true,
             items: { orderBy: { createdAt: "asc" } },
+            payments: { orderBy: { paidAt: "desc" } },
         },
     });
 
@@ -67,6 +68,14 @@ export default async function ShipmentItemsPage({
                     status: shipment.paymentStatus,
                     amountPaid: shipment.amountPaid,
                 }}
+                initialPayments={shipment.payments.map((p) => ({
+                    id: p.id,
+                    amount: p.amount,
+                    currency: p.currency as "CAD" | "XOF",
+                    method: p.method as "CASH" | "TRANSFER" | "MOBILE_MONEY" | "OTHER",
+                    paidAt: p.paidAt.toISOString(),
+                    notes: p.notes,
+                }))}
             />
         </main>
     );

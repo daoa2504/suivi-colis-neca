@@ -11,6 +11,17 @@ type Item = {
 };
 
 type PaymentStatus = "PAID" | "PARTIAL" | "UNPAID";
+type Currency = "CAD" | "XOF";
+type PaymentMethod = "CASH" | "TRANSFER" | "MOBILE_MONEY" | "OTHER";
+
+type PaymentEntry = {
+    id: string;
+    amount: number;
+    currency: Currency;
+    method: PaymentMethod;
+    paidAt: string;
+    notes: string | null;
+};
 
 const PAYMENT_LABELS: Record<PaymentStatus, string> = {
     PAID: "Payé en totalité",
@@ -24,20 +35,93 @@ const PAYMENT_BADGE: Record<PaymentStatus, string> = {
     UNPAID: "bg-red-100 text-red-800 border-red-300",
 };
 
+const METHOD_LABELS: Record<PaymentMethod, string> = {
+    CASH: "Cash",
+    TRANSFER: "Virement",
+    MOBILE_MONEY: "Mobile money",
+    OTHER: "Autre",
+};
+
 export default function ItemsManager({
     shipmentId,
     initialItems,
     initialPayment,
+    initialPayments,
 }: {
     shipmentId: number;
     initialItems: Item[];
     initialPayment: { status: PaymentStatus; amountPaid: number | null };
+    initialPayments: PaymentEntry[];
 }) {
     const router = useRouter();
     const [items, setItems] = useState<Item[]>(initialItems);
     const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(initialPayment.status);
     const [amountPaid, setAmountPaid] = useState(initialPayment.amountPaid?.toString() ?? "");
+    const [payments, setPayments] = useState<PaymentEntry[]>(initialPayments);
     const [msg, setMsg] = useState<string | null>(null);
+
+    // Formulaire d'ajout d'un paiement
+    const [payAmount, setPayAmount] = useState("");
+    const [payCurrency, setPayCurrency] = useState<Currency>("CAD");
+    const [payMethod, setPayMethod] = useState<PaymentMethod>("CASH");
+    const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10));
+    const [payNotes, setPayNotes] = useState("");
+    const [payAdding, setPayAdding] = useState(false);
+
+    // Totaux par devise (somme des paiements)
+    const totalsByCurrency = payments.reduce(
+        (acc, p) => {
+            acc[p.currency] = (acc[p.currency] || 0) + p.amount;
+            return acc;
+        },
+        {} as Record<Currency, number>
+    );
+
+    async function addPayment(e: React.FormEvent) {
+        e.preventDefault();
+        if (!payAmount || parseFloat(payAmount) <= 0) return;
+        setPayAdding(true);
+        setMsg(null);
+        try {
+            const res = await fetch(`/api/shipments/${shipmentId}/payments`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    amount: parseFloat(payAmount),
+                    currency: payCurrency,
+                    method: payMethod,
+                    paidAt: payDate,
+                    notes: payNotes || null,
+                }),
+            });
+            const data = await res.json();
+            if (!data.ok) throw new Error(typeof data.error === "string" ? data.error : "Erreur");
+            setPayments((prev) => [data.payment, ...prev]);
+            setPayAmount("");
+            setPayNotes("");
+            setMsg("✅ Paiement ajouté");
+            router.refresh();
+        } catch (e: any) {
+            setMsg(`❌ ${e.message}`);
+        } finally {
+            setPayAdding(false);
+        }
+    }
+
+    async function deletePayment(id: string) {
+        if (!confirm("Supprimer ce paiement ?")) return;
+        try {
+            const res = await fetch(`/api/shipments/${shipmentId}/payments/${id}`, {
+                method: "DELETE",
+            });
+            const data = await res.json();
+            if (!data.ok) throw new Error(typeof data.error === "string" ? data.error : "Erreur");
+            setPayments((prev) => prev.filter((p) => p.id !== id));
+            router.refresh();
+        } catch (e: any) {
+            setMsg(`❌ ${e.message}`);
+        }
+    }
 
     // Formulaire d'ajout
     const [label, setLabel] = useState("");
@@ -142,9 +226,9 @@ export default function ItemsManager({
                 </div>
             )}
 
-            {/* Paiement */}
+            {/* Paiement — état global */}
             <section className="bg-white p-6 rounded-lg border shadow-sm">
-                <h2 className="text-lg font-semibold mb-4">💰 Paiement</h2>
+                <h2 className="text-lg font-semibold mb-4">💰 État du paiement</h2>
                 <div className="flex flex-wrap items-end gap-4">
                     <div>
                         <label className="block text-sm font-medium mb-1">État</label>
@@ -158,19 +242,6 @@ export default function ItemsManager({
                             <option value="PAID">{PAYMENT_LABELS.PAID}</option>
                         </select>
                     </div>
-                    {paymentStatus === "PARTIAL" && (
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Montant payé</label>
-                            <input
-                                type="number"
-                                step="0.01"
-                                value={amountPaid}
-                                onChange={(e) => setAmountPaid(e.target.value)}
-                                className="border p-2 rounded w-32"
-                                placeholder="0.00"
-                            />
-                        </div>
-                    )}
                     <button
                         onClick={savePayment}
                         className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800"
@@ -183,6 +254,130 @@ export default function ItemsManager({
                         {PAYMENT_LABELS[paymentStatus]}
                     </span>
                 </div>
+
+                {/* Totaux par devise */}
+                {payments.length > 0 && (
+                    <div className="mt-4 pt-4 border-t flex flex-wrap gap-3 text-sm text-gray-700">
+                        <span className="font-medium">Total encaissé :</span>
+                        {Object.entries(totalsByCurrency).map(([cur, total]) => (
+                            <span
+                                key={cur}
+                                className="px-2 py-1 bg-green-50 text-green-800 rounded font-mono"
+                            >
+                                {total.toFixed(2)} {cur}
+                            </span>
+                        ))}
+                    </div>
+                )}
+            </section>
+
+            {/* Historique des paiements */}
+            <section className="bg-white p-6 rounded-lg border shadow-sm">
+                <h2 className="text-lg font-semibold mb-4">💳 Historique des paiements</h2>
+
+                <form onSubmit={addPayment} className="flex flex-wrap gap-3 items-end mb-4 pb-4 border-b">
+                    <div>
+                        <label className="block text-sm font-medium mb-1">
+                            Montant <span className="text-red-600">*</span>
+                        </label>
+                        <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={payAmount}
+                            onChange={(e) => setPayAmount(e.target.value)}
+                            placeholder="0.00"
+                            className="border p-2 rounded w-28"
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Devise</label>
+                        <select
+                            value={payCurrency}
+                            onChange={(e) => setPayCurrency(e.target.value as Currency)}
+                            className="border p-2 rounded"
+                        >
+                            <option value="CAD">CAD</option>
+                            <option value="XOF">XOF (FCFA)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Méthode</label>
+                        <select
+                            value={payMethod}
+                            onChange={(e) => setPayMethod(e.target.value as PaymentMethod)}
+                            className="border p-2 rounded"
+                        >
+                            <option value="CASH">Cash</option>
+                            <option value="TRANSFER">Virement</option>
+                            <option value="MOBILE_MONEY">Mobile money</option>
+                            <option value="OTHER">Autre</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Date</label>
+                        <input
+                            type="date"
+                            value={payDate}
+                            onChange={(e) => setPayDate(e.target.value)}
+                            className="border p-2 rounded"
+                        />
+                    </div>
+                    <div className="flex-1 min-w-[150px]">
+                        <label className="block text-sm font-medium mb-1">Notes</label>
+                        <input
+                            value={payNotes}
+                            onChange={(e) => setPayNotes(e.target.value)}
+                            placeholder="(optionnel)"
+                            className="border p-2 rounded w-full"
+                        />
+                    </div>
+                    <button
+                        type="submit"
+                        disabled={payAdding || !payAmount}
+                        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50"
+                    >
+                        {payAdding ? "…" : "Ajouter"}
+                    </button>
+                </form>
+
+                {payments.length === 0 ? (
+                    <p className="text-sm text-gray-500 italic">Aucun paiement enregistré.</p>
+                ) : (
+                    <table className="w-full text-sm">
+                        <thead className="bg-gray-50 border-b">
+                        <tr>
+                            <th className="text-left p-2">Date</th>
+                            <th className="text-left p-2">Montant</th>
+                            <th className="text-left p-2">Méthode</th>
+                            <th className="text-left p-2">Notes</th>
+                            <th className="text-left p-2 w-12"></th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {payments.map((p) => (
+                            <tr key={p.id} className="border-b hover:bg-gray-50">
+                                <td className="p-2 text-xs">{new Date(p.paidAt).toISOString().slice(0, 10)}</td>
+                                <td className="p-2 font-mono font-medium">
+                                    {p.amount.toFixed(2)} {p.currency}
+                                </td>
+                                <td className="p-2 text-xs">{METHOD_LABELS[p.method]}</td>
+                                <td className="p-2 text-xs text-gray-600">{p.notes || "—"}</td>
+                                <td className="p-2">
+                                    <button
+                                        onClick={() => deletePayment(p.id)}
+                                        className="text-red-600 hover:scale-110 transition-transform"
+                                        title="Supprimer"
+                                    >
+                                        🗑️
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                        </tbody>
+                    </table>
+                )}
             </section>
 
             {/* Formulaire d'ajout */}
