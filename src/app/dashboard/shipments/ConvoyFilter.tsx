@@ -13,6 +13,7 @@ type Props = {
     currentConvoyId: string;
     direction: string;
     searchQuery: string;
+    currentCity?: string;
 };
 
 function fmtDate(d: Date) {
@@ -29,6 +30,7 @@ export default function ConvoyFilter({
                                          currentConvoyId,
                                          direction,
                                          searchQuery,
+                                         currentCity,
                                      }: Props) {
     const router = useRouter();
 
@@ -37,6 +39,7 @@ export default function ConvoyFilter({
         params.set("direction", direction);
         if (searchQuery) params.set("q", searchQuery);
         if (convoyId) params.set("convoyId", convoyId);
+        if (currentCity) params.set("city", currentCity);
 
         router.push(`/dashboard/shipments?${params.toString()}`);
     };

@@ -8,6 +8,7 @@ import type { Prisma, ShipmentStatus, PaymentStatus } from "@prisma/client";
 import NotifyDeliveredButton from "./NotifyDeliveredButton";
 import DeleteShipmentButton from "./DeleteShipmentButton";
 import ConvoyFilter from "./ConvoyFilter";
+import CityFilter from "./CityFilter";
 import ColumnsFilter from "./ColumnsFilter";
 
 export const runtime = "nodejs";
@@ -17,6 +18,7 @@ type SearchParams = {
     page?: string;
     direction?: string;
     convoyId?: string;
+    city?: string;
 };
 
 const PAGE_SIZE = 12;
@@ -106,6 +108,7 @@ export default async function ShipmentsPage({
     const page = Math.max(1, Number(sp.page || 1));
     const direction = sp.direction || "NE_TO_CA";
     const convoyId = sp.convoyId || "";
+    const city = (sp.city || "").trim();
 
     // --- Récupérer les convois disponibles pour le filtre ---
     const convoys = await prisma.convoy.findMany({
@@ -134,6 +137,11 @@ export default async function ShipmentsPage({
     // --- Filtre de convoi ---
     const convoyFilter: Prisma.ShipmentWhereInput = convoyId ? { convoyId } : {};
 
+    // --- Filtre de ville ---
+    const cityFilter: Prisma.ShipmentWhereInput = city
+        ? { receiverCity: { equals: city, mode: "insensitive" } }
+        : {};
+
     // --- Permissions basées sur le rôle (SANS createdBy) ---
     let permissionFilter: Prisma.ShipmentWhereInput = {};
 
@@ -157,8 +165,22 @@ export default async function ShipmentsPage({
     // ADMIN voit tout, pas de filtre
 
     const where: Prisma.ShipmentWhereInput = {
-        AND: [directionFilter, convoyFilter, searchFilter, permissionFilter],
+        AND: [directionFilter, convoyFilter, cityFilter, searchFilter, permissionFilter],
     };
+
+    // --- Villes disponibles pour la direction courante ---
+    const citiesRaw = await prisma.shipment.findMany({
+        where: {
+            convoy: { direction: direction as "NE_TO_CA" | "CA_TO_NE" },
+            receiverCity: { not: null },
+        },
+        select: { receiverCity: true },
+        distinct: ["receiverCity"],
+    });
+    const availableCities = citiesRaw
+        .map((c) => c.receiverCity!)
+        .filter(Boolean)
+        .sort();
 
     console.log("🔍 Direction:", direction);
     console.log("🔍 Role:", role);
@@ -327,6 +349,16 @@ export default async function ShipmentsPage({
                     currentConvoyId={convoyId}
                     direction={direction}
                     searchQuery={q}
+                    currentCity={city}
+                />
+
+                {/* Filtre par ville */}
+                <CityFilter
+                    cities={availableCities}
+                    currentCity={city}
+                    direction={direction}
+                    searchQuery={q}
+                    currentConvoyId={convoyId}
                 />
 
                 {/* Sélecteur de colonnes */}
@@ -454,7 +486,7 @@ export default async function ShipmentsPage({
                     <div className="flex gap-2">
                         {page > 1 && (
                             <Link
-                                href={`/dashboard/shipments?direction=${direction}&page=${page - 1}${q ? `&q=${q}` : ""}${convoyId ? `&convoyId=${convoyId}` : ""}`}
+                                href={`/dashboard/shipments?direction=${direction}&page=${page - 1}${q ? `&q=${q}` : ""}${convoyId ? `&convoyId=${convoyId}` : ""}${city ? `&city=${encodeURIComponent(city)}` : ""}`}
                                 className="px-3 py-2 bg-gray-200 rounded hover:bg-gray-300"
                             >
                                 ← Précédent
@@ -462,7 +494,7 @@ export default async function ShipmentsPage({
                         )}
                         {page < pages && (
                             <Link
-                                href={`/dashboard/shipments?direction=${direction}&page=${page + 1}${q ? `&q=${q}` : ""}${convoyId ? `&convoyId=${convoyId}` : ""}`}
+                                href={`/dashboard/shipments?direction=${direction}&page=${page + 1}${q ? `&q=${q}` : ""}${convoyId ? `&convoyId=${convoyId}` : ""}${city ? `&city=${encodeURIComponent(city)}` : ""}`}
                                 className="px-3 py-2 bg-gray-200 rounded hover:bg-gray-300"
                             >
                                 Suivant →
