@@ -89,6 +89,9 @@ export default function ConvoysManager({
 
     return (
         <div className="space-y-6">
+            {/* Onglets de direction (en haut) */}
+            {tabs}
+
             {/* Formulaire de création — direction liée à l'onglet actif */}
             <section className="bg-white p-6 rounded-lg border shadow-sm">
                 <div className="flex items-center justify-between mb-4">
@@ -127,9 +130,6 @@ export default function ConvoysManager({
                     </div>
                 )}
             </section>
-
-            {/* Onglets de direction (entre formulaire et liste) */}
-            {tabs}
 
             {/* Liste des convois */}
             <section className="bg-white rounded-lg border shadow-sm">
