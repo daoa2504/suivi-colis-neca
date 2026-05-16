@@ -19,10 +19,11 @@ export default function Header() {
     return (
         <header className="w-full bg-white shadow-md border-b-2 border-gray-100">
             <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
-                {/* Logo / Titre */}
-                {/* Logo / Titre - Sans lien */}
-                <div className="flex items-center gap-3">
-                    {/* ✅ Logo NIMAPLEX au lieu du SVG */}
+                {/* Logo / Titre — clic ramène à l'accueil admin/agent */}
+                <Link
+                    href={role === "ADMIN" ? "/admin" : "/dashboard/shipments"}
+                    className="flex items-center gap-3 hover:opacity-90 transition-opacity"
+                >
                     <img
                         src="https://nimaplex.com/img.png"
                         alt="NIMAPLEX"
@@ -51,7 +52,7 @@ export default function Header() {
                         </div>
                         <p className="text-xs text-gray-500">Gestion de colis international</p>
                     </div>
-                </div>
+                </Link>
 
                 {/* Navigation */}
                 <nav className="flex items-center gap-2">
@@ -114,6 +115,18 @@ export default function Header() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                             </svg>
                             <span className="hidden lg:inline">Convois</span>
+                        </Link>
+                    )}
+
+                    {role === "ADMIN" && (
+                        <Link
+                            href="/admin/finances"
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors shadow-sm font-medium"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="hidden lg:inline">Trésorerie</span>
                         </Link>
                     )}
 

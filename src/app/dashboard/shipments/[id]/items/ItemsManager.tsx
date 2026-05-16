@@ -123,6 +123,59 @@ export default function ItemsManager({
         }
     }
 
+    // Édition d'un paiement
+    const [editPayId, setEditPayId] = useState<string | null>(null);
+    const [editPay, setEditPay] = useState<Partial<PaymentEntry>>({});
+
+    function startEditPayment(p: PaymentEntry) {
+        setEditPayId(p.id);
+        setEditPay({ ...p });
+    }
+
+    function cancelEditPayment() {
+        setEditPayId(null);
+        setEditPay({});
+    }
+
+    async function saveEditPayment() {
+        if (!editPayId) return;
+        try {
+            const res = await fetch(`/api/shipments/${shipmentId}/payments/${editPayId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    amount: editPay.amount,
+                    currency: editPay.currency,
+                    method: editPay.method,
+                    paidAt: editPay.paidAt,
+                    notes: editPay.notes || null,
+                }),
+            });
+            const data = await res.json();
+            if (!data.ok) throw new Error(typeof data.error === "string" ? data.error : "Erreur");
+            setPayments((prev) =>
+                prev.map((p) =>
+                    p.id === editPayId
+                        ? {
+                              ...p,
+                              amount: data.payment.amount,
+                              currency: data.payment.currency,
+                              method: data.payment.method,
+                              paidAt: new Date(data.payment.paidAt).toISOString(),
+                              notes: data.payment.notes,
+                          }
+                        : p
+                )
+            );
+            setEditPayId(null);
+            setEditPay({});
+            setMsg("✅ Paiement modifié");
+            router.refresh();
+        } catch (e: any) {
+            setMsg(`❌ ${e.message}`);
+        }
+    }
+
     // Formulaire d'ajout
     const [label, setLabel] = useState("");
     const [quantity, setQuantity] = useState("1");
@@ -356,25 +409,118 @@ export default function ItemsManager({
                         </tr>
                         </thead>
                         <tbody>
-                        {payments.map((p) => (
-                            <tr key={p.id} className="border-b hover:bg-gray-50">
-                                <td className="p-2 text-xs">{new Date(p.paidAt).toISOString().slice(0, 10)}</td>
-                                <td className="p-2 font-mono font-medium">
-                                    {p.amount.toFixed(2)} {p.currency}
-                                </td>
-                                <td className="p-2 text-xs">{METHOD_LABELS[p.method]}</td>
-                                <td className="p-2 text-xs text-gray-600">{p.notes || "—"}</td>
-                                <td className="p-2">
-                                    <button
-                                        onClick={() => deletePayment(p.id)}
-                                        className="text-red-600 hover:scale-110 transition-transform"
-                                        title="Supprimer"
-                                    >
-                                        🗑️
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
+                        {payments.map((p) =>
+                            editPayId === p.id ? (
+                                <tr key={p.id} className="border-b bg-blue-50">
+                                    <td className="p-2">
+                                        <input
+                                            type="date"
+                                            value={(editPay.paidAt ?? p.paidAt).slice(0, 10)}
+                                            onChange={(ev) =>
+                                                setEditPay({ ...editPay, paidAt: ev.target.value })
+                                            }
+                                            className="border p-1 rounded text-xs"
+                                        />
+                                    </td>
+                                    <td className="p-2">
+                                        <div className="flex gap-1">
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                value={editPay.amount ?? p.amount}
+                                                onChange={(ev) =>
+                                                    setEditPay({
+                                                        ...editPay,
+                                                        amount: parseFloat(ev.target.value) || 0,
+                                                    })
+                                                }
+                                                className="border p-1 rounded text-xs w-20"
+                                            />
+                                            <select
+                                                value={editPay.currency ?? p.currency}
+                                                onChange={(ev) =>
+                                                    setEditPay({
+                                                        ...editPay,
+                                                        currency: ev.target.value as Currency,
+                                                    })
+                                                }
+                                                className="border p-1 rounded text-xs"
+                                            >
+                                                <option value="CAD">CAD</option>
+                                                <option value="XOF">XOF</option>
+                                            </select>
+                                        </div>
+                                    </td>
+                                    <td className="p-2">
+                                        <select
+                                            value={editPay.method ?? p.method}
+                                            onChange={(ev) =>
+                                                setEditPay({
+                                                    ...editPay,
+                                                    method: ev.target.value as PaymentMethod,
+                                                })
+                                            }
+                                            className="border p-1 rounded text-xs"
+                                        >
+                                            <option value="CASH">Cash</option>
+                                            <option value="TRANSFER">Virement</option>
+                                            <option value="MOBILE_MONEY">Mobile money</option>
+                                            <option value="OTHER">Autre</option>
+                                        </select>
+                                    </td>
+                                    <td className="p-2">
+                                        <input
+                                            value={editPay.notes ?? p.notes ?? ""}
+                                            onChange={(ev) =>
+                                                setEditPay({ ...editPay, notes: ev.target.value })
+                                            }
+                                            className="border p-1 rounded text-xs w-full"
+                                        />
+                                    </td>
+                                    <td className="p-2 space-x-1 whitespace-nowrap">
+                                        <button
+                                            onClick={saveEditPayment}
+                                            className="hover:scale-110 transition-transform"
+                                            title="Enregistrer"
+                                        >
+                                            💾
+                                        </button>
+                                        <button
+                                            onClick={cancelEditPayment}
+                                            className="hover:scale-110 transition-transform"
+                                            title="Annuler"
+                                        >
+                                            ❌
+                                        </button>
+                                    </td>
+                                </tr>
+                            ) : (
+                                <tr key={p.id} className="border-b hover:bg-gray-50">
+                                    <td className="p-2 text-xs">{new Date(p.paidAt).toISOString().slice(0, 10)}</td>
+                                    <td className="p-2 font-mono font-medium">
+                                        {p.amount.toFixed(2)} {p.currency}
+                                    </td>
+                                    <td className="p-2 text-xs">{METHOD_LABELS[p.method]}</td>
+                                    <td className="p-2 text-xs text-gray-600">{p.notes || "—"}</td>
+                                    <td className="p-2 space-x-2 whitespace-nowrap">
+                                        <button
+                                            onClick={() => startEditPayment(p)}
+                                            className="hover:scale-110 transition-transform"
+                                            title="Modifier"
+                                        >
+                                            ✏️
+                                        </button>
+                                        <button
+                                            onClick={() => deletePayment(p.id)}
+                                            className="hover:scale-110 transition-transform"
+                                            title="Supprimer"
+                                        >
+                                            🗑️
+                                        </button>
+                                    </td>
+                                </tr>
+                            )
+                        )}
                         </tbody>
                     </table>
                 )}

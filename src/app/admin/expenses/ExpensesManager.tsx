@@ -135,6 +135,66 @@ export default function ExpensesManager({
         }
     }
 
+    // État pour l'édition inline
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editForm, setEditForm] = useState<Partial<Expense>>({});
+
+    function startEdit(e: Expense) {
+        setEditingId(e.id);
+        setEditForm({ ...e });
+    }
+
+    function cancelEdit() {
+        setEditingId(null);
+        setEditForm({});
+    }
+
+    async function saveEdit() {
+        if (!editingId) return;
+        setMsg(null);
+        try {
+            const res = await fetch(`/api/expenses/${editingId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    category: editForm.category,
+                    subcategory: editForm.subcategory || null,
+                    amount: editForm.amount,
+                    currency: editForm.currency,
+                    date: editForm.date,
+                    convoyId: editForm.convoyId || null,
+                    notes: editForm.notes || null,
+                }),
+            });
+            const data = await res.json();
+            if (!data.ok) throw new Error(typeof data.error === "string" ? data.error : "Erreur");
+            const convoyLabel = convoys.find((c) => c.id === editForm.convoyId)?.label ?? null;
+            setExpenses((prev) =>
+                prev.map((e) =>
+                    e.id === editingId
+                        ? {
+                              ...e,
+                              category: data.expense.category,
+                              subcategory: data.expense.subcategory,
+                              amount: data.expense.amount,
+                              currency: data.expense.currency,
+                              date: new Date(data.expense.date).toISOString().slice(0, 10),
+                              convoyId: data.expense.convoyId,
+                              convoyLabel,
+                              notes: data.expense.notes,
+                          }
+                        : e
+                )
+            );
+            setEditingId(null);
+            setEditForm({});
+            setMsg("✅ Dépense modifiée");
+            router.refresh();
+        } catch (e: any) {
+            setMsg(`❌ ${e.message}`);
+        }
+    }
+
     return (
         <div className="space-y-6">
             {msg && (
@@ -303,35 +363,161 @@ export default function ExpensesManager({
                     </tr>
                     </thead>
                     <tbody>
-                    {filtered.map((e) => (
-                        <tr key={e.id} className="border-b hover:bg-gray-50">
-                            <td className="p-3 text-xs font-mono">{e.date}</td>
-                            <td className="p-3">
+                    {filtered.map((e) =>
+                        editingId === e.id ? (
+                            <tr key={e.id} className="border-b bg-blue-50">
+                                <td className="p-2">
+                                    <input
+                                        type="date"
+                                        value={editForm.date ?? ""}
+                                        onChange={(ev) =>
+                                            setEditForm({ ...editForm, date: ev.target.value })
+                                        }
+                                        className="border p-1 rounded text-xs w-full"
+                                    />
+                                </td>
+                                <td className="p-2">
+                                    <select
+                                        value={editForm.category ?? "OTHER"}
+                                        onChange={(ev) =>
+                                            setEditForm({
+                                                ...editForm,
+                                                category: ev.target.value as Category,
+                                            })
+                                        }
+                                        className="border p-1 rounded text-xs w-full"
+                                    >
+                                        {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
+                                            <option key={k} value={k}>
+                                                {v}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </td>
+                                <td className="p-2">
+                                    <input
+                                        value={editForm.subcategory ?? ""}
+                                        onChange={(ev) =>
+                                            setEditForm({
+                                                ...editForm,
+                                                subcategory: ev.target.value,
+                                            })
+                                        }
+                                        className="border p-1 rounded text-sm w-full"
+                                        placeholder="Libellé"
+                                    />
+                                </td>
+                                <td className="p-2">
+                                    <div className="flex gap-1">
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            value={editForm.amount ?? 0}
+                                            onChange={(ev) =>
+                                                setEditForm({
+                                                    ...editForm,
+                                                    amount: parseFloat(ev.target.value) || 0,
+                                                })
+                                            }
+                                            className="border p-1 rounded text-xs w-20"
+                                        />
+                                        <select
+                                            value={editForm.currency ?? "CAD"}
+                                            onChange={(ev) =>
+                                                setEditForm({
+                                                    ...editForm,
+                                                    currency: ev.target.value as Currency,
+                                                })
+                                            }
+                                            className="border p-1 rounded text-xs"
+                                        >
+                                            <option value="CAD">CAD</option>
+                                            <option value="XOF">XOF</option>
+                                        </select>
+                                    </div>
+                                </td>
+                                <td className="p-2">
+                                    <select
+                                        value={editForm.convoyId ?? ""}
+                                        onChange={(ev) =>
+                                            setEditForm({ ...editForm, convoyId: ev.target.value })
+                                        }
+                                        className="border p-1 rounded text-xs w-full"
+                                    >
+                                        <option value="">—</option>
+                                        {convoys.map((c) => (
+                                            <option key={c.id} value={c.id}>
+                                                {c.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </td>
+                                <td className="p-2">
+                                    <input
+                                        value={editForm.notes ?? ""}
+                                        onChange={(ev) =>
+                                            setEditForm({ ...editForm, notes: ev.target.value })
+                                        }
+                                        className="border p-1 rounded text-xs w-full"
+                                    />
+                                </td>
+                                <td className="p-2 space-x-1 whitespace-nowrap">
+                                    <button
+                                        onClick={saveEdit}
+                                        className="text-green-600 hover:scale-110 transition-transform"
+                                        title="Enregistrer"
+                                    >
+                                        💾
+                                    </button>
+                                    <button
+                                        onClick={cancelEdit}
+                                        className="text-gray-500 hover:scale-110 transition-transform"
+                                        title="Annuler"
+                                    >
+                                        ❌
+                                    </button>
+                                </td>
+                            </tr>
+                        ) : (
+                            <tr key={e.id} className="border-b hover:bg-gray-50">
+                                <td className="p-3 text-xs font-mono">{e.date}</td>
+                                <td className="p-3">
                                     <span
                                         className={`px-2 py-1 rounded text-xs font-medium ${CATEGORY_BADGE[e.category]}`}
                                     >
                                         {CATEGORY_LABELS[e.category]}
                                     </span>
-                            </td>
-                            <td className="p-3 text-sm">{e.subcategory || "—"}</td>
-                            <td className="p-3 font-mono font-medium">
-                                {e.amount.toFixed(2)} {e.currency}
-                            </td>
-                            <td className="p-3 text-xs text-gray-600">{e.convoyLabel || "—"}</td>
-                            <td className="p-3 text-xs text-gray-600 max-w-[200px] truncate" title={e.notes ?? ""}>
-                                {e.notes || "—"}
-                            </td>
-                            <td className="p-3">
-                                <button
-                                    onClick={() => onDelete(e.id)}
-                                    className="text-red-600 hover:scale-110 transition-transform"
-                                    title="Supprimer"
+                                </td>
+                                <td className="p-3 text-sm">{e.subcategory || "—"}</td>
+                                <td className="p-3 font-mono font-medium">
+                                    {e.amount.toFixed(2)} {e.currency}
+                                </td>
+                                <td className="p-3 text-xs text-gray-600">{e.convoyLabel || "—"}</td>
+                                <td
+                                    className="p-3 text-xs text-gray-600 max-w-[200px] truncate"
+                                    title={e.notes ?? ""}
                                 >
-                                    🗑️
-                                </button>
-                            </td>
-                        </tr>
-                    ))}
+                                    {e.notes || "—"}
+                                </td>
+                                <td className="p-3 space-x-2 whitespace-nowrap">
+                                    <button
+                                        onClick={() => startEdit(e)}
+                                        className="hover:scale-110 transition-transform"
+                                        title="Modifier"
+                                    >
+                                        ✏️
+                                    </button>
+                                    <button
+                                        onClick={() => onDelete(e.id)}
+                                        className="hover:scale-110 transition-transform"
+                                        title="Supprimer"
+                                    >
+                                        🗑️
+                                    </button>
+                                </td>
+                            </tr>
+                        )
+                    )}
                     {filtered.length === 0 && (
                         <tr>
                             <td colSpan={7} className="p-6 text-center text-gray-500">
