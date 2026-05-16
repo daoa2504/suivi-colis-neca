@@ -49,6 +49,17 @@ export default async function AdminPage() {
                         Envoyer les emails "en route", "douane", "prêt à récupérer".
                     </p>
                 </Link>
+
+                <Link
+                    href="/admin/finances"
+                    className="block p-6 bg-white rounded-lg border shadow-sm hover:shadow-md hover:border-green-400 transition-all"
+                >
+                    <div className="text-3xl mb-2">💰</div>
+                    <h2 className="font-semibold text-lg mb-1">Trésorerie</h2>
+                    <p className="text-sm text-gray-600">
+                        Paiements clients, dépenses, dashboard et taux de change.
+                    </p>
+                </Link>
             </div>
         </main>
     );

@@ -51,6 +51,7 @@ model Shipment {
   convoy            Convoy?         @relation(fields: [convoyId], references: [id])
   events            ShipmentEvent[]
   items             ShipmentItem[]
+  payments          Payment[]
 }
 
 model ShipmentItem {
@@ -61,6 +62,41 @@ model ShipmentItem {
   quantity   Int      @default(1)
   weightKg   Float?
   createdAt  DateTime @default(now())
+}
+
+model Payment {
+  id         String        @id @default(cuid())
+  shipmentId Int
+  shipment   Shipment      @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  amount     Float
+  currency   Currency      @default(CAD)
+  method     PaymentMethod @default(CASH)
+  paidAt     DateTime      @default(now())
+  notes      String?
+  createdAt  DateTime      @default(now())
+}
+
+model Expense {
+  id          String          @id @default(cuid())
+  category    ExpenseCategory
+  subcategory String?
+  amount      Float
+  currency    Currency        @default(CAD)
+  date        DateTime
+  convoyId    String?
+  convoy      Convoy?         @relation(fields: [convoyId], references: [id])
+  notes       String?
+  createdAt   DateTime        @default(now())
+}
+
+model ExchangeRate {
+  id        String   @id @default(cuid())
+  base      String
+  target    String
+  rate      Float
+  fetchedAt DateTime @default(now())
+
+  @@unique([base, target])
 }
 
 model ShipmentEvent {
@@ -79,6 +115,7 @@ model Convoy {
   date      DateTime
   direction Direction  @default(NE_TO_CA)
   shipments Shipment[]
+  expenses  Expense[]
 
   @@unique([date, direction])
 }
@@ -109,4 +146,25 @@ enum PaymentStatus {
   PAID
   PARTIAL
   UNPAID
+}
+
+enum Currency {
+  CAD
+  XOF
+}
+
+enum PaymentMethod {
+  CASH
+  TRANSFER
+  MOBILE_MONEY
+  OTHER
+}
+
+enum ExpenseCategory {
+  SALARY
+  CUSTOMS
+  PACKAGING
+  FUEL
+  SHIPPING
+  OTHER
 }
