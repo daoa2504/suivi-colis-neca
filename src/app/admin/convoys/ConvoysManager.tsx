@@ -14,14 +14,17 @@ type Convoy = {
 export default function ConvoysManager({
     initialConvoys,
     currentDirection,
+    tabs,
 }: {
     initialConvoys: Convoy[];
     currentDirection: "NE_TO_CA" | "CA_TO_NE";
+    tabs?: React.ReactNode;
 }) {
     const router = useRouter();
     const [convoys, setConvoys] = useState<Convoy[]>(initialConvoys);
     const [date, setDate] = useState("");
-    const [direction, setDirection] = useState<"NE_TO_CA" | "CA_TO_NE">(currentDirection);
+    // La direction est liée à l'onglet actif — plus de sélecteur dans le formulaire
+    const direction = currentDirection;
     const [loading, setLoading] = useState(false);
     const [msg, setMsg] = useState<string | null>(null);
 
@@ -85,10 +88,15 @@ export default function ConvoysManager({
     const dirLabel = (d: Convoy["direction"]) => (d === "NE_TO_CA" ? "NE → CA" : "CA → NE");
 
     return (
-        <div className="space-y-8">
-            {/* Formulaire de création */}
+        <div className="space-y-6">
+            {/* Formulaire de création — direction liée à l'onglet actif */}
             <section className="bg-white p-6 rounded-lg border shadow-sm">
-                <h2 className="text-lg font-semibold mb-4">Créer un nouveau convoi</h2>
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold">
+                        Créer un nouveau convoi —{" "}
+                        <span className="text-blue-600">{dirLabel(direction)}</span>
+                    </h2>
+                </div>
                 <form onSubmit={onCreate} className="flex flex-wrap gap-4 items-end">
                     <div>
                         <label className="block text-sm font-medium mb-1">Date</label>
@@ -100,22 +108,11 @@ export default function ConvoysManager({
                             className="border p-2 rounded w-48"
                         />
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Direction</label>
-                        <select
-                            value={direction}
-                            onChange={(e) => setDirection(e.target.value as any)}
-                            className="border p-2 rounded w-48"
-                        >
-                            <option value="CA_TO_NE">Canada → Niger</option>
-                            <option value="NE_TO_CA">Niger → Canada</option>
-                        </select>
-                    </div>
                     <button
                         disabled={loading || !date}
                         className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 disabled:opacity-60"
                     >
-                        {loading ? "Création…" : "Créer le convoi"}
+                        {loading ? "Création…" : `Créer le convoi (${dirLabel(direction)})`}
                     </button>
                 </form>
                 {msg && (
@@ -130,6 +127,9 @@ export default function ConvoysManager({
                     </div>
                 )}
             </section>
+
+            {/* Onglets de direction (entre formulaire et liste) */}
+            {tabs}
 
             {/* Liste des convois */}
             <section className="bg-white rounded-lg border shadow-sm">

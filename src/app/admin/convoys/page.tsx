@@ -51,54 +51,54 @@ export default async function AdminConvoysPage({
                 sur un convoi existant pour leur direction.
             </p>
 
-            {/* Onglets de direction */}
-            <div className="flex gap-2 bg-gray-100 p-1.5 rounded-lg mb-6">
-                <Link
-                    href="/admin/convoys?direction=NE_TO_CA"
-                    className={`flex-1 px-4 py-3 rounded-md font-medium transition-all duration-200 flex items-center justify-center gap-3 ${
-                        direction === "NE_TO_CA"
-                            ? "bg-white text-blue-600 shadow-sm ring-2 ring-blue-500 ring-offset-2 ring-offset-gray-100"
-                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                    }`}
-                >
-                    <img
-                        src="/flags/ne.svg"
-                        alt="NE"
-                        className="w-6 h-4 object-cover rounded-sm border border-gray-200"
-                    />
-                    <span>Niger → Canada</span>
-                    <img
-                        src="/flags/ca.svg"
-                        alt="CA"
-                        className="w-6 h-4 object-cover rounded-sm border border-gray-200"
-                    />
-                </Link>
-                <Link
-                    href="/admin/convoys?direction=CA_TO_NE"
-                    className={`flex-1 px-4 py-3 rounded-md font-medium transition-all duration-200 flex items-center justify-center gap-3 ${
-                        direction === "CA_TO_NE"
-                            ? "bg-white text-blue-600 shadow-sm ring-2 ring-blue-500 ring-offset-2 ring-offset-gray-100"
-                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                    }`}
-                >
-                    <img
-                        src="/flags/ca.svg"
-                        alt="CA"
-                        className="w-6 h-4 object-cover rounded-sm border border-gray-200"
-                    />
-                    <span>Canada → Niger</span>
-                    <img
-                        src="/flags/ne.svg"
-                        alt="NE"
-                        className="w-6 h-4 object-cover rounded-sm border border-gray-200"
-                    />
-                </Link>
-            </div>
-
             <ConvoysManager
                 key={direction}
                 initialConvoys={formatted}
                 currentDirection={direction}
+                tabs={
+                    <div className="flex gap-2 bg-gray-100 p-1.5 rounded-lg">
+                        <Link
+                            href="/admin/convoys?direction=NE_TO_CA"
+                            className={`flex-1 px-4 py-3 rounded-md font-medium transition-all duration-200 flex items-center justify-center gap-3 ${
+                                direction === "NE_TO_CA"
+                                    ? "bg-white text-blue-600 shadow-sm ring-2 ring-blue-500 ring-offset-2 ring-offset-gray-100"
+                                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                            }`}
+                        >
+                            <img
+                                src="/flags/ne.svg"
+                                alt="NE"
+                                className="w-6 h-4 object-cover rounded-sm border border-gray-200"
+                            />
+                            <span>Niger → Canada</span>
+                            <img
+                                src="/flags/ca.svg"
+                                alt="CA"
+                                className="w-6 h-4 object-cover rounded-sm border border-gray-200"
+                            />
+                        </Link>
+                        <Link
+                            href="/admin/convoys?direction=CA_TO_NE"
+                            className={`flex-1 px-4 py-3 rounded-md font-medium transition-all duration-200 flex items-center justify-center gap-3 ${
+                                direction === "CA_TO_NE"
+                                    ? "bg-white text-blue-600 shadow-sm ring-2 ring-blue-500 ring-offset-2 ring-offset-gray-100"
+                                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                            }`}
+                        >
+                            <img
+                                src="/flags/ca.svg"
+                                alt="CA"
+                                className="w-6 h-4 object-cover rounded-sm border border-gray-200"
+                            />
+                            <span>Canada → Niger</span>
+                            <img
+                                src="/flags/ne.svg"
+                                alt="NE"
+                                className="w-6 h-4 object-cover rounded-sm border border-gray-200"
+                            />
+                        </Link>
+                    </div>
+                }
             />
         </main>
     );
