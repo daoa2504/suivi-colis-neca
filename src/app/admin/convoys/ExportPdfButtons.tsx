@@ -32,8 +32,11 @@ function formatDate(d: string | Date) {
 
 // Ouvre le PDF dans un nouvel onglet pour aperçu (le user peut télécharger via la visionneuse)
 function openInNewTab(doc: jsPDF, filename: string) {
-    // @ts-expect-error: jsPDF internals
-    doc.setProperties?.({ title: filename });
+    try {
+        doc.setProperties({ title: filename });
+    } catch {
+        // ignore : setProperties absente sur d'anciennes versions
+    }
     const blob = doc.output("blob");
     const url = URL.createObjectURL(blob);
     const win = window.open(url, "_blank");
