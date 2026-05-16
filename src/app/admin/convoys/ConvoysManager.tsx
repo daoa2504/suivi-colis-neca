@@ -11,11 +11,17 @@ type Convoy = {
     totalShipments: number;
 };
 
-export default function ConvoysManager({ initialConvoys }: { initialConvoys: Convoy[] }) {
+export default function ConvoysManager({
+    initialConvoys,
+    currentDirection,
+}: {
+    initialConvoys: Convoy[];
+    currentDirection: "NE_TO_CA" | "CA_TO_NE";
+}) {
     const router = useRouter();
     const [convoys, setConvoys] = useState<Convoy[]>(initialConvoys);
     const [date, setDate] = useState("");
-    const [direction, setDirection] = useState<"NE_TO_CA" | "CA_TO_NE">("CA_TO_NE");
+    const [direction, setDirection] = useState<"NE_TO_CA" | "CA_TO_NE">(currentDirection);
     const [loading, setLoading] = useState(false);
     const [msg, setMsg] = useState<string | null>(null);
 
@@ -35,17 +41,20 @@ export default function ConvoysManager({ initialConvoys }: { initialConvoys: Con
                 const err = typeof data.error === "string" ? data.error : "Création échouée";
                 throw new Error(err);
             }
-            setConvoys((prev) =>
-                [
-                    {
-                        id: data.convoy.id,
-                        date: new Date(data.convoy.date).toISOString().slice(0, 10),
-                        direction: data.convoy.direction,
-                        totalShipments: 0,
-                    },
-                    ...prev,
-                ].sort((a, b) => (a.date < b.date ? 1 : -1))
-            );
+            // N'ajoute à la liste locale que si le convoi cré matches l'onglet actif
+            if (data.convoy.direction === currentDirection) {
+                setConvoys((prev) =>
+                    [
+                        {
+                            id: data.convoy.id,
+                            date: new Date(data.convoy.date).toISOString().slice(0, 10),
+                            direction: data.convoy.direction,
+                            totalShipments: 0,
+                        },
+                        ...prev,
+                    ].sort((a, b) => (a.date < b.date ? 1 : -1))
+                );
+            }
             setDate("");
             setMsg("✅ Convoi créé");
             router.refresh();

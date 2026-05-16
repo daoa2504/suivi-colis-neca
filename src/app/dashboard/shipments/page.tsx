@@ -8,6 +8,7 @@ import type { Prisma, ShipmentStatus, PaymentStatus } from "@prisma/client";
 import NotifyDeliveredButton from "./NotifyDeliveredButton";
 import DeleteShipmentButton from "./DeleteShipmentButton";
 import ConvoyFilter from "./ConvoyFilter";
+import ColumnsFilter from "./ColumnsFilter";
 
 export const runtime = "nodejs";
 
@@ -327,42 +328,45 @@ export default async function ShipmentsPage({
                     direction={direction}
                     searchQuery={q}
                 />
+
+                {/* Sélecteur de colonnes */}
+                <ColumnsFilter />
             </div>
 
             <div className="bg-white rounded shadow">
                 <table className="w-full text-sm">
                     <thead className="bg-gray-100 border-b">
                     <tr>
-                        <th className="text-left p-3">Tracking</th>
-                        <th className="text-left p-3">Convoi</th>
-                        <th className="text-left p-3 max-w-[220px]">Destinataire</th>
-                        <th className="text-left p-3 max-w-[260px]">Email</th>
-                        <th className="text-left p-3">Tél</th>
+                        <th data-col="tracking" className="text-left p-3">Tracking</th>
+                        <th data-col="convoy" className="text-left p-3">Convoi</th>
+                        <th data-col="destinataire" className="text-left p-3 max-w-[220px]">Destinataire</th>
+                        <th data-col="email" className="text-left p-3 max-w-[260px]">Email</th>
+                        <th data-col="tel" className="text-left p-3">Tél</th>
                         {direction === "CA_TO_NE" && (
-                            <th className="text-left p-3 max-w-[220px]">Récupérateur (Niger)</th>
+                            <th data-col="recuperateur" className="text-left p-3 max-w-[220px]">Récupérateur (Niger)</th>
                         )}
-                        <th className="text-left p-3">Statut</th>
-                        <th className="text-left p-3">Paiement</th>
-                        <th className="text-left p-3">Colis</th>
-                        <th className="text-left p-3">Poids</th>
-                        <th className="text-left p-3">Ville</th>
-                        <th className="text-left p-3">Créé le</th>
-                        <th className="text-left p-3">Actions</th>
+                        <th data-col="statut" className="text-left p-3">Statut</th>
+                        <th data-col="paiement" className="text-left p-3">Paiement</th>
+                        <th data-col="colis" className="text-left p-3">Colis</th>
+                        <th data-col="poids" className="text-left p-3">Poids</th>
+                        <th data-col="ville" className="text-left p-3">Ville</th>
+                        <th data-col="cree" className="text-left p-3">Créé le</th>
+                        <th data-col="actions" className="text-left p-3">Actions</th>
                     </tr>
                     </thead>
 
                     <tbody>
                     {items.map((s) => (
                         <tr key={s.id} className="border-b hover:bg-gray-50">
-                            <td className="p-3 font-mono text-xs">{s.trackingId}</td>
-                            <td className="p-3 text-xs">
+                            <td data-col="tracking" className="p-3 font-mono text-xs">{s.trackingId}</td>
+                            <td data-col="convoy" className="p-3 text-xs">
                                 {s.convoy ? fmtDate(s.convoy.date) : "—"}
                             </td>
-                            <td className="p-3">{s.receiverName}</td>
-                            <td className="p-3 text-xs">{s.receiverEmail}</td>
-                            <td className="p-3 text-xs">{s.receiverPhone || "—"}</td>
+                            <td data-col="destinataire" className="p-3">{s.receiverName}</td>
+                            <td data-col="email" className="p-3 text-xs">{s.receiverEmail}</td>
+                            <td data-col="tel" className="p-3 text-xs">{s.receiverPhone || "—"}</td>
                             {direction === "CA_TO_NE" && (
-                                <td className="p-3 text-xs max-w-[220px]">
+                                <td data-col="recuperateur" className="p-3 text-xs max-w-[220px]">
                                     {(s.pickupLastName || s.pickupFirstName || s.pickupQuartier || s.pickupPhone) ? (
                                         <div className="space-y-0.5">
                                             {(s.pickupFirstName || s.pickupLastName) && (
@@ -382,13 +386,13 @@ export default async function ShipmentsPage({
                                     )}
                                 </td>
                             )}
-                            <td className="p-3">
+                            <td data-col="statut" className="p-3">
                                 <StatusBadge status={s.status} />
                             </td>
-                            <td className="p-3">
+                            <td data-col="paiement" className="p-3">
                                 <PaymentBadge status={s.paymentStatus} amountPaid={s.amountPaid} />
                             </td>
-                            <td className="p-3">
+                            <td data-col="colis" className="p-3">
                                 <Link
                                     href={`/dashboard/shipments/${s.id}/items`}
                                     className="inline-flex items-center gap-1 text-blue-600 hover:underline text-xs"
@@ -396,10 +400,10 @@ export default async function ShipmentsPage({
                                     📦 {s._count.items}
                                 </Link>
                             </td>
-                            <td className="p-3">{s.weightKg ?? "—"}</td>
-                            <td className="p-3">{s.receiverCity ?? "—"}</td>
-                            <td className="p-3 text-xs">{fmtDate(s.createdAt)}</td>
-                            <td className="p-3">
+                            <td data-col="poids" className="p-3">{s.weightKg ?? "—"}</td>
+                            <td data-col="ville" className="p-3">{s.receiverCity ?? "—"}</td>
+                            <td data-col="cree" className="p-3 text-xs">{fmtDate(s.createdAt)}</td>
+                            <td data-col="actions" className="p-3">
                                 <div className="flex items-center gap-2">
                                     {canEdit(s) && (
                                         <Link
