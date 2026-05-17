@@ -882,7 +882,7 @@ export default function ShipmentTracker({
                                                 ? "bg-gray-300"
                                                 : isCurrent
                                                     ? "bg-gradient-to-br from-[#8B0000] to-[#DC143C] ring-[#DC143C]/20"
-                                                    : "bg-gradient-to-br from-slate-600 to-slate-800"
+                                                    : "bg-gradient-to-br from-green-500 to-emerald-600"
                                         }`}
                                     />
                                     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
