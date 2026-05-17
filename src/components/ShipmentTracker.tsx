@@ -65,26 +65,21 @@ function IconCheck(props: { className?: string }) {
     );
 }
 
-// Avion détaillé en vue latérale, pointe vers la droite (par défaut)
+// Avion vue de dessus (Bootstrap Icons "airplane-fill"), pointe vers la DROITE
+// après une rotation de 90° appliquée par défaut. Forme reconnaissable d'airliner.
 function FlyingPlane(props: { className?: string; style?: React.CSSProperties }) {
     return (
         <svg
             className={props.className}
             style={props.style}
-            viewBox="0 0 100 60"
+            viewBox="0 0 16 16"
             fill="currentColor"
             aria-hidden
         >
-            {/* Fuselage */}
-            <path d="M5 30 Q 8 24 18 24 L60 24 L82 14 Q 90 12 92 18 Q 94 22 86 28 L80 30 L86 32 Q 94 38 92 42 Q 90 48 82 46 L60 36 L18 36 Q 8 36 5 30 Z" />
-            {/* Aile arrière */}
-            <path d="M50 24 L42 12 L36 12 L40 24 Z" />
-            <path d="M50 36 L42 48 L36 48 L40 36 Z" />
-            {/* Empennage */}
-            <path d="M10 30 L4 22 L0 22 L6 30 L0 38 L4 38 Z" />
-            {/* Reflets cockpit */}
-            <circle cx="72" cy="26" r="2" fill="rgba(255,255,255,0.6)" />
-            <circle cx="78" cy="26" r="1.5" fill="rgba(255,255,255,0.5)" />
+            {/* La forme native pointe vers le HAUT — on tourne 90° pour qu'elle pointe à droite */}
+            <g transform="rotate(90 8 8)">
+                <path d="M6.428 1.151C6.708.591 7.213 0 8 0s1.292.592 1.572 1.151C9.852 1.71 10 2.36 10 3v3.691l5.17 2.585a1.5 1.5 0 0 1 .83 1.342V12a.5.5 0 0 1-.582.493l-5.507-.918-.375 2.253 1.318 1.318A.5.5 0 0 1 10.5 16h-5a.5.5 0 0 1-.354-.854l1.318-1.318-.375-2.253-5.507.918A.5.5 0 0 1 0 12v-1.382a1.5 1.5 0 0 1 .83-1.342L6 6.691V3c0-.64.148-1.29.428-1.849Z" />
+            </g>
         </svg>
     );
 }
@@ -307,7 +302,7 @@ export default function ShipmentTracker({
                     ) : (
                         <div className="plane-float">
                             <FlyingPlane
-                                className="w-16 h-10 text-[#8B0000] drop-shadow-md"
+                                className="w-12 h-12 text-[#8B0000] drop-shadow-md"
                                 style={{ transform: `rotate(${plane.angleDeg}deg)` }}
                             />
                         </div>

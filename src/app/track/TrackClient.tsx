@@ -96,19 +96,40 @@ export default function TrackClient({ initialTrackingId }: { initialTrackingId: 
     };
 
     const PublicHeader = () => (
-        <header className="py-8 sm:py-10">
-            <div className="mx-auto flex max-w-7xl flex-col items-center justify-center px-6 text-center">
-                <img
-                    src="https://nimaplex.com/img.png"
-                    alt="NIMAPLEX"
-                    className="h-16 w-16 sm:h-20 sm:w-20 rounded-xl shadow-lg object-cover mb-3"
-                />
-                <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight bg-gradient-to-r from-[#8B0000] to-[#DC143C] bg-clip-text text-transparent">
-                    NIMAPLEX
-                </h1>
-                <p className="mt-2 text-sm sm:text-base text-gray-600 italic">
-                    Plus qu'une solution, un service d'excellence globale
-                </p>
+        <header className="py-6 sm:py-8 bg-white border-b border-gray-100">
+            <div className="mx-auto max-w-5xl px-4 sm:px-6">
+                <div className="flex items-center justify-center gap-4 sm:gap-10">
+                    {/* Drapeau Canada (gauche) */}
+                    <img
+                        src="/flags/ca.svg"
+                        alt="Canada"
+                        className="w-14 h-14 sm:w-20 sm:h-20 rounded-full object-cover shadow-md ring-2 ring-white flex-shrink-0"
+                    />
+
+                    {/* Bloc central : logo + nom + slogan */}
+                    <div className="flex flex-col items-center text-center">
+                        <div className="flex items-center gap-2 sm:gap-3">
+                            <img
+                                src="https://nimaplex.com/img.png"
+                                alt="NIMAPLEX"
+                                className="h-10 w-10 sm:h-14 sm:w-14 rounded-lg shadow-sm object-cover"
+                            />
+                            <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold tracking-tight bg-gradient-to-r from-[#8B0000] to-[#DC143C] bg-clip-text text-transparent">
+                                NIMAPLEX
+                            </h1>
+                        </div>
+                        <p className="mt-1 sm:mt-2 text-[10px] sm:text-sm text-gray-600 italic">
+                            Plus qu'une solution, un service d'excellence globale
+                        </p>
+                    </div>
+
+                    {/* Drapeau Niger (droite) */}
+                    <img
+                        src="/flags/ne.svg"
+                        alt="Niger"
+                        className="w-14 h-14 sm:w-20 sm:h-20 rounded-full object-cover shadow-md ring-2 ring-white flex-shrink-0"
+                    />
+                </div>
             </div>
         </header>
     );
