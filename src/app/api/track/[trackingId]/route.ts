@@ -21,6 +21,8 @@ export async function GET(
                 currentLocation: true,
                 receiverCity: true,
                 pickupQuartier: true,
+                paymentStatus: true,
+                amountPaid: true,
                 createdAt: true,
                 updatedAt: true,
                 convoy: {
@@ -35,6 +37,15 @@ export async function GET(
                         location: true,
                         occurredAt: true,
                         createdAt: true,
+                    },
+                },
+                payments: {
+                    orderBy: { paidAt: "desc" },
+                    select: {
+                        id: true,
+                        amount: true,
+                        currency: true,
+                        paidAt: true,
                     },
                 },
             },

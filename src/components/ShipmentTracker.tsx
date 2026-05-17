@@ -22,6 +22,13 @@ interface ShipmentEvent {
     createdAt: string;
 }
 
+interface PaymentEntry {
+    id: string;
+    amount: number;
+    currency: "CAD" | "XOF" | string;
+    paidAt: string;
+}
+
 interface ShipmentTrackerProps {
     currentStatus: ShipmentStatus;
     origin: string;
@@ -34,6 +41,9 @@ interface ShipmentTrackerProps {
     events?: ShipmentEvent[];
     createdAt?: string | null;
     updatedAt?: string | null;
+    paymentStatus?: "PAID" | "PARTIAL" | "UNPAID" | null;
+    amountPaid?: number | null;
+    payments?: PaymentEntry[];
 }
 
 // === Icônes SVG (Heroicons-style outline, traits 2) ===
@@ -196,6 +206,9 @@ export default function ShipmentTracker({
     events,
     createdAt,
     updatedAt,
+    paymentStatus,
+    amountPaid,
+    payments,
 }: ShipmentTrackerProps) {
     const currentStepIndex = useMemo(() => {
         const i = TRACKING_STEPS.findIndex((step) => step.statuses.includes(currentStatus));
@@ -491,6 +504,120 @@ export default function ShipmentTracker({
                     </div>
                 </div>
             </div>
+
+            {/* === CARTE PAIEMENT — état + alerte si non payé en totalité === */}
+            {paymentStatus && (() => {
+                const isPaid = paymentStatus === "PAID";
+                const isUnpaid = paymentStatus === "UNPAID";
+                // Totaux par devise depuis les paiements
+                const totals = (payments || []).reduce<Record<string, number>>((acc, p) => {
+                    acc[p.currency] = (acc[p.currency] || 0) + p.amount;
+                    return acc;
+                }, {});
+                const totalEntries = Object.entries(totals);
+
+                const cfg = isPaid
+                    ? {
+                          bg: "from-green-500/10 to-emerald-400/10",
+                          border: "border-green-500/30",
+                          iconBg: "from-green-500 to-emerald-600",
+                          title: "Paiement effectué",
+                          titleColor: "text-green-700",
+                          subtitle: "Statut",
+                          detail: "Paiement reçu — vous pouvez récupérer votre colis",
+                          detailColor: "text-green-700",
+                      }
+                    : isUnpaid
+                        ? {
+                              bg: "from-red-500/10 to-rose-400/10",
+                              border: "border-red-500/40",
+                              iconBg: "from-red-600 to-rose-700",
+                              title: "Paiement non effectué",
+                              titleColor: "text-red-700",
+                              subtitle: "Statut",
+                              detail: "Veuillez régler avant la récupération de votre colis",
+                              detailColor: "text-red-700",
+                          }
+                        : {
+                              bg: "from-amber-500/10 to-orange-400/10",
+                              border: "border-amber-500/30",
+                              iconBg: "from-amber-500 to-orange-600",
+                              title: "Paiement partiel",
+                              titleColor: "text-amber-700",
+                              subtitle: "Statut",
+                              detail: "Veuillez régler le solde avant la récupération",
+                              detailColor: "text-amber-700",
+                          };
+
+                return (
+                    <div className="px-4 sm:px-6 pt-4">
+                        <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-5 rounded-lg bg-gradient-to-br ${cfg.bg} border ${cfg.border}`}>
+                            <div className="flex items-center gap-4">
+                                <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${cfg.iconBg} text-white flex items-center justify-center shadow-md flex-shrink-0`}>
+                                    {isPaid ? (
+                                        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                                            <polyline points="22 4 12 14.01 9 11.01" />
+                                        </svg>
+                                    ) : (
+                                        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                            <rect x="2" y="6" width="20" height="12" rx="2" />
+                                            <circle cx="12" cy="12" r="3" />
+                                            <path d="M6 12h.01M18 12h.01" />
+                                        </svg>
+                                    )}
+                                </div>
+                                <div>
+                                    <p className={`text-xs uppercase tracking-widest font-semibold ${cfg.titleColor}`}>
+                                        {cfg.title}
+                                    </p>
+                                    {totalEntries.length > 0 ? (
+                                        <p className="text-lg sm:text-xl font-bold text-gray-900">
+                                            {totalEntries
+                                                .map(([cur, total]) => `${total.toFixed(2)} ${cur}`)
+                                                .join(" · ")}
+                                            {!isPaid && (
+                                                <span className="text-sm font-normal text-gray-500 ml-2">payé</span>
+                                            )}
+                                        </p>
+                                    ) : isUnpaid ? (
+                                        <p className="text-lg sm:text-xl font-bold text-gray-900">
+                                            Aucun paiement enregistré
+                                        </p>
+                                    ) : (
+                                        <p className="text-lg sm:text-xl font-bold text-gray-900">—</p>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-xs uppercase tracking-widest text-gray-500 font-semibold">
+                                    {cfg.subtitle}
+                                </p>
+                                <p className={`text-sm sm:text-base font-semibold ${cfg.detailColor} max-w-[240px] sm:text-right`}>
+                                    {cfg.detail}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Bandeau d'alerte plus visible si non payé */}
+                        {!isPaid && (
+                            <div className="mt-3 flex items-start gap-3 p-3 sm:p-4 rounded-lg bg-red-50 border-l-4 border-red-500">
+                                <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                                    <line x1="12" x2="12" y1="9" y2="13" />
+                                    <line x1="12" x2="12.01" y1="17" y2="17" />
+                                </svg>
+                                <div className="text-sm text-red-800">
+                                    <strong>Paiement requis :</strong>{" "}
+                                    {isUnpaid
+                                        ? "Aucun versement n'a été enregistré. Merci de régler le montant dû avant de récupérer votre colis."
+                                        : "Votre paiement est incomplet. Merci de régler le solde restant avant de récupérer votre colis."}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            })()}
 
             {/* === TRAJECTOIRE HORIZONTALE COURBE (desktop) === */}
             <div className="hidden md:block relative px-8 pt-8 pb-4">
