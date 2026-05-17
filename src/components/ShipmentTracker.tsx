@@ -397,19 +397,7 @@ export default function ShipmentTracker({
                     <text x="680" y="60" fontSize="32" opacity="0.35">☁</text>
                     <text x="870" y="50" fontSize="24" opacity="0.4">☁</text>
 
-                    {/* Ligne horizontale de fond (pointillée) */}
-                    <line
-                        x1="0"
-                        y1={LINE_Y}
-                        x2={TRAJ_W}
-                        y2={LINE_Y}
-                        stroke="#cbd5e1"
-                        strokeWidth="3"
-                        strokeDasharray="6 8"
-                        strokeLinecap="round"
-                    />
-
-                    {/* Ligne de progression */}
+                    {/* Ligne de progression — pleine, du début jusqu'à l'avion */}
                     {t > 0 && (
                         <line
                             x1="0"
@@ -417,7 +405,22 @@ export default function ShipmentTracker({
                             x2={t * TRAJ_W}
                             y2={LINE_Y}
                             stroke="url(#progressGrad)"
-                            strokeWidth="4"
+                            strokeWidth="5"
+                            strokeLinecap="round"
+                            style={{ transition: "all 700ms ease-out" }}
+                        />
+                    )}
+
+                    {/* Ligne restante — pointillée, après l'avion jusqu'à la destination */}
+                    {t < 1 && (
+                        <line
+                            x1={t * TRAJ_W}
+                            y1={LINE_Y}
+                            x2={TRAJ_W}
+                            y2={LINE_Y}
+                            stroke="#cbd5e1"
+                            strokeWidth="3"
+                            strokeDasharray="6 8"
                             strokeLinecap="round"
                             style={{ transition: "all 700ms ease-out" }}
                         />
