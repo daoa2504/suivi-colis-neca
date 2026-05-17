@@ -2,7 +2,6 @@
 "use client";
 
 import { useMemo } from "react";
-import WorldRouteMap from "./WorldRouteMap";
 
 type ShipmentStatus =
     | "CREATED"
@@ -249,7 +248,7 @@ export default function ShipmentTracker({
                 1: "En route — convoi parti vers la destination",
                 2: "Arrivé à la douane",
                 3: "Disponible pour récupération",
-                4: "Colis remis au destinataire",
+                4: "Colis récupéré par le destinataire",
             };
             const label = lastLabel[currentStepIndex];
             const updateDate = new Date(updatedAt);
@@ -261,12 +260,12 @@ export default function ShipmentTracker({
             }
         }
 
-        // Étapes futures (placeholders)
+        // Étapes futures (placeholders) — incluent toujours "Colis récupéré" en dernier
         const futureLabels: Record<number, string[]> = {
-            0: ["Convoi en route", "Arrivée à la douane", "Prêt pour récupération"],
-            1: ["Arrivée à la douane", "Prêt pour récupération"],
-            2: ["Prêt pour récupération"],
-            3: [],
+            0: ["Convoi en route", "Arrivée à la douane", "Prêt pour récupération", "Colis récupéré"],
+            1: ["Arrivée à la douane", "Prêt pour récupération", "Colis récupéré"],
+            2: ["Prêt pour récupération", "Colis récupéré"],
+            3: ["Colis récupéré"],
             4: [],
         };
         const today = new Date();
@@ -400,18 +399,89 @@ export default function ShipmentTracker({
                 </div>
             </div>
 
-            {/* === CARTE DU MONDE AVEC TRAJET (desktop) === */}
-            <div className="hidden md:block px-4 sm:px-6 pt-6">
-                <WorldRouteMap
-                    originCountry={origin}
-                    destinationCountry={destination}
-                    receiverCity={receiverCity ?? null}
-                    progress={t}
-                    statusLabel={getStatusLabel(currentStatus)}
-                />
-            </div>
+            {/* === TRAJECTOIRE HORIZONTALE COURBE (desktop) === */}
+            <div className="hidden md:block relative px-8 pt-8 pb-4">
+                <svg
+                    viewBox={`0 0 ${TRAJ_W} ${TRAJ_H}`}
+                    className="w-full h-44"
+                    preserveAspectRatio="none"
+                >
+                    <defs>
+                        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#e0f2fe" />
+                            <stop offset="100%" stopColor="#ffffff" />
+                        </linearGradient>
+                        <linearGradient id="progressGrad" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor="#8B0000" />
+                            <stop offset="100%" stopColor="#DC143C" />
+                        </linearGradient>
+                    </defs>
+                    <rect x="0" y="0" width={TRAJ_W} height={TRAJ_H - 20} fill="url(#sky)" rx="16" />
 
-            <div className="hidden md:block relative px-8 pt-6 pb-4">
+                    {/* Nuages décoratifs */}
+                    <text x="180" y="55" fontSize="32" opacity="0.35">☁</text>
+                    <text x="430" y="40" fontSize="28" opacity="0.4">☁</text>
+                    <text x="680" y="60" fontSize="32" opacity="0.35">☁</text>
+                    <text x="870" y="50" fontSize="24" opacity="0.4">☁</text>
+
+                    {/* Courbe de fond (pointillée) */}
+                    <path d={arcPath} fill="none" stroke="#cbd5e1" strokeWidth="3" strokeDasharray="6 8" strokeLinecap="round" />
+
+                    {/* Courbe de progression */}
+                    {t > 0 && (
+                        <path
+                            d={arcPathProgress}
+                            fill="none"
+                            stroke="url(#progressGrad)"
+                            strokeWidth="4"
+                            strokeLinecap="round"
+                            style={{ transition: "all 700ms ease-out" }}
+                        />
+                    )}
+
+                    {/* Marqueurs début / fin */}
+                    <circle cx="0" cy={TRAJ_H - 30} r="8" fill="#8B0000" />
+                    <circle cx="0" cy={TRAJ_H - 30} r="14" fill="#8B0000" opacity="0.2" />
+                    <circle cx={TRAJ_W} cy={TRAJ_H - 30} r="8" fill="#94a3b8" />
+                    <circle cx={TRAJ_W} cy={TRAJ_H - 30} r="14" fill="#94a3b8" opacity="0.2" />
+                </svg>
+
+                {/* Icône mobile en position sur la courbe — varie selon l'étape */}
+                <div
+                    className="absolute pointer-events-none transition-all duration-700 ease-out"
+                    style={{
+                        left: `calc(${(plane.x / TRAJ_W) * 100}% + 32px)`,
+                        top: `calc(${(plane.y / TRAJ_H) * 11}rem + 1rem)`,
+                        transform: "translate(-50%, -50%)",
+                    }}
+                >
+                    {currentStepIndex === 1 ? (
+                        // En transit → avion en décollage (nose-up fixe, plus dynamique)
+                        <div className="plane-float">
+                            <FlyingPlane
+                                className="w-12 h-12 text-[#8B0000] drop-shadow-md"
+                                style={{ transform: "rotate(-25deg)" }}
+                            />
+                        </div>
+                    ) : currentStepIndex === 0 ? (
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-700 to-slate-900 text-white flex items-center justify-center shadow-lg ring-4 ring-white">
+                            <IconReceived className="w-5 h-5" />
+                        </div>
+                    ) : currentStepIndex === 2 ? (
+                        <div className="w-11 h-11 rounded-full bg-gradient-to-br from-amber-500 to-amber-700 text-white flex items-center justify-center shadow-lg ring-4 ring-white">
+                            <IconCustoms className="w-6 h-6" />
+                        </div>
+                    ) : currentStepIndex === 3 ? (
+                        <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 text-white flex items-center justify-center shadow-lg ring-4 ring-white">
+                            <IconBox className="w-6 h-6" />
+                        </div>
+                    ) : (
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-green-700 text-white flex items-center justify-center shadow-lg ring-4 ring-green-300">
+                            <IconCheck className="w-6 h-6" />
+                        </div>
+                    )}
+                </div>
+
                 {/* Étapes en bas */}
                 <div className="grid grid-cols-5 gap-2 mt-2">
                     {TRACKING_STEPS.map((step, index) => {
