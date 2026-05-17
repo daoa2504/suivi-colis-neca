@@ -269,63 +269,62 @@ export default function ShipmentTracker({
         return { mode: "in_progress" as const, eta, days };
     }, [convoyDate, currentStatus, updatedAt]);
 
-    // === Timeline d'événements ===
-    // Combine ShipmentEvent + transitions implicites depuis createdAt / status
+    // === Timeline d'événements — 5 étapes affichées en permanence ===
+    // Chaque étape a un statut : completed (avec ou sans date), current (avec date), future
     const timeline = useMemo(() => {
-        const items: { label: string; date: Date; description?: string; isFuture?: boolean }[] = [];
+        type TLItem = {
+            label: string;
+            date: Date | null;
+            state: "completed" | "current" | "future";
+            isFuture?: boolean;
+        };
 
-        // Création
-        if (createdAt) {
-            items.push({
-                label: "Colis enregistré par nos agents",
-                date: new Date(createdAt),
-            });
-        }
+        const STAGES = [
+            "Colis enregistré par nos agents",
+            "En route — convoi parti vers la destination",
+            "Arrivé à la douane",
+            "Disponible pour récupération",
+            "Colis récupéré",
+        ];
 
-        // Événements ShipmentEvent explicites
+        const createdDate = createdAt ? new Date(createdAt) : null;
+        const updatedDate = updatedAt ? new Date(updatedAt) : null;
+
+        // Construit l'item correspondant à chaque étape
+        const items: TLItem[] = STAGES.map((label, idx) => {
+            if (idx < currentStepIndex) {
+                // Étape complétée — on a la date uniquement pour l'étape 0 (création)
+                return {
+                    label,
+                    date: idx === 0 ? createdDate : null,
+                    state: "completed",
+                };
+            }
+            if (idx === currentStepIndex) {
+                // Étape courante — date = updatedAt si on a transitionné, sinon createdAt (étape 0)
+                return {
+                    label,
+                    date: idx === 0 ? createdDate : updatedDate ?? createdDate,
+                    state: "current",
+                };
+            }
+            // Étape future
+            return { label, date: null, state: "future", isFuture: true };
+        });
+
+        // Inject ShipmentEvent réels (s'il y en a) pour enrichir avec timestamps précis
         if (events && events.length > 0) {
             for (const ev of events) {
-                items.push({
-                    label: ev.description || ev.type,
-                    date: new Date(ev.occurredAt || ev.createdAt),
-                    description: ev.location || undefined,
-                });
+                const matchIdx = STAGES.findIndex((s) =>
+                    (ev.description || ev.type).toLowerCase().includes(s.split("—")[0].trim().toLowerCase())
+                );
+                if (matchIdx >= 0 && !items[matchIdx].date) {
+                    items[matchIdx].date = new Date(ev.occurredAt || ev.createdAt);
+                }
             }
         }
 
-        // Dernière mise à jour si elle apporte une info (statut transitionné via notify)
-        if (updatedAt && currentStepIndex > 0) {
-            const lastLabel: Record<number, string> = {
-                1: "En route — convoi parti vers la destination",
-                2: "Arrivé à la douane",
-                3: "Disponible pour récupération",
-                4: "Colis récupéré par le destinataire",
-            };
-            const label = lastLabel[currentStepIndex];
-            const updateDate = new Date(updatedAt);
-            const exists = items.find(
-                (i) => Math.abs(i.date.getTime() - updateDate.getTime()) < 5_000 && i.label === label
-            );
-            if (label && !exists) {
-                items.push({ label, date: updateDate });
-            }
-        }
-
-        // Étapes futures (placeholders) — incluent toujours "Colis récupéré" en dernier
-        const futureLabels: Record<number, string[]> = {
-            0: ["Convoi en route", "Arrivée à la douane", "Prêt pour récupération", "Colis récupéré"],
-            1: ["Arrivée à la douane", "Prêt pour récupération", "Colis récupéré"],
-            2: ["Prêt pour récupération", "Colis récupéré"],
-            3: ["Colis récupéré"],
-            4: [],
-        };
-        const today = new Date();
-        for (const f of futureLabels[currentStepIndex] ?? []) {
-            items.push({ label: f, date: today, isFuture: true });
-        }
-
-        // Tri chronologique
-        return items.sort((a, b) => a.date.getTime() - b.date.getTime());
+        return items;
     }, [createdAt, updatedAt, events, currentStepIndex]);
 
     // Drapeaux selon direction
@@ -859,7 +858,7 @@ export default function ShipmentTracker({
                 </div>
             </div>
 
-            {/* === TIMELINE D'ÉVÉNEMENTS === */}
+            {/* === TIMELINE D'ÉVÉNEMENTS — 5 étapes affichées en permanence === */}
             {timeline.length > 0 && (
                 <div className="px-4 sm:px-6 pt-6 pb-6">
                     <h3 className="text-sm font-semibold uppercase tracking-widest text-gray-500 mb-4">
@@ -867,38 +866,52 @@ export default function ShipmentTracker({
                     </h3>
                     <ol className="relative border-l-2 border-gray-200 ml-3 space-y-5">
                         {timeline.map((item, idx) => {
-                            const isFuture = !!item.isFuture;
+                            const isFuture = item.state === "future";
+                            const isCurrent = item.state === "current";
+                            const isCompleted = item.state === "completed";
+
                             return (
                                 <li key={idx} className="ml-5">
                                     <span
                                         className={`absolute -left-[9px] flex items-center justify-center w-4 h-4 rounded-full ring-4 ring-white ${
                                             isFuture
                                                 ? "bg-gray-300"
-                                                : "bg-gradient-to-br from-[#8B0000] to-[#DC143C]"
+                                                : isCurrent
+                                                    ? "bg-gradient-to-br from-[#8B0000] to-[#DC143C] ring-[#DC143C]/20"
+                                                    : "bg-gradient-to-br from-slate-600 to-slate-800"
                                         }`}
                                     />
                                     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                                         <p
                                             className={`text-sm font-semibold ${
-                                                isFuture ? "text-gray-400" : "text-gray-900"
+                                                isFuture
+                                                    ? "text-gray-400"
+                                                    : isCurrent
+                                                        ? "text-slate-900"
+                                                        : "text-gray-800"
                                             }`}
                                         >
                                             {item.label}
                                         </p>
-                                        {!isFuture && (
+                                        {item.date ? (
                                             <time className="text-xs text-gray-500 font-mono">
                                                 {formatDateTimeFR(item.date)}
                                             </time>
-                                        )}
-                                        {isFuture && (
+                                        ) : isFuture ? (
                                             <span className="text-[10px] uppercase tracking-widest text-gray-400">
                                                 Prochaine étape
                                             </span>
+                                        ) : (
+                                            <span className="text-[10px] uppercase tracking-widest text-gray-400">
+                                                Complété
+                                            </span>
+                                        )}
+                                        {isCurrent && (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-white animate-pulse">
+                                                En cours
+                                            </span>
                                         )}
                                     </div>
-                                    {item.description && (
-                                        <p className="text-xs text-gray-500 mt-0.5">{item.description}</p>
-                                    )}
                                 </li>
                             );
                         })}
