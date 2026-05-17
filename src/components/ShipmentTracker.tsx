@@ -204,10 +204,13 @@ export default function ShipmentTracker({
 
     const isDelivered = currentStatus === "DELIVERED";
 
-    // Position de l'icône mobile sur la courbe selon le statut métier
-    const STEP_POSITION: Record<number, number> = { 0: 0, 1: 0.5, 2: 1, 3: 1, 4: 1 };
+    // Position de l'icône mobile — alignée sur l'étape (1 position = 1 étape)
+    // pour que l'avion / le badge soit toujours juste au-dessus de l'icône de l'étape active
+    const STEP_POSITION: Record<number, number> = { 0: 0, 1: 0.25, 2: 0.5, 3: 0.75, 4: 1 };
     const t = STEP_POSITION[currentStepIndex] ?? 0;
-    const plane = getPointOnArc(t);
+    // Ligne horizontale plate : x linéaire, y fixe
+    const LINE_Y = TRAJ_H - 30;
+    const plane = { x: t * TRAJ_W, y: LINE_Y, angleDeg: 0 };
 
     // === ETA ===
     const etaInfo = useMemo(() => {
@@ -276,36 +279,6 @@ export default function ShipmentTracker({
         // Tri chronologique
         return items.sort((a, b) => a.date.getTime() - b.date.getTime());
     }, [createdAt, updatedAt, events, currentStepIndex]);
-
-    // Path SVG de la courbe (quadratique) — utilisé pour la ligne grise de fond
-    // et la ligne rouge de progression
-    const arcPath = useMemo(() => {
-        const yBase = TRAJ_H - 30;
-        // Construit un chemin avec plusieurs points pour rester proche du sin
-        const points: string[] = [];
-        const N = 60;
-        for (let i = 0; i <= N; i++) {
-            const tt = i / N;
-            const x = tt * TRAJ_W;
-            const y = yBase - ARC_AMP * Math.sin(Math.PI * tt);
-            points.push(`${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`);
-        }
-        return points.join(" ");
-    }, []);
-
-    // Path partiel pour la progression (jusqu'au t actuel)
-    const arcPathProgress = useMemo(() => {
-        const yBase = TRAJ_H - 30;
-        const points: string[] = [];
-        const N = Math.max(2, Math.floor(60 * t));
-        for (let i = 0; i <= N; i++) {
-            const tt = (i / N) * t;
-            const x = tt * TRAJ_W;
-            const y = yBase - ARC_AMP * Math.sin(Math.PI * tt);
-            points.push(`${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`);
-        }
-        return points.join(" ");
-    }, [t]);
 
     // Drapeaux selon direction
     const originFlag = origin === "NE" ? "/flags/ne.svg" : origin === "CA" ? "/flags/ca.svg" : null;
@@ -424,14 +397,25 @@ export default function ShipmentTracker({
                     <text x="680" y="60" fontSize="32" opacity="0.35">☁</text>
                     <text x="870" y="50" fontSize="24" opacity="0.4">☁</text>
 
-                    {/* Courbe de fond (pointillée) */}
-                    <path d={arcPath} fill="none" stroke="#cbd5e1" strokeWidth="3" strokeDasharray="6 8" strokeLinecap="round" />
+                    {/* Ligne horizontale de fond (pointillée) */}
+                    <line
+                        x1="0"
+                        y1={LINE_Y}
+                        x2={TRAJ_W}
+                        y2={LINE_Y}
+                        stroke="#cbd5e1"
+                        strokeWidth="3"
+                        strokeDasharray="6 8"
+                        strokeLinecap="round"
+                    />
 
-                    {/* Courbe de progression */}
+                    {/* Ligne de progression */}
                     {t > 0 && (
-                        <path
-                            d={arcPathProgress}
-                            fill="none"
+                        <line
+                            x1="0"
+                            y1={LINE_Y}
+                            x2={t * TRAJ_W}
+                            y2={LINE_Y}
                             stroke="url(#progressGrad)"
                             strokeWidth="4"
                             strokeLinecap="round"
@@ -440,10 +424,10 @@ export default function ShipmentTracker({
                     )}
 
                     {/* Marqueurs début / fin */}
-                    <circle cx="0" cy={TRAJ_H - 30} r="8" fill="#8B0000" />
-                    <circle cx="0" cy={TRAJ_H - 30} r="14" fill="#8B0000" opacity="0.2" />
-                    <circle cx={TRAJ_W} cy={TRAJ_H - 30} r="8" fill="#94a3b8" />
-                    <circle cx={TRAJ_W} cy={TRAJ_H - 30} r="14" fill="#94a3b8" opacity="0.2" />
+                    <circle cx="0" cy={LINE_Y} r="8" fill="#8B0000" />
+                    <circle cx="0" cy={LINE_Y} r="14" fill="#8B0000" opacity="0.2" />
+                    <circle cx={TRAJ_W} cy={LINE_Y} r="8" fill="#94a3b8" />
+                    <circle cx={TRAJ_W} cy={LINE_Y} r="14" fill="#94a3b8" opacity="0.2" />
                 </svg>
 
                 {/* Icône mobile en position sur la courbe — varie selon l'étape */}

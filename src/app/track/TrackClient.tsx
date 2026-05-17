@@ -103,7 +103,7 @@ export default function TrackClient({ initialTrackingId }: { initialTrackingId: 
                     <img
                         src="/flags/ca.svg"
                         alt="Canada"
-                        className="w-14 h-14 sm:w-20 sm:h-20 rounded-full object-cover shadow-md ring-2 ring-white flex-shrink-0"
+                        className="w-16 h-12 sm:w-24 sm:h-16 rounded-md object-cover shadow-md ring-1 ring-gray-200 flex-shrink-0"
                     />
 
                     {/* Bloc central : logo + nom + slogan */}
@@ -127,7 +127,7 @@ export default function TrackClient({ initialTrackingId }: { initialTrackingId: 
                     <img
                         src="/flags/ne.svg"
                         alt="Niger"
-                        className="w-14 h-14 sm:w-20 sm:h-20 rounded-full object-cover shadow-md ring-2 ring-white flex-shrink-0"
+                        className="w-16 h-12 sm:w-24 sm:h-16 rounded-md object-cover shadow-md ring-1 ring-gray-200 flex-shrink-0"
                     />
                 </div>
             </div>
