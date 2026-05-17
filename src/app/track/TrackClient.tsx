@@ -51,7 +51,7 @@ export default function TrackClient({ initialTrackingId }: { initialTrackingId: 
         const cleanId = trackingId.trim().toUpperCase();
         if (!cleanId) return;
 
-        router.replace(`/track?trackingId=${encodeURIComponent(cleanId)}`);
+        router.replace(`/track/${encodeURIComponent(cleanId)}`);
         fetchShipment(cleanId);
     };
 
