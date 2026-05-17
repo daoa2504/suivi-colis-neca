@@ -230,6 +230,11 @@ export default function TrackClient({ initialTrackingId }: { initialTrackingId: 
                             weight={shipmentData.weightKg}
                             pieces={shipmentData.pieces || 1}
                             trackingId={shipmentData.trackingId}
+                            receiverCity={shipmentData.receiverCity}
+                            convoyDate={shipmentData.convoy?.date}
+                            events={shipmentData.events || []}
+                            createdAt={shipmentData.createdAt}
+                            updatedAt={shipmentData.updatedAt}
                         />
                     </div>
                 )}

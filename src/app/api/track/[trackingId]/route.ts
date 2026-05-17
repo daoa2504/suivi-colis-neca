@@ -20,8 +20,23 @@ export async function GET(
                 weightKg: true,
                 currentLocation: true,
                 receiverCity: true,
+                pickupQuartier: true,
                 createdAt: true,
                 updatedAt: true,
+                convoy: {
+                    select: { id: true, date: true, direction: true },
+                },
+                events: {
+                    orderBy: { occurredAt: "desc" },
+                    select: {
+                        id: true,
+                        type: true,
+                        description: true,
+                        location: true,
+                        occurredAt: true,
+                        createdAt: true,
+                    },
+                },
             },
         });
 
