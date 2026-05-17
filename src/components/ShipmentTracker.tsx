@@ -212,14 +212,49 @@ export default function ShipmentTracker({
     const LINE_Y = TRAJ_H - 30;
     const plane = { x: t * TRAJ_W, y: LINE_Y, angleDeg: 0 };
 
-    // === ETA ===
+    // === ETA contextuel (avant/à temps/en retard, ou disponible/en avance) ===
     const etaInfo = useMemo(() => {
         if (!convoyDate) return null;
         const start = new Date(convoyDate);
         const eta = addBusinessDays(start, STANDARD_DELIVERY_DAYS);
         const days = daysUntil(eta);
-        return { eta, days };
-    }, [convoyDate]);
+
+        // === Cas 1 : colis déjà PRÊT pour récupération ===
+        if (currentStatus === "READY_FOR_PICKUP") {
+            const readyDate = updatedAt ? new Date(updatedAt) : new Date();
+            const diffDays = Math.round(
+                (readyDate.getTime() - eta.getTime()) / (1000 * 60 * 60 * 24)
+            );
+            if (diffDays < -1) {
+                return {
+                    mode: "ready_early" as const,
+                    eta,
+                    readyDate,
+                    days: -diffDays,
+                };
+            }
+            if (diffDays > 1) {
+                return {
+                    mode: "ready_late" as const,
+                    eta,
+                    readyDate,
+                    days: diffDays,
+                };
+            }
+            return { mode: "ready_on_time" as const, eta, readyDate, days: 0 };
+        }
+
+        // === Cas 2 : colis déjà récupéré (DELIVERED) — on n'affiche pas l'ETA ===
+        if (currentStatus === "DELIVERED") {
+            return null;
+        }
+
+        // === Cas 3 : encore en cours — vérifier retard / dans les délais ===
+        if (days < 0) {
+            return { mode: "in_progress_late" as const, eta, days: -days };
+        }
+        return { mode: "in_progress" as const, eta, days };
+    }, [convoyDate, currentStatus, updatedAt]);
 
     // === Timeline d'événements ===
     // Combine ShipmentEvent + transitions implicites depuis createdAt / status
@@ -316,43 +351,128 @@ export default function ShipmentTracker({
                 </div>
             </div>
 
-            {/* === CARTE ETA — Estimation de livraison === */}
-            {etaInfo && !isDelivered && (
-                <div className="px-4 sm:px-6 pt-5">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-5 rounded-lg bg-gradient-to-br from-[#8B0000]/5 to-[#DC143C]/5 border border-[#8B0000]/15">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#8B0000] to-[#DC143C] text-white flex items-center justify-center shadow-md flex-shrink-0">
-                                <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                                    <rect x="3" y="4" width="18" height="18" rx="2" />
-                                    <line x1="16" x2="16" y1="2" y2="6" />
-                                    <line x1="8" x2="8" y1="2" y2="6" />
-                                    <line x1="3" x2="21" y1="10" y2="10" />
-                                </svg>
+            {/* === CARTE ETA — adaptée selon l'état du colis === */}
+            {etaInfo && (() => {
+                // Détermine couleurs + libellés selon le mode
+                const cfg = (() => {
+                    switch (etaInfo.mode) {
+                        case "ready_early":
+                            return {
+                                bg: "from-green-500/10 to-emerald-400/10",
+                                border: "border-green-500/30",
+                                iconBg: "from-green-500 to-emerald-600",
+                                titleColor: "text-green-700",
+                                title: "Disponible en avance",
+                                date: formatDateFR(etaInfo.readyDate!),
+                                subtitle: "Statut",
+                                detail: `Prêt ${etaInfo.days} jour${etaInfo.days > 1 ? "s" : ""} avant la date prévue`,
+                                detailColor: "text-green-700",
+                                icon: "check",
+                            };
+                        case "ready_on_time":
+                            return {
+                                bg: "from-blue-500/10 to-sky-400/10",
+                                border: "border-blue-500/30",
+                                iconBg: "from-blue-500 to-sky-600",
+                                titleColor: "text-blue-700",
+                                title: "Colis disponible",
+                                date: formatDateFR(etaInfo.readyDate!),
+                                subtitle: "Statut",
+                                detail: "Prêt dans les délais — récupérez votre colis",
+                                detailColor: "text-blue-700",
+                                icon: "box",
+                            };
+                        case "ready_late":
+                            return {
+                                bg: "from-amber-500/10 to-orange-400/10",
+                                border: "border-amber-500/30",
+                                iconBg: "from-amber-500 to-orange-600",
+                                titleColor: "text-amber-700",
+                                title: "Colis disponible",
+                                date: formatDateFR(etaInfo.readyDate!),
+                                subtitle: "Statut",
+                                detail: `Disponible avec ${etaInfo.days} jour${etaInfo.days > 1 ? "s" : ""} de retard — merci pour votre patience`,
+                                detailColor: "text-amber-700",
+                                icon: "box",
+                            };
+                        case "in_progress_late":
+                            return {
+                                bg: "from-amber-500/10 to-orange-400/10",
+                                border: "border-amber-500/30",
+                                iconBg: "from-amber-500 to-orange-600",
+                                titleColor: "text-amber-700",
+                                title: "Récupération prévue",
+                                date: formatDateFR(etaInfo.eta),
+                                subtitle: "Délai dépassé",
+                                detail: `Léger retard de ${etaInfo.days} jour${etaInfo.days > 1 ? "s" : ""} — votre colis arrive bientôt`,
+                                detailColor: "text-amber-700",
+                                icon: "calendar",
+                            };
+                        default: // in_progress
+                            return {
+                                bg: "from-[#8B0000]/5 to-[#DC143C]/5",
+                                border: "border-[#8B0000]/15",
+                                iconBg: "from-[#8B0000] to-[#DC143C]",
+                                titleColor: "text-gray-500",
+                                title: "Récupération prévue",
+                                date: formatDateFR(etaInfo.eta),
+                                subtitle: "Délai estimé",
+                                detail:
+                                    etaInfo.days > 0
+                                        ? `dans ${etaInfo.days} jour${etaInfo.days > 1 ? "s" : ""}`
+                                        : "aujourd'hui",
+                                detailColor: "text-[#8B0000]",
+                                icon: "calendar",
+                            };
+                    }
+                })();
+
+                return (
+                    <div className="px-4 sm:px-6 pt-5">
+                        <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-5 rounded-lg bg-gradient-to-br ${cfg.bg} border ${cfg.border}`}>
+                            <div className="flex items-center gap-4">
+                                <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${cfg.iconBg} text-white flex items-center justify-center shadow-md flex-shrink-0`}>
+                                    {cfg.icon === "check" ? (
+                                        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                                            <polyline points="22 4 12 14.01 9 11.01" />
+                                        </svg>
+                                    ) : cfg.icon === "box" ? (
+                                        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                                            <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                                            <line x1="12" x2="12" y1="22.08" y2="12" />
+                                        </svg>
+                                    ) : (
+                                        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                            <rect x="3" y="4" width="18" height="18" rx="2" />
+                                            <line x1="16" x2="16" y1="2" y2="6" />
+                                            <line x1="8" x2="8" y1="2" y2="6" />
+                                            <line x1="3" x2="21" y1="10" y2="10" />
+                                        </svg>
+                                    )}
+                                </div>
+                                <div>
+                                    <p className={`text-xs uppercase tracking-widest font-semibold ${cfg.titleColor}`}>
+                                        {cfg.title}
+                                    </p>
+                                    <p className="text-lg sm:text-xl font-bold text-gray-900">
+                                        {cfg.date}
+                                    </p>
+                                </div>
                             </div>
-                            <div>
+                            <div className="text-right">
                                 <p className="text-xs uppercase tracking-widest text-gray-500 font-semibold">
-                                    Récupération prévue
+                                    {cfg.subtitle}
                                 </p>
-                                <p className="text-lg sm:text-xl font-bold text-gray-900">
-                                    {formatDateFR(etaInfo.eta)}
+                                <p className={`text-base sm:text-lg font-semibold ${cfg.detailColor} max-w-[230px] sm:text-right`}>
+                                    {cfg.detail}
                                 </p>
                             </div>
-                        </div>
-                        <div className="text-right">
-                            <p className="text-xs uppercase tracking-widest text-gray-500 font-semibold">
-                                Délai estimé
-                            </p>
-                            <p className="text-lg font-semibold text-[#8B0000]">
-                                {etaInfo.days > 0
-                                    ? `dans ${etaInfo.days} jour${etaInfo.days > 1 ? "s" : ""}`
-                                    : etaInfo.days === 0
-                                        ? "aujourd'hui"
-                                        : "à confirmer"}
-                            </p>
                         </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
 
             {/* Carte récap */}
             <div className="px-4 sm:px-6 pt-5">
