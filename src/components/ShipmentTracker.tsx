@@ -384,7 +384,14 @@ export default function ShipmentTracker({
                             <stop offset="0%" stopColor="#e0f2fe" />
                             <stop offset="100%" stopColor="#ffffff" />
                         </linearGradient>
-                        <linearGradient id="progressGrad" x1="0" y1="0" x2="1" y2="0">
+                        <linearGradient
+                            id="progressGrad"
+                            x1="0"
+                            y1="0"
+                            x2={TRAJ_W}
+                            y2="0"
+                            gradientUnits="userSpaceOnUse"
+                        >
                             <stop offset="0%" stopColor="#8B0000" />
                             <stop offset="100%" stopColor="#DC143C" />
                         </linearGradient>
