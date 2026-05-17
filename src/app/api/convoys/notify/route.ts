@@ -266,9 +266,14 @@ export async function POST(req: NextRequest) {
         let statusUpdated = 0;
         if (newStatus && sent > 0) {
             const idsToUpdate = shipmentsToNotify.map((s) => s.id);
+            const data: any = { status: newStatus };
+            // Capture le timestamp exact pour la transition vers READY_FOR_PICKUP
+            if (newStatus === "READY_FOR_PICKUP") {
+                data.readyAt = new Date();
+            }
             const updateResult = await prisma.shipment.updateMany({
                 where: { id: { in: idsToUpdate } },
-                data: { status: newStatus },
+                data,
             });
             statusUpdated = updateResult.count;
         }

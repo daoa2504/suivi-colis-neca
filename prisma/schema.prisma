@@ -48,6 +48,10 @@ model Shipment {
   paymentStatus     PaymentStatus   @default(UNPAID)
   amountPaid        Float?
 
+  // Timestamps des transitions de statut (pour la timeline publique)
+  readyAt           DateTime?
+  deliveredAt       DateTime?
+
   convoy            Convoy?         @relation(fields: [convoyId], references: [id])
   events            ShipmentEvent[]
   items             ShipmentItem[]

@@ -23,6 +23,8 @@ export async function GET(
                 pickupQuartier: true,
                 paymentStatus: true,
                 amountPaid: true,
+                readyAt: true,
+                deliveredAt: true,
                 createdAt: true,
                 updatedAt: true,
                 convoy: {

@@ -41,6 +41,8 @@ interface ShipmentTrackerProps {
     events?: ShipmentEvent[];
     createdAt?: string | null;
     updatedAt?: string | null;
+    readyAt?: string | null;
+    deliveredAt?: string | null;
     paymentStatus?: "PAID" | "PARTIAL" | "UNPAID" | null;
     amountPaid?: number | null;
     payments?: PaymentEntry[];
@@ -206,6 +208,8 @@ export default function ShipmentTracker({
     events,
     createdAt,
     updatedAt,
+    readyAt,
+    deliveredAt,
     paymentStatus,
     amountPaid,
     payments,
@@ -269,16 +273,43 @@ export default function ShipmentTracker({
         return { mode: "in_progress" as const, eta, days };
     }, [convoyDate, currentStatus, updatedAt]);
 
-    // === Timeline d'événements — 5 étapes affichées en permanence ===
-    // Chaque étape a un statut : completed (avec ou sans date), current (avec date), future
+    // === Timeline d'événements ===
+    // - 5 étapes affichées pendant le suivi
+    // - Réduction à 3 étapes synthétiques quand le colis est DELIVERED
     const timeline = useMemo(() => {
         type TLItem = {
             label: string;
             date: Date | null;
             state: "completed" | "current" | "future";
-            isFuture?: boolean;
         };
 
+        const createdDate = createdAt ? new Date(createdAt) : null;
+        const updatedDate = updatedAt ? new Date(updatedAt) : null;
+        const readyDate = readyAt ? new Date(readyAt) : null;
+        const deliveredDate = deliveredAt ? new Date(deliveredAt) : null;
+
+        // Cas DELIVERED → 3 étapes synthétiques avec leurs dates
+        if (currentStatus === "DELIVERED") {
+            return [
+                {
+                    label: "Colis enregistré par nos agents",
+                    date: createdDate,
+                    state: "completed" as const,
+                },
+                {
+                    label: "Disponibilité de récupération",
+                    date: readyDate ?? deliveredDate ?? updatedDate, // fallback si readyAt pas encore enregistré
+                    state: "completed" as const,
+                },
+                {
+                    label: "Colis récupéré par le destinataire",
+                    date: deliveredDate ?? updatedDate,
+                    state: "completed" as const,
+                },
+            ];
+        }
+
+        // Cas standard → 5 étapes
         const STAGES = [
             "Colis enregistré par nos agents",
             "En route — convoi parti vers la destination",
@@ -287,36 +318,31 @@ export default function ShipmentTracker({
             "Colis récupéré",
         ];
 
-        const createdDate = createdAt ? new Date(createdAt) : null;
-        const updatedDate = updatedAt ? new Date(updatedAt) : null;
-
-        // Construit l'item correspondant à chaque étape
         const items: TLItem[] = STAGES.map((label, idx) => {
             if (idx < currentStepIndex) {
-                // Étape complétée — on a la date uniquement pour l'étape 0 (création)
                 return {
                     label,
-                    date: idx === 0 ? createdDate : null,
+                    date: idx === 0 ? createdDate : idx === 3 ? readyDate : null,
                     state: "completed",
                 };
             }
             if (idx === currentStepIndex) {
-                // Étape courante — date = updatedAt si on a transitionné, sinon createdAt (étape 0)
-                return {
-                    label,
-                    date: idx === 0 ? createdDate : updatedDate ?? createdDate,
-                    state: "current",
-                };
+                let date: Date | null = updatedDate ?? createdDate;
+                if (idx === 0) date = createdDate;
+                else if (idx === 3) date = readyDate ?? updatedDate;
+                else if (idx === 4) date = deliveredDate ?? updatedDate;
+                return { label, date, state: "current" };
             }
-            // Étape future
-            return { label, date: null, state: "future", isFuture: true };
+            return { label, date: null, state: "future" };
         });
 
-        // Inject ShipmentEvent réels (s'il y en a) pour enrichir avec timestamps précis
+        // Enrichit avec ShipmentEvent si disponible
         if (events && events.length > 0) {
             for (const ev of events) {
                 const matchIdx = STAGES.findIndex((s) =>
-                    (ev.description || ev.type).toLowerCase().includes(s.split("—")[0].trim().toLowerCase())
+                    (ev.description || ev.type)
+                        .toLowerCase()
+                        .includes(s.split("—")[0].trim().toLowerCase())
                 );
                 if (matchIdx >= 0 && !items[matchIdx].date) {
                     items[matchIdx].date = new Date(ev.occurredAt || ev.createdAt);
@@ -325,7 +351,7 @@ export default function ShipmentTracker({
         }
 
         return items;
-    }, [createdAt, updatedAt, events, currentStepIndex]);
+    }, [createdAt, updatedAt, readyAt, deliveredAt, events, currentStepIndex, currentStatus]);
 
     // Drapeaux selon direction
     const originFlag = origin === "NE" ? "/flags/ne.svg" : origin === "CA" ? "/flags/ca.svg" : null;
@@ -504,16 +530,10 @@ export default function ShipmentTracker({
                 </div>
             </div>
 
-            {/* === CARTE PAIEMENT — état + alerte si non payé en totalité === */}
+            {/* === CARTE PAIEMENT — état uniquement (pas de montant) === */}
             {paymentStatus && (() => {
                 const isPaid = paymentStatus === "PAID";
                 const isUnpaid = paymentStatus === "UNPAID";
-                // Totaux par devise depuis les paiements
-                const totals = (payments || []).reduce<Record<string, number>>((acc, p) => {
-                    acc[p.currency] = (acc[p.currency] || 0) + p.amount;
-                    return acc;
-                }, {});
-                const totalEntries = Object.entries(totals);
 
                 const cfg = isPaid
                     ? {
@@ -522,7 +542,7 @@ export default function ShipmentTracker({
                           iconBg: "from-green-500 to-emerald-600",
                           title: "Paiement effectué",
                           titleColor: "text-green-700",
-                          subtitle: "Statut",
+                          state: "Payé",
                           detail: "Paiement reçu — vous pouvez récupérer votre colis",
                           detailColor: "text-green-700",
                       }
@@ -533,7 +553,7 @@ export default function ShipmentTracker({
                               iconBg: "from-red-600 to-rose-700",
                               title: "Paiement non effectué",
                               titleColor: "text-red-700",
-                              subtitle: "Statut",
+                              state: "Non payé",
                               detail: "Veuillez régler avant la récupération de votre colis",
                               detailColor: "text-red-700",
                           }
@@ -543,7 +563,7 @@ export default function ShipmentTracker({
                               iconBg: "from-amber-500 to-orange-600",
                               title: "Paiement partiel",
                               titleColor: "text-amber-700",
-                              subtitle: "Statut",
+                              state: "Partiellement payé",
                               detail: "Veuillez régler le solde avant la récupération",
                               detailColor: "text-amber-700",
                           };
@@ -570,28 +590,12 @@ export default function ShipmentTracker({
                                     <p className={`text-xs uppercase tracking-widest font-semibold ${cfg.titleColor}`}>
                                         {cfg.title}
                                     </p>
-                                    {totalEntries.length > 0 ? (
-                                        <p className="text-lg sm:text-xl font-bold text-gray-900">
-                                            {totalEntries
-                                                .map(([cur, total]) => `${total.toFixed(2)} ${cur}`)
-                                                .join(" · ")}
-                                            {!isPaid && (
-                                                <span className="text-sm font-normal text-gray-500 ml-2">payé</span>
-                                            )}
-                                        </p>
-                                    ) : isUnpaid ? (
-                                        <p className="text-lg sm:text-xl font-bold text-gray-900">
-                                            Aucun paiement enregistré
-                                        </p>
-                                    ) : (
-                                        <p className="text-lg sm:text-xl font-bold text-gray-900">—</p>
-                                    )}
+                                    <p className="text-lg sm:text-xl font-bold text-gray-900">
+                                        {cfg.state}
+                                    </p>
                                 </div>
                             </div>
                             <div className="text-right">
-                                <p className="text-xs uppercase tracking-widest text-gray-500 font-semibold">
-                                    {cfg.subtitle}
-                                </p>
                                 <p className={`text-sm sm:text-base font-semibold ${cfg.detailColor} max-w-[240px] sm:text-right`}>
                                     {cfg.detail}
                                 </p>
@@ -609,7 +613,7 @@ export default function ShipmentTracker({
                                 <div className="text-sm text-red-800">
                                     <strong>Paiement requis :</strong>{" "}
                                     {isUnpaid
-                                        ? "Aucun versement n'a été enregistré. Merci de régler le montant dû avant de récupérer votre colis."
+                                        ? "Aucun versement n'a été enregistré. Merci de régler avant de récupérer votre colis."
                                         : "Votre paiement est incomplet. Merci de régler le solde restant avant de récupérer votre colis."}
                                 </div>
                             </div>

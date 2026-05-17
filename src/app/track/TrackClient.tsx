@@ -235,6 +235,8 @@ export default function TrackClient({ initialTrackingId }: { initialTrackingId: 
                             events={shipmentData.events || []}
                             createdAt={shipmentData.createdAt}
                             updatedAt={shipmentData.updatedAt}
+                            readyAt={shipmentData.readyAt}
+                            deliveredAt={shipmentData.deliveredAt}
                             paymentStatus={shipmentData.paymentStatus}
                             amountPaid={shipmentData.amountPaid}
                             payments={shipmentData.payments || []}
