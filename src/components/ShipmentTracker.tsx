@@ -511,43 +511,105 @@ export default function ShipmentTracker({
                 </div>
             </div>
 
-            {/* === VERSION MOBILE === */}
-            <div className="md:hidden p-4 space-y-3">
-                {TRACKING_STEPS.map((step, index) => {
-                    const isCompleted = index <= currentStepIndex;
-                    const isActive = index === currentStepIndex;
-                    const StepIcon = step.Icon;
-                    return (
-                        <div key={step.label} className="flex items-center gap-3">
-                            <div
-                                className={`w-12 h-12 rounded-full flex items-center justify-center border-2 flex-shrink-0 ${
-                                    isCompleted
-                                        ? "bg-gradient-to-br from-slate-700 to-slate-900 border-slate-700 text-white"
-                                        : "bg-gray-50 border-gray-300 text-gray-400"
-                                } ${isActive ? "ring-4 ring-slate-400/40" : ""}`}
-                            >
-                                <StepIcon className="w-6 h-6" />
-                            </div>
-                            <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                    <p
-                                        className={`font-semibold text-sm ${
-                                            isActive ? "text-slate-900" : isCompleted ? "text-gray-900" : "text-gray-400"
-                                        }`}
+            {/* === VERSION MOBILE — timeline verticale avec trajectoire === */}
+            <div className="md:hidden p-4">
+                <div className="relative">
+                    {/* Ligne verticale de fond (avant et après l'avion) */}
+                    <div className="absolute left-6 top-6 bottom-6 w-0.5 -translate-x-1/2 pointer-events-none">
+                        {/* Segment parcouru (plein, du haut jusqu'à l'étape active) */}
+                        <div
+                            className="absolute left-0 right-0 top-0 bg-gradient-to-b from-[#8B0000] to-[#DC143C] rounded-full transition-all duration-700"
+                            style={{
+                                height: `${(currentStepIndex / (TRACKING_STEPS.length - 1)) * 100}%`,
+                            }}
+                        />
+                        {/* Segment restant (pointillé, vertical) */}
+                        <div
+                            className="absolute left-0 right-0 bottom-0 rounded-full transition-all duration-700"
+                            style={{
+                                height: `${((TRACKING_STEPS.length - 1 - currentStepIndex) / (TRACKING_STEPS.length - 1)) * 100}%`,
+                                backgroundImage:
+                                    "repeating-linear-gradient(to bottom, #cbd5e1 0, #cbd5e1 6px, transparent 6px, transparent 14px)",
+                            }}
+                        />
+                    </div>
+
+                    {/* Étapes */}
+                    <div className="space-y-5">
+                        {TRACKING_STEPS.map((step, index) => {
+                            const isCompleted = index <= currentStepIndex;
+                            const isActive = index === currentStepIndex;
+                            const StepIcon = step.Icon;
+                            return (
+                                <div key={step.label} className="flex items-start gap-4 relative">
+                                    <div
+                                        className={`relative z-10 w-12 h-12 rounded-full flex items-center justify-center border-2 flex-shrink-0 transition-all duration-300 ${
+                                            isCompleted
+                                                ? "bg-gradient-to-br from-slate-700 to-slate-900 border-slate-700 text-white shadow-md"
+                                                : "bg-white border-gray-300 text-gray-400"
+                                        } ${isActive ? "scale-110 ring-4 ring-[#DC143C]/30" : ""}`}
                                     >
-                                        {step.label}
-                                    </p>
-                                    {isActive && (
-                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-800 text-white animate-pulse">
-                                            En cours
-                                        </span>
+                                        <StepIcon className="w-5 h-5" />
+                                    </div>
+                                    <div className="flex-1 pt-1.5">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <p
+                                                className={`font-semibold text-sm ${
+                                                    isActive
+                                                        ? "text-slate-900"
+                                                        : isCompleted
+                                                            ? "text-gray-900"
+                                                            : "text-gray-400"
+                                                }`}
+                                            >
+                                                {step.label}
+                                            </p>
+                                            {isActive && (
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-white animate-pulse">
+                                                    En cours
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-xs text-gray-500 mt-0.5">{step.description}</p>
+                                    </div>
+
+                                    {/* Avion / badge contextuel à droite de l'étape active */}
+                                    {isActive && !isDelivered && (
+                                        <div className="absolute right-0 top-1 plane-float">
+                                            {currentStepIndex === 1 ? (
+                                                <FlyingPlane
+                                                    className="w-10 h-10 text-[#8B0000] drop-shadow-md"
+                                                    style={{ transform: "rotate(-25deg)" }}
+                                                />
+                                            ) : currentStepIndex === 0 ? (
+                                                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-slate-700 to-slate-900 text-white flex items-center justify-center shadow-md">
+                                                    <IconReceived className="w-5 h-5" />
+                                                </div>
+                                            ) : currentStepIndex === 2 ? (
+                                                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-500 to-amber-700 text-white flex items-center justify-center shadow-md">
+                                                    <IconCustoms className="w-5 h-5" />
+                                                </div>
+                                            ) : currentStepIndex === 3 ? (
+                                                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 text-white flex items-center justify-center shadow-md">
+                                                    <IconBox className="w-5 h-5" />
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    )}
+
+                                    {/* Coche verte sur l'étape récupérée */}
+                                    {isActive && isDelivered && (
+                                        <div className="absolute right-0 top-1">
+                                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-green-500 to-green-700 text-white flex items-center justify-center shadow-md ring-2 ring-green-300">
+                                                <IconCheck className="w-5 h-5" />
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
-                                <p className="text-xs text-gray-500">{step.description}</p>
-                            </div>
-                        </div>
-                    );
-                })}
+                            );
+                        })}
+                    </div>
+                </div>
             </div>
 
             {/* === TIMELINE D'ÉVÉNEMENTS === */}
