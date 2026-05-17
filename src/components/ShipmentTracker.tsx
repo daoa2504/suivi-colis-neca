@@ -144,7 +144,15 @@ export default function ShipmentTracker({
     }, [currentStatus]);
 
     const isDelivered = currentStatus === "DELIVERED";
-    const t = currentStepIndex / (TRACKING_STEPS.length - 1);
+
+    // Position de l'icône mobile sur la courbe selon le statut métier :
+    // - Reçu (0)         → origine (gauche)
+    // - En transit (1)   → milieu de la courbe (apex du vol)
+    // - À la douane (2)  → destination (le colis a atterri)
+    // - Prêt (3)         → destination
+    // - Récupéré (4)     → destination
+    const STEP_POSITION: Record<number, number> = { 0: 0, 1: 0.5, 2: 1, 3: 1, 4: 1 };
+    const t = STEP_POSITION[currentStepIndex] ?? 0;
     const plane = getPointOnArc(t);
 
     // Path SVG de la courbe (quadratique) — utilisé pour la ligne grise de fond
@@ -286,25 +294,42 @@ export default function ShipmentTracker({
                     <circle cx={TRAJ_W} cy={TRAJ_H - 30} r="14" fill="#94a3b8" opacity="0.2" />
                 </svg>
 
-                {/* Avion / Pin de récupération en position sur la courbe */}
+                {/* Icône mobile en position sur la courbe — varie selon l'étape */}
                 <div
                     className="absolute pointer-events-none transition-all duration-700 ease-out"
                     style={{
-                        left: `calc(${(plane.x / TRAJ_W) * 100}% + 32px)`, // +32px pour aligner avec le padding-x de 32
-                        top: `calc(${(plane.y / TRAJ_H) * 11}rem + 1rem)`, // h-44 = 11rem, +pt-8 (2rem) … approx
+                        left: `calc(${(plane.x / TRAJ_W) * 100}% + 32px)`,
+                        top: `calc(${(plane.y / TRAJ_H) * 11}rem + 1rem)`,
                         transform: "translate(-50%, -50%)",
                     }}
                 >
-                    {isDelivered ? (
-                        <div className="w-10 h-10 rounded-full bg-green-600 text-white flex items-center justify-center shadow-lg ring-4 ring-green-300">
-                            <IconCheck className="w-6 h-6" />
-                        </div>
-                    ) : (
+                    {currentStepIndex === 1 ? (
+                        // En transit → avion qui vole avec rotation tangente
                         <div className="plane-float">
                             <FlyingPlane
                                 className="w-12 h-12 text-[#8B0000] drop-shadow-md"
                                 style={{ transform: `rotate(${plane.angleDeg}deg)` }}
                             />
+                        </div>
+                    ) : currentStepIndex === 0 ? (
+                        // Reçu → petit badge à l'origine
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-700 to-slate-900 text-white flex items-center justify-center shadow-lg ring-4 ring-white">
+                            <IconReceived className="w-5 h-5" />
+                        </div>
+                    ) : currentStepIndex === 2 ? (
+                        // À la douane → bouclier (le colis a atterri, traitement douanier)
+                        <div className="w-11 h-11 rounded-full bg-gradient-to-br from-amber-500 to-amber-700 text-white flex items-center justify-center shadow-lg ring-4 ring-white">
+                            <IconCustoms className="w-6 h-6" />
+                        </div>
+                    ) : currentStepIndex === 3 ? (
+                        // Prêt → boîte à destination
+                        <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 text-white flex items-center justify-center shadow-lg ring-4 ring-white">
+                            <IconBox className="w-6 h-6" />
+                        </div>
+                    ) : (
+                        // Récupéré → coche verte
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-green-700 text-white flex items-center justify-center shadow-lg ring-4 ring-green-300">
+                            <IconCheck className="w-6 h-6" />
                         </div>
                     )}
                 </div>
