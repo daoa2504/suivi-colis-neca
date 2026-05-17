@@ -25,15 +25,7 @@ interface ShipmentTrackerProps {
 // === Icônes SVG (Heroicons-style outline, traits 2) ===
 function IconReceived(props: { className?: string }) {
     return (
-        <svg
-            className={props.className}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
+        <svg className={props.className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
             <path d="M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2 2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2z" />
             <path d="m9 14 2 2 4-4" />
@@ -42,30 +34,14 @@ function IconReceived(props: { className?: string }) {
 }
 function IconPlane(props: { className?: string }) {
     return (
-        <svg
-            className={props.className}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
+        <svg className={props.className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
             <path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" />
         </svg>
     );
 }
 function IconCustoms(props: { className?: string }) {
     return (
-        <svg
-            className={props.className}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
+        <svg className={props.className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z" />
             <path d="m9 12 2 2 4-4" />
         </svg>
@@ -73,15 +49,7 @@ function IconCustoms(props: { className?: string }) {
 }
 function IconBox(props: { className?: string }) {
     return (
-        <svg
-            className={props.className}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
+        <svg className={props.className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
             <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
             <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
             <line x1="12" x2="12" y1="22.08" y2="12" />
@@ -90,30 +58,33 @@ function IconBox(props: { className?: string }) {
 }
 function IconCheck(props: { className?: string }) {
     return (
-        <svg
-            className={props.className}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
+        <svg className={props.className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10" />
             <path d="m9 12 2 2 4-4" />
         </svg>
     );
 }
 
-// === Avion qui se déplace sur la trajectoire ===
-function FlyingPlane(props: { className?: string }) {
+// Avion détaillé en vue latérale, pointe vers la droite (par défaut)
+function FlyingPlane(props: { className?: string; style?: React.CSSProperties }) {
     return (
         <svg
             className={props.className}
-            viewBox="0 0 64 64"
+            style={props.style}
+            viewBox="0 0 100 60"
             fill="currentColor"
+            aria-hidden
         >
-            <path d="M61 27.4 38.6 25 27.4 5l-5.6 1.4 5 19.8L8 27.6 4 30l16 7-2 9 5 2 5-6 13.4 5 1.4-5.6L23 35.6 41 33l5 11 5-2-2-9z" />
+            {/* Fuselage */}
+            <path d="M5 30 Q 8 24 18 24 L60 24 L82 14 Q 90 12 92 18 Q 94 22 86 28 L80 30 L86 32 Q 94 38 92 42 Q 90 48 82 46 L60 36 L18 36 Q 8 36 5 30 Z" />
+            {/* Aile arrière */}
+            <path d="M50 24 L42 12 L36 12 L40 24 Z" />
+            <path d="M50 36 L42 48 L36 48 L40 36 Z" />
+            {/* Empennage */}
+            <path d="M10 30 L4 22 L0 22 L6 30 L0 38 L4 38 Z" />
+            {/* Reflets cockpit */}
+            <circle cx="72" cy="26" r="2" fill="rgba(255,255,255,0.6)" />
+            <circle cx="78" cy="26" r="1.5" fill="rgba(255,255,255,0.5)" />
         </svg>
     );
 }
@@ -126,36 +97,11 @@ type StepDef = {
 };
 
 const TRACKING_STEPS: StepDef[] = [
-    {
-        statuses: ["CREATED", "RECEIVED_IN_NIGER", "RECEIVED_IN_CANADA"],
-        label: "Reçu",
-        description: "Colis enregistré par nos agents",
-        Icon: IconReceived,
-    },
-    {
-        statuses: ["IN_TRANSIT", "IN_TRANSIT_STOP"],
-        label: "En transit",
-        description: "Le colis a quitté l'origine",
-        Icon: IconPlane,
-    },
-    {
-        statuses: ["IN_CUSTOMS"],
-        label: "À la douane",
-        description: "Traitement douanier en cours",
-        Icon: IconCustoms,
-    },
-    {
-        statuses: ["READY_FOR_PICKUP"],
-        label: "Prêt",
-        description: "Disponible pour récupération",
-        Icon: IconBox,
-    },
-    {
-        statuses: ["DELIVERED"],
-        label: "Récupéré",
-        description: "Colis remis au destinataire",
-        Icon: IconCheck,
-    },
+    { statuses: ["CREATED", "RECEIVED_IN_NIGER", "RECEIVED_IN_CANADA"], label: "Reçu", description: "Colis enregistré par nos agents", Icon: IconReceived },
+    { statuses: ["IN_TRANSIT", "IN_TRANSIT_STOP"], label: "En transit", description: "Le colis a quitté l'origine", Icon: IconPlane },
+    { statuses: ["IN_CUSTOMS"], label: "À la douane", description: "Traitement douanier en cours", Icon: IconCustoms },
+    { statuses: ["READY_FOR_PICKUP"], label: "Prêt", description: "Disponible pour récupération", Icon: IconBox },
+    { statuses: ["DELIVERED"], label: "Récupéré", description: "Colis remis au destinataire", Icon: IconCheck },
 ];
 
 function getStatusLabel(s: ShipmentStatus) {
@@ -172,6 +118,24 @@ function getStatusLabel(s: ShipmentStatus) {
     return labels[s] ?? s;
 }
 
+// Dimensions du SVG de trajectoire
+const TRAJ_W = 1000;
+const TRAJ_H = 200;
+const ARC_AMP = 80; // amplitude verticale de l'arc
+
+/** Position et rotation du point sur la courbe pour un t ∈ [0,1] */
+function getPointOnArc(t: number) {
+    const x = t * TRAJ_W; // x linéaire
+    // y suit -sin(πt) → l'arc monte au milieu (y plus petit en SVG = plus haut)
+    const yBase = TRAJ_H - 30; // ligne de base
+    const y = yBase - ARC_AMP * Math.sin(Math.PI * t);
+    // tangente : dy/dt = -ARC_AMP * π * cos(πt), dx/dt = TRAJ_W
+    const dy = -ARC_AMP * Math.PI * Math.cos(Math.PI * t);
+    const dx = TRAJ_W;
+    const angleRad = Math.atan2(dy, dx);
+    return { x, y, angleDeg: (angleRad * 180) / Math.PI };
+}
+
 export default function ShipmentTracker({
     currentStatus,
     origin,
@@ -185,27 +149,70 @@ export default function ShipmentTracker({
     }, [currentStatus]);
 
     const isDelivered = currentStatus === "DELIVERED";
-    const planePosition = (currentStepIndex / (TRACKING_STEPS.length - 1)) * 100;
+    const t = currentStepIndex / (TRACKING_STEPS.length - 1);
+    const plane = getPointOnArc(t);
 
-    const countryLabel = (codes: string) => {
-        if (codes === "NE") return "Niger";
-        if (codes === "CA") return "Canada";
-        return codes;
-    };
+    // Path SVG de la courbe (quadratique) — utilisé pour la ligne grise de fond
+    // et la ligne rouge de progression
+    const arcPath = useMemo(() => {
+        const yBase = TRAJ_H - 30;
+        // Construit un chemin avec plusieurs points pour rester proche du sin
+        const points: string[] = [];
+        const N = 60;
+        for (let i = 0; i <= N; i++) {
+            const tt = i / N;
+            const x = tt * TRAJ_W;
+            const y = yBase - ARC_AMP * Math.sin(Math.PI * tt);
+            points.push(`${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`);
+        }
+        return points.join(" ");
+    }, []);
+
+    // Path partiel pour la progression (jusqu'au t actuel)
+    const arcPathProgress = useMemo(() => {
+        const yBase = TRAJ_H - 30;
+        const points: string[] = [];
+        const N = Math.max(2, Math.floor(60 * t));
+        for (let i = 0; i <= N; i++) {
+            const tt = (i / N) * t;
+            const x = tt * TRAJ_W;
+            const y = yBase - ARC_AMP * Math.sin(Math.PI * tt);
+            points.push(`${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`);
+        }
+        return points.join(" ");
+    }, [t]);
+
+    // Drapeaux selon direction
+    const originFlag = origin === "NE" ? "/flags/ne.svg" : origin === "CA" ? "/flags/ca.svg" : null;
+    const destFlag = destination === "NE" ? "/flags/ne.svg" : destination === "CA" ? "/flags/ca.svg" : null;
+    const countryLabel = (c: string) => (c === "NE" ? "Niger" : c === "CA" ? "Canada" : c);
 
     return (
         <div className="bg-white rounded-xl shadow-xl overflow-hidden">
-            {/* En-tête tracking */}
-            <div className="bg-gradient-to-r from-[#8B0000] to-[#DC143C] p-5 sm:p-6 text-white">
+            {/* En-tête tracking — gris anthracite + drapeaux direction */}
+            <div className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 p-5 sm:p-6 text-white">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                        <p className="text-xs uppercase opacity-80 tracking-widest">Numéro de suivi</p>
+                        <p className="text-xs uppercase opacity-70 tracking-widest">Numéro de suivi</p>
                         <h2 className="text-xl sm:text-2xl md:text-3xl font-mono font-bold">
                             {trackingId}
                         </h2>
+                        <div className="flex items-center gap-2 mt-2">
+                            {originFlag && (
+                                <img src={originFlag} alt={countryLabel(origin)} className="w-6 h-4 rounded-sm shadow-sm" />
+                            )}
+                            <span className="text-sm opacity-80">{countryLabel(origin)}</span>
+                            <svg className="w-4 h-4 opacity-70" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                            </svg>
+                            <span className="text-sm opacity-80">{countryLabel(destination)}</span>
+                            {destFlag && (
+                                <img src={destFlag} alt={countryLabel(destination)} className="w-6 h-4 rounded-sm shadow-sm" />
+                            )}
+                        </div>
                     </div>
                     <div className="text-right">
-                        <p className="text-xs uppercase opacity-80 tracking-widest">Statut actuel</p>
+                        <p className="text-xs uppercase opacity-70 tracking-widest">Statut actuel</p>
                         <p className="font-semibold text-sm sm:text-base">{getStatusLabel(currentStatus)}</p>
                     </div>
                 </div>
@@ -229,60 +236,86 @@ export default function ShipmentTracker({
                 </div>
             </div>
 
-            {/* === ZONE TRAJECTOIRE AVION (desktop) === */}
-            <div className="hidden md:block relative px-8 pt-10 pb-8">
-                {/* Ciel décoratif */}
-                <div className="absolute inset-x-8 top-10 h-28 rounded-2xl bg-gradient-to-b from-sky-100 via-sky-50 to-white" />
+            {/* === TRAJECTOIRE COURBE (desktop) === */}
+            <div className="hidden md:block relative px-8 pt-8 pb-4">
+                <svg
+                    viewBox={`0 0 ${TRAJ_W} ${TRAJ_H}`}
+                    className="w-full h-44"
+                    preserveAspectRatio="none"
+                >
+                    {/* Ciel décoratif */}
+                    <defs>
+                        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#e0f2fe" />
+                            <stop offset="100%" stopColor="#ffffff" />
+                        </linearGradient>
+                        <linearGradient id="progressGrad" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor="#8B0000" />
+                            <stop offset="100%" stopColor="#DC143C" />
+                        </linearGradient>
+                    </defs>
+                    <rect x="0" y="0" width={TRAJ_W} height={TRAJ_H - 20} fill="url(#sky)" rx="16" />
 
-                {/* Conteneur de la piste */}
-                <div className="relative h-28 mb-4">
-                    {/* Ligne de piste (fond) */}
-                    <div className="absolute top-1/2 left-0 right-0 h-1.5 bg-gray-200 rounded-full" />
+                    {/* Nuages décoratifs */}
+                    <text x="180" y="55" fontSize="32" opacity="0.35">☁</text>
+                    <text x="430" y="40" fontSize="28" opacity="0.4">☁</text>
+                    <text x="680" y="60" fontSize="32" opacity="0.35">☁</text>
+                    <text x="870" y="50" fontSize="24" opacity="0.4">☁</text>
 
-                    {/* Ligne de progression (rouge) */}
-                    <div
-                        className="absolute top-1/2 left-0 h-1.5 bg-gradient-to-r from-[#8B0000] to-[#DC143C] rounded-full transition-all duration-700 ease-out"
-                        style={{ width: `${planePosition}%` }}
+                    {/* Courbe de fond (pointillée) */}
+                    <path
+                        d={arcPath}
+                        fill="none"
+                        stroke="#cbd5e1"
+                        strokeWidth="3"
+                        strokeDasharray="6 8"
+                        strokeLinecap="round"
                     />
 
-                    {/* Traînée derrière l'avion */}
-                    {!isDelivered && planePosition > 4 && (
-                        <div
-                            className="absolute top-1/2 -translate-y-1/2 z-0 pointer-events-none"
-                            style={{
-                                left: 0,
-                                width: `${Math.max(planePosition - 4, 0)}%`,
-                                height: 18,
-                            }}
-                        >
-                            <div className="h-full w-full opacity-50 bg-[radial-gradient(circle_at_right,rgba(220,20,60,0.5),transparent_70%)]" />
-                        </div>
+                    {/* Courbe de progression */}
+                    {t > 0 && (
+                        <path
+                            d={arcPathProgress}
+                            fill="none"
+                            stroke="url(#progressGrad)"
+                            strokeWidth="4"
+                            strokeLinecap="round"
+                            style={{ transition: "all 700ms ease-out" }}
+                        />
                     )}
 
-                    {/* Avion animé */}
-                    <div
-                        className="absolute top-1/2 -translate-y-1/2 transition-all duration-700 ease-out z-10"
-                        style={{
-                            left: `${planePosition}%`,
-                            transform: `translate(-50%, -50%) translateY(${isDelivered ? 0 : -28}px)`,
-                        }}
-                    >
-                        <div className={isDelivered ? "" : "plane-float"}>
-                            {isDelivered ? (
-                                <IconCheck className="w-10 h-10 text-[#8B0000] drop-shadow-md" />
-                            ) : (
-                                <FlyingPlane className="w-12 h-12 text-[#8B0000] drop-shadow-md" />
-                            )}
-                        </div>
-                    </div>
+                    {/* Marqueurs début / fin */}
+                    <circle cx="0" cy={TRAJ_H - 30} r="8" fill="#8B0000" />
+                    <circle cx="0" cy={TRAJ_H - 30} r="14" fill="#8B0000" opacity="0.2" />
+                    <circle cx={TRAJ_W} cy={TRAJ_H - 30} r="8" fill="#94a3b8" />
+                    <circle cx={TRAJ_W} cy={TRAJ_H - 30} r="14" fill="#94a3b8" opacity="0.2" />
+                </svg>
 
-                    {/* Marqueurs origine / destination */}
-                    <div className="absolute -top-1 left-0 w-3 h-3 rounded-full bg-[#8B0000] ring-4 ring-[#8B0000]/20" />
-                    <div className="absolute -top-1 right-0 w-3 h-3 rounded-full bg-gray-400 ring-4 ring-gray-300" />
+                {/* Avion / Pin de récupération en position sur la courbe */}
+                <div
+                    className="absolute pointer-events-none transition-all duration-700 ease-out"
+                    style={{
+                        left: `calc(${(plane.x / TRAJ_W) * 100}% + 32px)`, // +32px pour aligner avec le padding-x de 32
+                        top: `calc(${(plane.y / TRAJ_H) * 11}rem + 1rem)`, // h-44 = 11rem, +pt-8 (2rem) … approx
+                        transform: "translate(-50%, -50%)",
+                    }}
+                >
+                    {isDelivered ? (
+                        <div className="w-10 h-10 rounded-full bg-green-600 text-white flex items-center justify-center shadow-lg ring-4 ring-green-300">
+                            <IconCheck className="w-6 h-6" />
+                        </div>
+                    ) : (
+                        <div className="plane-float">
+                            <FlyingPlane
+                                className="w-16 h-10 text-[#8B0000] drop-shadow-md"
+                                style={{ transform: `rotate(${plane.angleDeg}deg)` }}
+                            />
+                        </div>
+                    )}
                 </div>
 
-                {/* Étapes */}
-                <div className="grid grid-cols-5 gap-2">
+                {/* Étapes en bas */}
+                <div className="grid grid-cols-5 gap-2 mt-2">
                     {TRACKING_STEPS.map((step, index) => {
                         const isCompleted = index <= currentStepIndex;
                         const isActive = index === currentStepIndex;
@@ -290,27 +323,23 @@ export default function ShipmentTracker({
                         return (
                             <div key={step.label} className="flex flex-col items-center text-center">
                                 <div
-                                    className={`w-14 h-14 lg:w-16 lg:h-16 rounded-full flex items-center justify-center transition-all duration-300 border-2 ${
+                                    className={`w-12 h-12 lg:w-14 lg:h-14 rounded-full flex items-center justify-center transition-all duration-300 border-2 ${
                                         isCompleted
-                                            ? "bg-gradient-to-br from-[#8B0000] to-[#DC143C] border-[#8B0000] text-white shadow-md"
+                                            ? "bg-gradient-to-br from-slate-700 to-slate-900 border-slate-700 text-white shadow-md"
                                             : "bg-white border-gray-300 text-gray-400"
-                                    } ${isActive ? "scale-110 ring-4 ring-[#DC143C]/30" : ""}`}
+                                    } ${isActive ? "scale-110 ring-4 ring-slate-400/40" : ""}`}
                                 >
-                                    <StepIcon className="w-7 h-7 lg:w-8 lg:h-8" />
+                                    <StepIcon className="w-6 h-6 lg:w-7 lg:h-7" />
                                 </div>
                                 <p
                                     className={`mt-2 text-xs lg:text-sm font-semibold ${
-                                        isActive
-                                            ? "text-[#8B0000]"
-                                            : isCompleted
-                                                ? "text-gray-900"
-                                                : "text-gray-400"
+                                        isActive ? "text-slate-900" : isCompleted ? "text-gray-900" : "text-gray-400"
                                     }`}
                                 >
                                     {step.label}
                                 </p>
                                 {isActive && !isDelivered && (
-                                    <span className="mt-1 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#8B0000] text-white animate-pulse">
+                                    <span className="mt-1 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-white animate-pulse">
                                         En cours
                                     </span>
                                 )}
@@ -331,9 +360,9 @@ export default function ShipmentTracker({
                             <div
                                 className={`w-12 h-12 rounded-full flex items-center justify-center border-2 flex-shrink-0 ${
                                     isCompleted
-                                        ? "bg-gradient-to-br from-[#8B0000] to-[#DC143C] border-[#8B0000] text-white"
+                                        ? "bg-gradient-to-br from-slate-700 to-slate-900 border-slate-700 text-white"
                                         : "bg-gray-50 border-gray-300 text-gray-400"
-                                } ${isActive ? "ring-4 ring-[#DC143C]/30" : ""}`}
+                                } ${isActive ? "ring-4 ring-slate-400/40" : ""}`}
                             >
                                 <StepIcon className="w-6 h-6" />
                             </div>
@@ -341,17 +370,13 @@ export default function ShipmentTracker({
                                 <div className="flex items-center gap-2">
                                     <p
                                         className={`font-semibold text-sm ${
-                                            isActive
-                                                ? "text-[#8B0000]"
-                                                : isCompleted
-                                                    ? "text-gray-900"
-                                                    : "text-gray-400"
+                                            isActive ? "text-slate-900" : isCompleted ? "text-gray-900" : "text-gray-400"
                                         }`}
                                     >
                                         {step.label}
                                     </p>
                                     {isActive && (
-                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#8B0000] text-white animate-pulse">
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-800 text-white animate-pulse">
                                             En cours
                                         </span>
                                     )}
@@ -363,11 +388,10 @@ export default function ShipmentTracker({
                 })}
             </div>
 
-            {/* Style avion */}
             <style jsx>{`
                 @keyframes planeFloat {
                     0%, 100% { transform: translateY(0px); }
-                    50% { transform: translateY(-6px); }
+                    50% { transform: translateY(-4px); }
                 }
                 .plane-float {
                     animation: planeFloat 2.5s ease-in-out infinite;
