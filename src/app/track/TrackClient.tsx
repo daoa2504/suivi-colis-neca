@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import ShipmentTracker from "@/components/ShipmentTracker";
+
+const POLL_INTERVAL_MS = 20_000; // 20 secondes
 
 export default function TrackClient({ initialTrackingId }: { initialTrackingId: string }) {
     const router = useRouter();
@@ -11,31 +13,42 @@ export default function TrackClient({ initialTrackingId }: { initialTrackingId: 
     const [shipmentData, setShipmentData] = useState<any>(null);
     const [loading, setLoading] = useState(Boolean(initialTrackingId));
     const [error, setError] = useState("");
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
     const hasInitial = Boolean(initialTrackingId);
+    const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    const fetchShipment = async (id: string) => {
+    const fetchShipment = async (id: string, silent = false) => {
         const cleanId = id.trim().toUpperCase();
         if (!cleanId) return;
 
-        setError("");
-        setLoading(true);
+        if (!silent) {
+            setError("");
+            setLoading(true);
+        }
 
         try {
-            const response = await fetch(`/api/track/${encodeURIComponent(cleanId)}`);
+            const response = await fetch(`/api/track/${encodeURIComponent(cleanId)}`, {
+                cache: "no-store",
+            });
             const data = await response.json();
 
             if (data.ok) {
                 setShipmentData(data.shipment);
+                setLastUpdated(new Date());
             } else {
-                setShipmentData(null);
-                setError(data.error || "Colis introuvable");
+                if (!silent) {
+                    setShipmentData(null);
+                    setError(data.error || "Colis introuvable");
+                }
             }
         } catch {
-            setShipmentData(null);
-            setError("Erreur lors de la recherche");
+            if (!silent) {
+                setShipmentData(null);
+                setError("Erreur lors de la recherche");
+            }
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
 
@@ -45,6 +58,25 @@ export default function TrackClient({ initialTrackingId }: { initialTrackingId: 
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialTrackingId]);
+
+    // Polling temps réel : refetch toutes les 20s tant que pas DELIVERED
+    useEffect(() => {
+        if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+        }
+        if (!shipmentData?.trackingId) return;
+        if (shipmentData.status === "DELIVERED") return; // terminal, plus besoin de poll
+
+        pollRef.current = setInterval(() => {
+            fetchShipment(shipmentData.trackingId, true);
+        }, POLL_INTERVAL_MS);
+
+        return () => {
+            if (pollRef.current) clearInterval(pollRef.current);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [shipmentData?.trackingId, shipmentData?.status]);
 
     const handleTrack = (e: React.FormEvent) => {
         e.preventDefault();
@@ -150,12 +182,25 @@ export default function TrackClient({ initialTrackingId }: { initialTrackingId: 
                 {/* Résultat */}
                 {shipmentData && (
                     <div className="space-y-6">
-                        <button
-                            onClick={handleNewSearch}
-                            className="inline-flex items-center gap-2 text-sm text-[#8B0000] hover:underline"
-                        >
-                            ← Nouvelle recherche
-                        </button>
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                            <button
+                                onClick={handleNewSearch}
+                                className="inline-flex items-center gap-2 text-sm text-[#8B0000] hover:underline"
+                            >
+                                ← Nouvelle recherche
+                            </button>
+                            {lastUpdated && shipmentData.status !== "DELIVERED" && (
+                                <p className="text-xs text-gray-500 flex items-center gap-1.5">
+                                    <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                    Mise à jour automatique · dernière vérification{" "}
+                                    {lastUpdated.toLocaleTimeString("fr-CA", {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                        second: "2-digit",
+                                    })}
+                                </p>
+                            )}
+                        </div>
 
                         <ShipmentTracker
                             currentStatus={shipmentData.status}

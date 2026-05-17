@@ -213,10 +213,10 @@ ${FOOTER}`;
             );
         }
 
-        // ✅ METTRE À JOUR LA BASE DE DONNÉES
+        // ✅ METTRE À JOUR LA BASE DE DONNÉES — flag email + statut DELIVERED
         await prisma.shipment.updateMany({
             where: { id: { in: shipmentIds } },
-            data: { thankYouEmailSent: true },
+            data: { thankYouEmailSent: true, status: "DELIVERED" },
         });
 
         return NextResponse.json({

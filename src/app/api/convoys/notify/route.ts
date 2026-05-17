@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { FROM, sendEmailSafe } from "@/lib/email";
 import { notifyConvoySchema } from "@/lib/validators";
-import { Direction as DirectionEnum } from "@prisma/client";
+import { Direction as DirectionEnum, ShipmentStatus } from "@prisma/client";
 import { getEmailContent, getEmailSubject, type ConvoyStatus, type Direction, type PickupInfo } from "@/lib/emailTemplates";
 
 export const runtime = "nodejs";
@@ -255,6 +255,24 @@ export async function POST(req: NextRequest) {
         const sent = results.filter((x) => x.ok).length;
         const failed = results.filter((x) => !x.ok);
 
+        // === Mise à jour automatique du statut des colis notifiés ===
+        // EN_ROUTE → IN_TRANSIT, IN_CUSTOMS → IN_CUSTOMS, OUT_FOR_DELIVERY → READY_FOR_PICKUP
+        const templateToStatus: Record<string, ShipmentStatus | undefined> = {
+            EN_ROUTE: "IN_TRANSIT",
+            IN_CUSTOMS: "IN_CUSTOMS",
+            OUT_FOR_DELIVERY: "READY_FOR_PICKUP",
+        };
+        const newStatus = templateToStatus[template as string];
+        let statusUpdated = 0;
+        if (newStatus && sent > 0) {
+            const idsToUpdate = shipmentsToNotify.map((s) => s.id);
+            const updateResult = await prisma.shipment.updateMany({
+                where: { id: { in: idsToUpdate } },
+                data: { status: newStatus },
+            });
+            statusUpdated = updateResult.count;
+        }
+
         return NextResponse.json({
             ok: true,
             convoyId: convoy.id,
@@ -267,6 +285,8 @@ export async function POST(req: NextRequest) {
             failed,
             invalidCount: invalidEmails.length,
             invalidSamples: invalidEmails.slice(0, 5),
+            statusUpdated,
+            newStatus: newStatus ?? null,
         });
     } catch (e: any) {
         return NextResponse.json(
