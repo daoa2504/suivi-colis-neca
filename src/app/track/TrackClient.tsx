@@ -63,29 +63,30 @@ export default function TrackClient({ initialTrackingId }: { initialTrackingId: 
         router.replace("/track");
     };
 
+    const PublicHeader = () => (
+        <header className="py-8 sm:py-10">
+            <div className="mx-auto flex max-w-7xl flex-col items-center justify-center px-6 text-center">
+                <img
+                    src="https://nimaplex.com/img.png"
+                    alt="NIMAPLEX"
+                    className="h-16 w-16 sm:h-20 sm:w-20 rounded-xl shadow-lg object-cover mb-3"
+                />
+                <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight bg-gradient-to-r from-[#8B0000] to-[#DC143C] bg-clip-text text-transparent">
+                    NIMAPLEX
+                </h1>
+                <p className="mt-2 text-sm sm:text-base text-gray-600 italic">
+                    Plus qu'une solution, un service d'excellence globale
+                </p>
+            </div>
+        </header>
+    );
+
     // ✅ IMPORTANT : Loader plein écran AVANT le return principal
     if (hasInitial && loading && !shipmentData) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-                <header className="py-6">
-                    <div className="mx-auto flex max-w-7xl justify-center px-6">
-                        <div className="flex items-center gap-3">
-                            <img
-                                src="https://nimaplex.com/img.png"
-                                alt="NIMAPLEX"
-                                className="h-12 w-12 rounded-lg shadow-lg object-cover"
-                            />
-                            <div>
-                <span className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                  NIMAPLEX
-                </span>
-                                <p className="text-xs text-gray-500">Chargement du suivi...</p>
-                            </div>
-                        </div>
-                    </div>
-                </header>
-
-                <div className="max-w-2xl mx-auto px-6 py-12">
+                <PublicHeader />
+                <div className="max-w-2xl mx-auto px-6 py-8">
                     <div className="bg-white rounded-xl shadow-lg p-8 text-center">
                         <p className="text-gray-800 font-semibold">Recherche du colis...</p>
                         <p className="text-gray-500 text-sm mt-2">Veuillez patienter</p>
@@ -99,33 +100,9 @@ export default function TrackClient({ initialTrackingId }: { initialTrackingId: 
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-            {/* Header */}
-            <header className="py-6">
-                <div className="mx-auto flex max-w-7xl justify-center px-6">
-                    <div className="flex items-center gap-3">
-                        <img
-                            src="https://nimaplex.com/img.png"
-                            alt="NIMAPLEX"
-                            className="h-12 w-12 rounded-lg shadow-lg object-cover"
-                        />
-                        <div>
-                            <div className="flex items-center gap-2">
-                <span className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                  NIMAPLEX
-                </span>
-                                <div className="flex items-center gap-1 text-xs text-gray-600">
-                                    <img src="/flags/ca.svg" alt="CA" className="w-4 h-3 rounded" />
-                                    <span>→</span>
-                                    <img src="/flags/ne.svg" alt="NE" className="w-4 h-3 rounded" />
-                                </div>
-                            </div>
-                            <p className="text-xs text-gray-500">Gestion de colis international</p>
-                        </div>
-                    </div>
-                </div>
-            </header>
+            <PublicHeader />
 
-            <div className="max-w-7xl mx-auto px-6 py-12">
+            <div className="max-w-7xl mx-auto px-6 py-6">
                 {/* Formulaire */}
                 {showForm && (
                     <div className="max-w-2xl mx-auto">

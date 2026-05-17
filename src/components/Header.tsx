@@ -10,10 +10,9 @@ export default function Header() {
     const role = session?.user?.role as AppRole | undefined;
     const pathname = usePathname();
 
-    // Pages où le header doit être caché
-    const hideHeaderRoutes = ["/track", "/tracking"];
-
-    if (hideHeaderRoutes.includes(pathname)) {
+    // Pages où le header doit être caché (suivi public)
+    const hideHeaderPrefixes = ["/track", "/tracking"];
+    if (hideHeaderPrefixes.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
         return null;
     }
     return (
