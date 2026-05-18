@@ -7,9 +7,18 @@ import Providers from "@/components/Providers"; // ✅
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-    title: "Suivi-Colis NIMAPLEX",
+    title: "NIMAPLEX — Suivi de colis Niger ↔ Canada",
+    description:
+        "Suivez en direct votre colis entre le Niger et le Canada : statut, étape actuelle, date de récupération prévue. Entrez votre numéro de suivi pour voir où en est votre envoi.",
     icons: {
-        icon: "/img.png", // ou /logo.png
+        icon: "/img.png",
+    },
+    openGraph: {
+        title: "NIMAPLEX — Suivi de colis Niger ↔ Canada",
+        description:
+            "Suivez en direct votre colis entre le Niger et le Canada. Plus qu'une solution, un service d'excellence globale.",
+        type: "website",
+        locale: "fr_CA",
     },
 };
 

@@ -6,13 +6,15 @@ import { authOptions } from "@/lib/auth";
 export default async function HomePage() {
     const session = await getServerSession(authOptions);
 
-    if (!session) redirect("/login");
+    // Visiteur non connecté (clients) → page publique de suivi
+    if (!session) redirect("/track");
 
+    // Personnel connecté → tableau de bord selon le rôle
     const role = session.user.role;
     if (role === "ADMIN") redirect("/admin");
     if (role === "AGENT_CA") redirect("/agent/ca");
     if (role === "AGENT_NE") redirect("/agent/ne");
 
-    // fallback (ne devrait pas arriver)
-    return <main className="p-6">Rôle inconnu</main>;
+    // fallback
+    redirect("/track");
 }
