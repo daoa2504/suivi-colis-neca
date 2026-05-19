@@ -13,6 +13,8 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const directionParam = searchParams.get("direction");
     const upcomingOnly = searchParams.get("upcomingOnly") === "true";
+    const pastDaysParam = parseInt(searchParams.get("pastDays") || "0", 10);
+    const pastDays = isNaN(pastDaysParam) ? 0 : Math.max(0, Math.min(pastDaysParam, 90));
 
     const where: any = {};
 
@@ -20,11 +22,12 @@ export async function GET(req: NextRequest) {
         where.direction = directionParam;
     }
 
-    // Filtre "date ≥ aujourd'hui" — n'affiche que les convois à venir ou du jour
+    // Filtre temporel — par défaut "date ≥ aujourd'hui", étendu en arrière si pastDays > 0
     if (upcomingOnly) {
-        const today = new Date();
-        today.setUTCHours(0, 0, 0, 0);
-        where.date = { gte: today };
+        const cutoff = new Date();
+        cutoff.setUTCHours(0, 0, 0, 0);
+        cutoff.setUTCDate(cutoff.getUTCDate() - pastDays);
+        where.date = { gte: cutoff };
     }
 
     try {

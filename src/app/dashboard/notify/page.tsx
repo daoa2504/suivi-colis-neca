@@ -28,7 +28,7 @@ export default function NotifyPage() {
         (async () => {
             try {
                 const res = await fetch(
-                    `/api/convoys/list?direction=${formData.direction}&upcomingOnly=true`
+                    `/api/convoys/list?direction=${formData.direction}&upcomingOnly=true&pastDays=30`
                 );
                 const data = await res.json();
                 if (data.ok) {
@@ -176,11 +176,15 @@ export default function NotifyPage() {
                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                         >
                                             <option value="">-- Sélectionner un convoi --</option>
-                                            {availableConvoys.map((c) => (
-                                                <option key={c.id} value={c.date}>
-                                                    {c.date} ({formData.direction === "CA_TO_NE" ? "CA → NE" : "NE → CA"})
-                                                </option>
-                                            ))}
+                                            {availableConvoys.map((c) => {
+                                                const isPast = c.date < new Date().toISOString().slice(0, 10);
+                                                const dirLabel = formData.direction === "CA_TO_NE" ? "CA → NE" : "NE → CA";
+                                                return (
+                                                    <option key={c.id} value={c.date}>
+                                                        {c.date} ({dirLabel}){isPast ? " — passé" : ""}
+                                                    </option>
+                                                );
+                                            })}
                                         </select>
                                     )}
                                 </div>
