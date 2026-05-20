@@ -37,7 +37,7 @@ export default function GNForm() {
     useEffect(() => {
         (async () => {
             try {
-                const res = await fetch("/api/convoys/list?direction=NE_TO_CA&upcomingOnly=true");
+                const res = await fetch("/api/convoys/list?direction=NE_TO_CA&upcomingOnly=true&pastDays=14");
                 const data = await res.json();
                 if (data.ok) {
                     const list = (data.convoys as any[])

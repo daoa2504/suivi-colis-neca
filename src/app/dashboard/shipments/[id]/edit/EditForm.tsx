@@ -221,7 +221,7 @@ export default function EditForm({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="label block mb-1 text-sm font-medium text-neutral-700">
-                                    Nom destinataire <span className="text-red-600">*</span>
+                                    Nom de l'expéditeur <span className="text-red-600">*</span>
                                 </label>
                                 <input
                                     className="input border p-2 w-full rounded"
@@ -232,7 +232,7 @@ export default function EditForm({
                             </div>
                             <div>
                                 <label className="label block mb-1 text-sm font-medium text-neutral-700">
-                                    Email destinataire <span className="text-red-600">*</span>
+                                    Email de l'expéditeur <span className="text-red-600">*</span>
                                 </label>
                                 <input
                                     type="email"

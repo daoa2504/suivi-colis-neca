@@ -40,7 +40,7 @@ export default function CAForm() {
     useEffect(() => {
         (async () => {
             try {
-                const res = await fetch("/api/convoys/list?direction=CA_TO_NE&upcomingOnly=true");
+                const res = await fetch("/api/convoys/list?direction=CA_TO_NE&upcomingOnly=true&pastDays=14");
                 const data = await res.json();
                 if (data.ok) {
                     const list = (data.convoys as any[])
@@ -370,7 +370,7 @@ export default function CAForm() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label htmlFor="receiverName" className="label block mb-1 text-sm font-medium text-neutral-700">
-                            Nom destinataire <span className="text-red-600">*</span>
+                            Nom de l'expéditeur <span className="text-red-600">*</span>
                         </label>
                         <input
                             id="receiverName"
@@ -383,7 +383,7 @@ export default function CAForm() {
                     </div>
                     <div>
                         <label htmlFor="receiverEmail" className="label block mb-1 text-sm font-medium text-neutral-700">
-                            Email destinataire <span className="text-red-600">*</span>
+                            Email de l'expéditeur <span className="text-red-600">*</span>
                         </label>
                         <input
                             id="receiverEmail"
