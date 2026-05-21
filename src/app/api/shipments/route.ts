@@ -137,6 +137,7 @@ export async function POST(req: NextRequest) {
                 pickupPhone: body.pickupPhone?.trim() || null,
                 notes: body.notes || null,
                 convoyId: convoy.id,
+                createdById: session.user?.id ?? null,
                 originCountry,
                 destinationCountry,
                 status: isNeToCA ? "RECEIVED_IN_NIGER" : "RECEIVED_IN_CANADA",

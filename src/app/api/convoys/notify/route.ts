@@ -255,6 +255,21 @@ export async function POST(req: NextRequest) {
         const sent = results.filter((x) => x.ok).length;
         const failed = results.filter((x) => !x.ok);
 
+        // === Journal d'audit ===
+        if (sent > 0 || failed.length > 0) {
+            await prisma.notificationLog.create({
+                data: {
+                    userId: session.user?.id ?? null,
+                    type: "CONVOY",
+                    template: template as string,
+                    convoyId: convoy.id,
+                    sentCount: sent,
+                    failedCount: failed.length,
+                    notes: pickupCity ? `Filtre ville: ${pickupCity}` : null,
+                },
+            });
+        }
+
         // === Mise à jour automatique du statut des colis notifiés ===
         // EN_ROUTE → IN_TRANSIT, IN_CUSTOMS → IN_CUSTOMS, OUT_FOR_DELIVERY → READY_FOR_PICKUP
         const templateToStatus: Record<string, ShipmentStatus | undefined> = {

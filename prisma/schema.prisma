@@ -14,6 +14,12 @@ model User {
   password String
   role     Role    @default(AGENT_NE)
   username String  @unique
+
+  // Inverse relations (audit)
+  shipmentsCreated     Shipment[]        @relation("ShipmentCreatedBy")
+  paymentsCreated      Payment[]         @relation("PaymentCreatedBy")
+  expensesCreated      Expense[]         @relation("ExpenseCreatedBy")
+  notificationsSent    NotificationLog[]
 }
 
 model Shipment {
@@ -52,6 +58,10 @@ model Shipment {
   readyAt           DateTime?
   deliveredAt       DateTime?
 
+  // Audit : qui a créé ce colis
+  createdById       String?
+  createdBy         User?           @relation("ShipmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
   convoy            Convoy?         @relation(fields: [convoyId], references: [id])
   events            ShipmentEvent[]
   items             ShipmentItem[]
@@ -69,15 +79,19 @@ model ShipmentItem {
 }
 
 model Payment {
-  id         String        @id @default(cuid())
-  shipmentId Int
-  shipment   Shipment      @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
-  amount     Float
-  currency   Currency      @default(CAD)
-  method     PaymentMethod @default(CASH)
-  paidAt     DateTime      @default(now())
-  notes      String?
-  createdAt  DateTime      @default(now())
+  id          String        @id @default(cuid())
+  shipmentId  Int
+  shipment    Shipment      @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  amount      Float
+  currency    Currency      @default(CAD)
+  method      PaymentMethod @default(CASH)
+  paidAt      DateTime      @default(now())
+  notes       String?
+  createdAt   DateTime      @default(now())
+
+  // Audit : qui a saisi ce paiement
+  createdById String?
+  createdBy   User?         @relation("PaymentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 }
 
 model Expense {
@@ -91,6 +105,10 @@ model Expense {
   convoy      Convoy?         @relation(fields: [convoyId], references: [id])
   notes       String?
   createdAt   DateTime        @default(now())
+
+  // Audit : qui a saisi cette dépense
+  createdById String?
+  createdBy   User?           @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 }
 
 model ExchangeRate {
@@ -101,6 +119,23 @@ model ExchangeRate {
   fetchedAt DateTime @default(now())
 
   @@unique([base, target])
+}
+
+// Journal des notifications envoyées par les utilisateurs
+model NotificationLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  // Type de notification : CONVOY (template EN_ROUTE / IN_CUSTOMS / OUT_FOR_DELIVERY)
+  // ou DELIVERED (remerciement individuel)
+  type       String
+  template   String?
+  convoyId   String?
+  shipmentId Int?
+  sentCount  Int      @default(0)
+  failedCount Int     @default(0)
+  notes      String?
+  createdAt  DateTime @default(now())
 }
 
 model ShipmentEvent {

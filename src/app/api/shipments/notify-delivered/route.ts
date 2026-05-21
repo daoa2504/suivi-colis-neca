@@ -223,6 +223,19 @@ ${FOOTER}`;
             },
         });
 
+        // ✅ JOURNAL D'AUDIT
+        await prisma.notificationLog.create({
+            data: {
+                userId: session.user?.id ?? null,
+                type: "DELIVERED",
+                template: "DELIVERED",
+                shipmentId,
+                sentCount: 1,
+                failedCount: 0,
+                notes: `${trackingIds.length} colis remerciés pour ${targetEmail}`,
+            },
+        });
+
         return NextResponse.json({
             ok: true,
             customerEmail: targetEmail,

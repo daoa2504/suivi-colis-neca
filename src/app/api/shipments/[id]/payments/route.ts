@@ -67,6 +67,7 @@ export async function POST(
                 method: parsed.data.method,
                 paidAt: parsed.data.paidAt ? new Date(parsed.data.paidAt) : new Date(),
                 notes: parsed.data.notes || null,
+                createdById: session.user?.id ?? null,
             },
         });
         return NextResponse.json({ ok: true, payment });

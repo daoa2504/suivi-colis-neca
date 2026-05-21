@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
                 date: new Date(parsed.data.date),
                 convoyId: parsed.data.convoyId || null,
                 notes: parsed.data.notes || null,
+                createdById: session.user?.id ?? null,
             },
         });
         return NextResponse.json({ ok: true, expense });
