@@ -17,11 +17,11 @@ export default function Header() {
     }
     return (
         <header className="w-full bg-white shadow-md border-b-2 border-gray-100">
-            <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
+            <div className="w-full flex flex-wrap items-center justify-between gap-3 px-4 sm:px-8 lg:px-12 py-3">
                 {/* Logo / Titre — clic ramène à l'accueil admin/agent */}
                 <Link
                     href={role === "ADMIN" ? "/admin" : "/dashboard/shipments"}
-                    className="flex items-center gap-3 hover:opacity-90 transition-opacity"
+                    className="flex items-center gap-3 hover:opacity-90 transition-opacity flex-shrink-0"
                 >
                     <img
                         src="https://nimaplex.com/img.png"
@@ -54,7 +54,7 @@ export default function Header() {
                 </Link>
 
                 {/* Navigation */}
-                <nav className="flex items-center gap-2">
+                <nav className="flex flex-wrap items-center gap-2 justify-end">
                     {(role === 'ADMIN' || role === 'AGENT_NE' || role === 'AGENT_CA') && (
                         <Link
                             href="/dashboard/shipments"
