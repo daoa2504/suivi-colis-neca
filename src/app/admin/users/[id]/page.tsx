@@ -128,13 +128,17 @@ export default async function UserDetailPage({
         .filter((n) => !n.convoyId && n.shipmentId)
         .map((n) => n.shipmentId!) as number[];
     let shipmentToConvoy: Record<number, string | null> = {};
+    let shipmentToTracking: Record<number, string> = {};
     if (orphanShipmentIds.length > 0) {
         const orphanShipments = await prisma.shipment.findMany({
             where: { id: { in: orphanShipmentIds } },
-            select: { id: true, convoyId: true },
+            select: { id: true, convoyId: true, trackingId: true },
         });
         shipmentToConvoy = Object.fromEntries(
             orphanShipments.map((s) => [s.id, s.convoyId])
+        );
+        shipmentToTracking = Object.fromEntries(
+            orphanShipments.map((s) => [s.id, s.trackingId])
         );
         orphanShipments.forEach((s) => s.convoyId && userConvoyIds.add(s.convoyId));
     }
@@ -319,13 +323,17 @@ export default async function UserDetailPage({
                                             {TEMPLATE_LABEL[n.template ?? ""] ?? n.type}
                                         </td>
                                         <td className="p-2 text-xs text-gray-600">
-                                            {convoy
-                                                ? `${new Date(convoy.date).toISOString().slice(0, 10)} (${
-                                                      convoy.direction === "CA_TO_NE" ? "CA→NE" : "NE→CA"
-                                                  })`
-                                                : n.shipmentId
-                                                ? `Colis #${n.shipmentId}`
-                                                : "—"}
+                                            {n.shipmentId && shipmentToTracking[n.shipmentId] ? (
+                                                <span className="font-mono">
+                                                    {shipmentToTracking[n.shipmentId]}
+                                                </span>
+                                            ) : convoy ? (
+                                                `${new Date(convoy.date).toISOString().slice(0, 10)} (${
+                                                    convoy.direction === "CA_TO_NE" ? "CA→NE" : "NE→CA"
+                                                })`
+                                            ) : (
+                                                "—"
+                                            )}
                                         </td>
                                         <td className="p-2 font-mono text-green-700">{n.sentCount}</td>
                                         <td className="p-2 font-mono text-red-600">{n.failedCount}</td>
