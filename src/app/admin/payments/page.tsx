@@ -31,7 +31,7 @@ function fmtDate(d: Date | string | null) {
     });
 }
 
-type SearchParams = { status?: string; direction?: string };
+type SearchParams = { status?: string; direction?: string; convoyId?: string };
 
 export default async function AdminPaymentsPage({
     searchParams,
@@ -45,14 +45,27 @@ export default async function AdminPaymentsPage({
     const sp = await searchParams;
     const statusFilter = (sp.status || "").toUpperCase();
     const directionFilter = sp.direction || "";
+    const convoyFilter = sp.convoyId || "";
 
     const where: Prisma.ShipmentWhereInput = {};
     if (["PAID", "PARTIAL", "UNPAID"].includes(statusFilter)) {
         where.paymentStatus = statusFilter as PaymentStatus;
     }
-    if (directionFilter === "NE_TO_CA" || directionFilter === "CA_TO_NE") {
+    if (convoyFilter) {
+        where.convoyId = convoyFilter;
+    } else if (directionFilter === "NE_TO_CA" || directionFilter === "CA_TO_NE") {
         where.convoy = { direction: directionFilter };
     }
+
+    // Liste des convois pour le sélecteur (60 derniers jours)
+    const cutoff = new Date();
+    cutoff.setUTCDate(cutoff.getUTCDate() - 60);
+    const convoys = await prisma.convoy.findMany({
+        where: { date: { gte: cutoff } },
+        orderBy: { date: "desc" },
+        take: 100,
+        include: { _count: { select: { shipments: true } } },
+    });
 
     const shipments = await prisma.shipment.findMany({
         where,
@@ -75,12 +88,14 @@ export default async function AdminPaymentsPage({
     });
     const totalAll = (countMap.PAID || 0) + (countMap.PARTIAL || 0) + (countMap.UNPAID || 0);
 
-    function buildHref(opts: { status?: string; direction?: string }) {
+    function buildHref(opts: { status?: string; direction?: string; convoyId?: string }) {
         const params = new URLSearchParams();
         const s = opts.status ?? statusFilter;
         const d = opts.direction ?? directionFilter;
+        const c = opts.convoyId ?? convoyFilter;
         if (s) params.set("status", s);
         if (d) params.set("direction", d);
+        if (c) params.set("convoyId", c);
         const qs = params.toString();
         return `/admin/payments${qs ? "?" + qs : ""}`;
     }
@@ -127,23 +142,45 @@ export default async function AdminPaymentsPage({
             </div>
 
             {/* Filtres par direction */}
-            <div className="flex flex-wrap items-center gap-2 mb-6">
+            <div className="flex flex-wrap items-center gap-2 mb-4">
                 <span className="text-sm font-medium text-gray-700 mr-2">Direction :</span>
-                <Chip href={buildHref({ direction: "" })} active={!directionFilter}>
+                <Chip href={buildHref({ direction: "", convoyId: "" })} active={!directionFilter && !convoyFilter}>
                     Toutes
                 </Chip>
                 <Chip
-                    href={buildHref({ direction: "NE_TO_CA" })}
-                    active={directionFilter === "NE_TO_CA"}
+                    href={buildHref({ direction: "NE_TO_CA", convoyId: "" })}
+                    active={directionFilter === "NE_TO_CA" && !convoyFilter}
                 >
                     NE → CA
                 </Chip>
                 <Chip
-                    href={buildHref({ direction: "CA_TO_NE" })}
-                    active={directionFilter === "CA_TO_NE"}
+                    href={buildHref({ direction: "CA_TO_NE", convoyId: "" })}
+                    active={directionFilter === "CA_TO_NE" && !convoyFilter}
                 >
                     CA → NE
                 </Chip>
+            </div>
+
+            {/* Filtre par convoi (date) */}
+            <div className="flex flex-wrap items-center gap-2 mb-6">
+                <span className="text-sm font-medium text-gray-700 mr-2">Convoi :</span>
+                <Chip href={buildHref({ convoyId: "" })} active={!convoyFilter}>
+                    Tous les convois
+                </Chip>
+                {convoys.map((c) => {
+                    const label = `${new Date(c.date).toISOString().slice(0, 10)} (${
+                        c.direction === "CA_TO_NE" ? "CA→NE" : "NE→CA"
+                    }) · ${c._count.shipments}`;
+                    return (
+                        <Chip
+                            key={c.id}
+                            href={buildHref({ convoyId: c.id })}
+                            active={convoyFilter === c.id}
+                        >
+                            {label}
+                        </Chip>
+                    );
+                })}
             </div>
 
             {/* Tableau */}

@@ -305,7 +305,7 @@ export default async function UserDetailPage({
                         <thead className="bg-gray-50 border-b">
                             <tr>
                                 <th className="text-left p-2">Type</th>
-                                <th className="text-left p-2">Convoi</th>
+                                <th className="text-left p-2">ID Client / Convoi</th>
                                 <th className="text-left p-2">Envoyées</th>
                                 <th className="text-left p-2">Échecs</th>
                                 <th className="text-left p-2">Notes</th>
