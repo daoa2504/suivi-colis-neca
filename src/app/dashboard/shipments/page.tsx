@@ -10,6 +10,7 @@ import DeleteShipmentButton from "./DeleteShipmentButton";
 import ConvoyFilter from "./ConvoyFilter";
 import CityFilter from "./CityFilter";
 import ColumnsFilter from "./ColumnsFilter";
+import ExportShipmentsButton from "./ExportShipmentsButton";
 
 export const runtime = "nodejs";
 
@@ -363,6 +364,14 @@ export default async function ShipmentsPage({
 
                 {/* Sélecteur de colonnes */}
                 <ColumnsFilter />
+
+                {/* Export Excel */}
+                <ExportShipmentsButton
+                    direction={direction}
+                    convoyId={convoyId}
+                    city={city}
+                    q={q}
+                />
             </div>
 
             <div className="bg-white rounded shadow">
