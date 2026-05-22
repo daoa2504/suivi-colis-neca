@@ -35,10 +35,15 @@ const TEMPLATE_LABEL: Record<string, string> = {
 
 export default async function UserDetailPage({
     params,
+    searchParams,
 }: {
     params: Promise<{ id: string }>;
+    searchParams: Promise<{ convoyId?: string }>;
 }) {
     const { id } = await params;
+    const sp = await searchParams;
+    const filterConvoyId = sp.convoyId || "";
+
     const session = await getServerSession(authOptions);
     if (!session) redirect("/login");
     if (session.user.role !== "ADMIN") redirect("/");
@@ -48,31 +53,38 @@ export default async function UserDetailPage({
         include: {
             shipmentsCreated: {
                 orderBy: { createdAt: "desc" },
-                take: 100,
+                take: 200,
                 select: {
                     id: true,
                     trackingId: true,
                     receiverName: true,
                     status: true,
                     createdAt: true,
+                    convoyId: true,
                     convoy: { select: { date: true, direction: true } },
                 },
             },
             paymentsCreated: {
                 orderBy: { createdAt: "desc" },
-                take: 100,
+                take: 200,
                 select: {
                     id: true,
                     amount: true,
                     currency: true,
                     method: true,
                     createdAt: true,
-                    shipment: { select: { trackingId: true, receiverName: true } },
+                    shipment: {
+                        select: {
+                            trackingId: true,
+                            receiverName: true,
+                            convoyId: true,
+                        },
+                    },
                 },
             },
             expensesCreated: {
                 orderBy: { createdAt: "desc" },
-                take: 50,
+                take: 100,
                 select: {
                     id: true,
                     category: true,
@@ -80,12 +92,13 @@ export default async function UserDetailPage({
                     amount: true,
                     currency: true,
                     date: true,
+                    convoyId: true,
                     createdAt: true,
                 },
             },
             notificationsSent: {
                 orderBy: { createdAt: "desc" },
-                take: 100,
+                take: 200,
                 select: {
                     id: true,
                     type: true,
@@ -103,17 +116,55 @@ export default async function UserDetailPage({
 
     if (!user) return notFound();
 
-    // Récupérer les dates des convois liés aux notifs
-    const convoyIds = Array.from(
-        new Set(user.notificationsSent.map((n) => n.convoyId).filter(Boolean) as string[])
-    );
-    const convoys = convoyIds.length
+    // === Convois sur lesquels cet utilisateur a une activité ===
+    const userConvoyIds = new Set<string>();
+    user.shipmentsCreated.forEach((s) => s.convoyId && userConvoyIds.add(s.convoyId));
+    user.paymentsCreated.forEach((p) => p.shipment?.convoyId && userConvoyIds.add(p.shipment.convoyId));
+    user.expensesCreated.forEach((e) => e.convoyId && userConvoyIds.add(e.convoyId));
+    user.notificationsSent.forEach((n) => n.convoyId && userConvoyIds.add(n.convoyId));
+
+    // Pour les notifs DELIVERED rattachées à un shipmentId : retrouver le convoyId via shipment
+    const orphanShipmentIds = user.notificationsSent
+        .filter((n) => !n.convoyId && n.shipmentId)
+        .map((n) => n.shipmentId!) as number[];
+    let shipmentToConvoy: Record<number, string | null> = {};
+    if (orphanShipmentIds.length > 0) {
+        const orphanShipments = await prisma.shipment.findMany({
+            where: { id: { in: orphanShipmentIds } },
+            select: { id: true, convoyId: true },
+        });
+        shipmentToConvoy = Object.fromEntries(
+            orphanShipments.map((s) => [s.id, s.convoyId])
+        );
+        orphanShipments.forEach((s) => s.convoyId && userConvoyIds.add(s.convoyId));
+    }
+
+    const convoys = userConvoyIds.size
         ? await prisma.convoy.findMany({
-              where: { id: { in: convoyIds } },
+              where: { id: { in: Array.from(userConvoyIds) } },
+              orderBy: { date: "desc" },
               select: { id: true, date: true, direction: true },
           })
         : [];
     const convoyMap = new Map(convoys.map((c) => [c.id, c]));
+
+    // === Filtrage par convoi (côté serveur) ===
+    const matchConvoy = (cid: string | null | undefined) =>
+        !filterConvoyId || cid === filterConvoyId;
+
+    const filteredShipments = user.shipmentsCreated.filter((s) =>
+        matchConvoy(s.convoyId)
+    );
+    const filteredPayments = user.paymentsCreated.filter((p) =>
+        matchConvoy(p.shipment?.convoyId ?? null)
+    );
+    const filteredExpenses = user.expensesCreated.filter((e) =>
+        matchConvoy(e.convoyId)
+    );
+    const filteredNotifications = user.notificationsSent.filter((n) => {
+        const cid = n.convoyId ?? (n.shipmentId ? shipmentToConvoy[n.shipmentId] : null);
+        return matchConvoy(cid);
+    });
 
     return (
         <main className="p-6 max-w-6xl mx-auto">
@@ -128,17 +179,55 @@ export default async function UserDetailPage({
                 </p>
             </div>
 
+            {/* === Filtre par convoi === */}
+            {convoys.length > 0 && (
+                <div className="mb-6 flex items-center gap-3 flex-wrap">
+                    <span className="text-sm font-medium text-gray-700">Filtrer par convoi :</span>
+                    <div className="flex flex-wrap gap-2">
+                        <Link
+                            href={`/admin/users/${user.id}`}
+                            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                                !filterConvoyId
+                                    ? "bg-slate-800 text-white"
+                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            }`}
+                        >
+                            Tous les convois
+                        </Link>
+                        {convoys.map((c) => {
+                            const label = `${new Date(c.date).toISOString().slice(0, 10)} (${
+                                c.direction === "CA_TO_NE" ? "CA → NE" : "NE → CA"
+                            })`;
+                            const active = filterConvoyId === c.id;
+                            return (
+                                <Link
+                                    key={c.id}
+                                    href={`/admin/users/${user.id}?convoyId=${c.id}`}
+                                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                                        active
+                                            ? "bg-slate-800 text-white"
+                                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                    }`}
+                                >
+                                    {label}
+                                </Link>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-                <Stat label="Colis créés"      value={user.shipmentsCreated.length} />
-                <Stat label="Paiements"        value={user.paymentsCreated.length} />
-                <Stat label="Dépenses"         value={user.expensesCreated.length} />
-                <Stat label="Notifications"    value={user.notificationsSent.length} />
+                <Stat label="Colis créés"      value={filteredShipments.length} />
+                <Stat label="Paiements"        value={filteredPayments.length} />
+                <Stat label="Dépenses"         value={filteredExpenses.length} />
+                <Stat label="Notifications"    value={filteredNotifications.length} />
             </div>
 
             {/* Colis */}
             <Section title="📦 Colis créés">
-                {user.shipmentsCreated.length === 0 ? (
-                    <Empty>Aucun colis créé.</Empty>
+                {filteredShipments.length === 0 ? (
+                    <Empty>Aucun colis créé{filterConvoyId ? " pour ce convoi" : ""}.</Empty>
                 ) : (
                     <table className="w-full text-sm">
                         <thead className="bg-gray-50 border-b">
@@ -151,7 +240,7 @@ export default async function UserDetailPage({
                             </tr>
                         </thead>
                         <tbody>
-                            {user.shipmentsCreated.map((s) => (
+                            {filteredShipments.map((s) => (
                                 <tr key={s.id} className="border-b hover:bg-gray-50">
                                     <td className="p-2 font-mono text-xs">{s.trackingId}</td>
                                     <td className="p-2">{s.receiverName}</td>
@@ -173,8 +262,8 @@ export default async function UserDetailPage({
 
             {/* Paiements */}
             <Section title="💳 Paiements enregistrés">
-                {user.paymentsCreated.length === 0 ? (
-                    <Empty>Aucun paiement enregistré.</Empty>
+                {filteredPayments.length === 0 ? (
+                    <Empty>Aucun paiement enregistré{filterConvoyId ? " pour ce convoi" : ""}.</Empty>
                 ) : (
                     <table className="w-full text-sm">
                         <thead className="bg-gray-50 border-b">
@@ -187,7 +276,7 @@ export default async function UserDetailPage({
                             </tr>
                         </thead>
                         <tbody>
-                            {user.paymentsCreated.map((p) => (
+                            {filteredPayments.map((p) => (
                                 <tr key={p.id} className="border-b hover:bg-gray-50">
                                     <td className="p-2 font-mono text-xs">{p.shipment?.trackingId ?? "—"}</td>
                                     <td className="p-2">{p.shipment?.receiverName ?? "—"}</td>
@@ -205,8 +294,8 @@ export default async function UserDetailPage({
 
             {/* Notifications */}
             <Section title="📧 Notifications envoyées">
-                {user.notificationsSent.length === 0 ? (
-                    <Empty>Aucune notification envoyée.</Empty>
+                {filteredNotifications.length === 0 ? (
+                    <Empty>Aucune notification envoyée{filterConvoyId ? " pour ce convoi" : ""}.</Empty>
                 ) : (
                     <table className="w-full text-sm">
                         <thead className="bg-gray-50 border-b">
@@ -220,8 +309,10 @@ export default async function UserDetailPage({
                             </tr>
                         </thead>
                         <tbody>
-                            {user.notificationsSent.map((n) => {
-                                const convoy = n.convoyId ? convoyMap.get(n.convoyId) : null;
+                            {filteredNotifications.map((n) => {
+                                const resolvedConvoyId =
+                                    n.convoyId ?? (n.shipmentId ? shipmentToConvoy[n.shipmentId] : null);
+                                const convoy = resolvedConvoyId ? convoyMap.get(resolvedConvoyId) : null;
                                 return (
                                     <tr key={n.id} className="border-b hover:bg-gray-50">
                                         <td className="p-2 text-xs font-medium">
@@ -251,7 +342,7 @@ export default async function UserDetailPage({
             </Section>
 
             {/* Dépenses */}
-            {user.expensesCreated.length > 0 && (
+            {filteredExpenses.length > 0 && (
                 <Section title="💸 Dépenses enregistrées">
                     <table className="w-full text-sm">
                         <thead className="bg-gray-50 border-b">
@@ -264,7 +355,7 @@ export default async function UserDetailPage({
                             </tr>
                         </thead>
                         <tbody>
-                            {user.expensesCreated.map((e) => (
+                            {filteredExpenses.map((e) => (
                                 <tr key={e.id} className="border-b hover:bg-gray-50">
                                     <td className="p-2 text-xs">{e.category}</td>
                                     <td className="p-2 text-sm">{e.subcategory ?? "—"}</td>
