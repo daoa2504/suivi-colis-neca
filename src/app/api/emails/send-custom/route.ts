@@ -56,13 +56,14 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // ✅ Récupérer les informations des clients (sans where problématique)
+        // ✅ Récupérer les informations des clients (avec date du convoi)
         const allClients = await prisma.shipment.findMany({
             select: {
                 id: true,
                 receiverName: true,
                 receiverEmail: true,
                 trackingId: true,
+                convoy: { select: { date: true, direction: true } },
             },
         });
 
@@ -87,9 +88,20 @@ export async function POST(req: NextRequest) {
         for (const client of clients) {
             if (!client.receiverEmail) continue;
 
+            // Date du convoi formatée en français (UTC pour rester aligné avec la date stockée)
+            const convoyDateStr = client.convoy?.date
+                ? new Date(client.convoy.date).toLocaleDateString("fr-CA", {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                      timeZone: "UTC",
+                  })
+                : "—";
+
             const personalizedMessage = message
                 .replace(/\{receiverName\}/g, client.receiverName)
-                .replace(/\{trackingId\}/g, client.trackingId);
+                .replace(/\{trackingId\}/g, client.trackingId)
+                .replace(/\{convoyDate\}/g, convoyDateStr);
 
             const html = `
 <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #2c3e50; line-height: 1.8; max-width: 600px; margin: 0 auto;">

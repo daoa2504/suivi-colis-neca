@@ -390,12 +390,15 @@ export default function SendCustomEmailModal({
                             <textarea
                                 value={message}
                                 onChange={(e) => setMessage(e.target.value)}
-                                placeholder="Rédigez votre message ici...&#10;&#10;Variables disponibles:&#10;{receiverName} - Nom du destinataire&#10;{trackingId} - Numéro de suivi"
+                                placeholder="Rédigez votre message ici...&#10;&#10;Variables disponibles:&#10;{receiverName} - Nom du destinataire&#10;{trackingId} - Numéro de suivi&#10;{convoyDate} - Date du convoi"
                                 rows={8}
                                 className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             />
                             <p className="text-xs text-gray-500 mt-2">
-                                💡 Utilisez <code className="bg-gray-100 px-1 rounded">{"{receiverName}"}</code> et <code className="bg-gray-100 px-1 rounded">{"{trackingId}"}</code> pour personnaliser
+                                💡 Variables disponibles :{" "}
+                                <code className="bg-gray-100 px-1 rounded">{"{receiverName}"}</code>,{" "}
+                                <code className="bg-gray-100 px-1 rounded">{"{trackingId}"}</code>,{" "}
+                                <code className="bg-gray-100 px-1 rounded">{"{convoyDate}"}</code>
                             </p>
                         </div>
                     </div>
