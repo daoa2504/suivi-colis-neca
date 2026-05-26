@@ -3,21 +3,32 @@
 
 import { useState, useEffect } from "react";
 
+type Direction = "" | "NE_TO_CA" | "CA_TO_NE";
+
 type Client = {
     id: string;
     receiverName: string;
     receiverEmail: string;
     trackingId: string;
+    receiverCity?: string | null;
+    convoy?: { id: string; date: string; direction: string } | null;
 };
+
+type Convoy = { id: string; date: string; direction: "NE_TO_CA" | "CA_TO_NE" };
 
 type SendCustomEmailModalProps = {
     isOpen: boolean;
     onClose: () => void;
+    defaultDirection?: Direction;
 };
 
-export default function SendCustomEmailModal({ isOpen, onClose }: SendCustomEmailModalProps) {
+export default function SendCustomEmailModal({
+    isOpen,
+    onClose,
+    defaultDirection = "",
+}: SendCustomEmailModalProps) {
     const [clients, setClients] = useState<Client[]>([]);
-    const [selectedClients, setSelectedClients] = useState<string[]>([]); // ✅ Array pas Set
+    const [selectedClients, setSelectedClients] = useState<string[]>([]);
     const [subject, setSubject] = useState("");
     const [message, setMessage] = useState("");
     const [loading, setLoading] = useState(false);
@@ -26,18 +37,52 @@ export default function SendCustomEmailModal({ isOpen, onClose }: SendCustomEmai
     const [success, setSuccess] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
 
-    // Charger la liste des clients quand le modal s'ouvre
+    // Filtres
+    const [direction, setDirection] = useState<Direction>(defaultDirection);
+    const [convoyId, setConvoyId] = useState<string>("");
+    const [convoys, setConvoys] = useState<Convoy[]>([]);
+
+    // Charger la liste des clients quand le modal s'ouvre OU quand les filtres changent
     useEffect(() => {
         if (isOpen) {
             loadClients();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, direction, convoyId]);
+
+    // Charger les convois disponibles (1 fois)
+    useEffect(() => {
+        if (isOpen && convoys.length === 0) {
+            fetch("/api/convoys/list?upcomingOnly=true&pastDays=90")
+                .then((r) => r.json())
+                .then((d) => {
+                    if (d.ok) {
+                        setConvoys(
+                            (d.convoys as any[]).map((c) => ({
+                                id: c.id,
+                                date: new Date(c.date).toISOString().slice(0, 10),
+                                direction: c.direction,
+                            }))
+                        );
+                    }
+                })
+                .catch(() => {});
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen]);
 
     const loadClients = async () => {
         setLoadingClients(true);
         setError("");
+        // Reset sélection quand on change de filtre pour éviter de garder
+        // des sélections invisibles
+        setSelectedClients([]);
         try {
-            const response = await fetch("/api/clients/list");
+            const params = new URLSearchParams();
+            if (convoyId) params.set("convoyId", convoyId);
+            else if (direction) params.set("direction", direction);
+            const url = `/api/clients/list${params.toString() ? "?" + params.toString() : ""}`;
+            const response = await fetch(url);
             const data = await response.json();
             if (data.ok) {
                 setClients(data.clients || []);
@@ -51,6 +96,10 @@ export default function SendCustomEmailModal({ isOpen, onClose }: SendCustomEmai
             setLoadingClients(false);
         }
     };
+
+    const filteredConvoys = direction
+        ? convoys.filter((c) => c.direction === direction)
+        : convoys;
 
     const toggleClient = (clientId: string) => {
         setSelectedClients(prev => {
@@ -130,6 +179,30 @@ export default function SendCustomEmailModal({ isOpen, onClose }: SendCustomEmai
 
     if (!isOpen) return null;
 
+    function FilterChip({
+        active,
+        onClick,
+        children,
+    }: {
+        active: boolean;
+        onClick: () => void;
+        children: React.ReactNode;
+    }) {
+        return (
+            <button
+                type="button"
+                onClick={onClick}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    active
+                        ? "bg-blue-700 text-white"
+                        : "bg-white border border-blue-300 text-blue-700 hover:bg-blue-100"
+                }`}
+            >
+                {children}
+            </button>
+        );
+    }
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
@@ -153,6 +226,60 @@ export default function SendCustomEmailModal({ isOpen, onClose }: SendCustomEmai
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                    {/* Filtres direction + convoi */}
+                    <div className="space-y-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-semibold text-blue-900 mr-2">Direction :</span>
+                            <FilterChip
+                                active={direction === ""}
+                                onClick={() => {
+                                    setDirection("");
+                                    setConvoyId("");
+                                }}
+                            >
+                                Toutes
+                            </FilterChip>
+                            <FilterChip
+                                active={direction === "NE_TO_CA"}
+                                onClick={() => {
+                                    setDirection("NE_TO_CA");
+                                    setConvoyId("");
+                                }}
+                            >
+                                🇳🇪 → 🇨🇦 (Niger → Canada)
+                            </FilterChip>
+                            <FilterChip
+                                active={direction === "CA_TO_NE"}
+                                onClick={() => {
+                                    setDirection("CA_TO_NE");
+                                    setConvoyId("");
+                                }}
+                            >
+                                🇨🇦 → 🇳🇪 (Canada → Niger)
+                            </FilterChip>
+                        </div>
+                        {filteredConvoys.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-sm font-semibold text-blue-900 mr-2">Convoi :</span>
+                                <FilterChip
+                                    active={!convoyId}
+                                    onClick={() => setConvoyId("")}
+                                >
+                                    Tous
+                                </FilterChip>
+                                {filteredConvoys.slice(0, 10).map((c) => (
+                                    <FilterChip
+                                        key={c.id}
+                                        active={convoyId === c.id}
+                                        onClick={() => setConvoyId(c.id)}
+                                    >
+                                        {c.date} ({c.direction === "CA_TO_NE" ? "CA→NE" : "NE→CA"})
+                                    </FilterChip>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
                     {/* Liste des clients */}
                     <div>
                         <div className="flex items-center justify-between mb-3">
