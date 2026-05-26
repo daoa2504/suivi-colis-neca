@@ -35,6 +35,7 @@ export default function SendCustomEmailModal({
     const [loadingClients, setLoadingClients] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState(false);
+    const [successMsg, setSuccessMsg] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
 
     // Filtres
@@ -153,12 +154,29 @@ export default function SendCustomEmailModal({
 
             if (data.ok) {
                 setSuccess(true);
+                const sent = data.successCount ?? 0;
+                const failed = data.failCount ?? 0;
+                setSuccessMsg(
+                    `✅ ${sent} email(s) envoyé(s)${failed > 0 ? ` · ⚠️ ${failed} échec(s)` : ""}`
+                );
                 setTimeout(() => {
                     resetForm();
                     onClose();
-                }, 2000);
+                }, 3000);
             } else {
-                setError(data.error || "Erreur lors de l'envoi");
+                const sent = data.successCount ?? 0;
+                const failed = data.failCount ?? 0;
+                if (sent === 0 && failed > 0) {
+                    setError(
+                        `Aucun email n'a été envoyé (${failed} échec${failed > 1 ? "s" : ""}). ${
+                            data.failedSamples?.[0]?.error
+                                ? "Erreur : " + data.failedSamples[0].error
+                                : ""
+                        }`
+                    );
+                } else {
+                    setError(data.error || "Erreur lors de l'envoi");
+                }
             }
         } catch (err) {
             setError("Erreur réseau");
@@ -393,7 +411,7 @@ export default function SendCustomEmailModal({
                             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                             </svg>
-                            <span>✅ Emails envoyés avec succès !</span>
+                            <span>{successMsg || "Emails envoyés avec succès !"}</span>
                         </div>
                     )}
                 </div>
