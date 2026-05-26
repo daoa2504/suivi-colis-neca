@@ -38,6 +38,13 @@ export default function SendCustomEmailModal({
     const [successMsg, setSuccessMsg] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
 
+    // Pop-up de résultat (après envoi)
+    const [resultPopup, setResultPopup] = useState<null | {
+        successCount: number;
+        failCount: number;
+        failedSamples?: { email: string; error: string }[];
+    }>(null);
+
     // Filtres
     const [direction, setDirection] = useState<Direction>(defaultDirection);
     const [convoyId, setConvoyId] = useState<string>("");
@@ -152,31 +159,18 @@ export default function SendCustomEmailModal({
 
             const data = await response.json();
 
-            if (data.ok) {
-                setSuccess(true);
-                const sent = data.successCount ?? 0;
-                const failed = data.failCount ?? 0;
-                setSuccessMsg(
-                    `✅ ${sent} email(s) envoyé(s)${failed > 0 ? ` · ⚠️ ${failed} échec(s)` : ""}`
-                );
-                setTimeout(() => {
-                    resetForm();
-                    onClose();
-                }, 3000);
-            } else {
-                const sent = data.successCount ?? 0;
-                const failed = data.failCount ?? 0;
-                if (sent === 0 && failed > 0) {
-                    setError(
-                        `Aucun email n'a été envoyé (${failed} échec${failed > 1 ? "s" : ""}). ${
-                            data.failedSamples?.[0]?.error
-                                ? "Erreur : " + data.failedSamples[0].error
-                                : ""
-                        }`
-                    );
-                } else {
-                    setError(data.error || "Erreur lors de l'envoi");
-                }
+            // Quel que soit le résultat, on affiche le pop-up de bilan
+            const sent = data.successCount ?? 0;
+            const failed = data.failCount ?? 0;
+
+            if (sent > 0 || failed > 0) {
+                setResultPopup({
+                    successCount: sent,
+                    failCount: failed,
+                    failedSamples: data.failedSamples ?? [],
+                });
+            } else if (!data.ok) {
+                setError(data.error || "Erreur lors de l'envoi");
             }
         } catch (err) {
             setError("Erreur réseau");
@@ -185,6 +179,16 @@ export default function SendCustomEmailModal({
             setLoading(false);
         }
     };
+
+    function closeResultPopup() {
+        const wasSuccessful = (resultPopup?.successCount ?? 0) > 0;
+        setResultPopup(null);
+        if (wasSuccessful) {
+            // Si au moins 1 mail est parti, on ferme le modal entier
+            resetForm();
+            onClose();
+        }
+    }
 
     const resetForm = () => {
         setSelectedClients([]);
@@ -439,6 +443,102 @@ export default function SendCustomEmailModal({
                     </button>
                 </div>
             </div>
+
+            {/* === POP-UP DE RÉSULTAT === */}
+            {resultPopup && (
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-[fadeIn_0.2s_ease-out]">
+                        {/* En-tête coloré selon le résultat */}
+                        <div
+                            className={`p-6 text-white text-center ${
+                                resultPopup.failCount === 0
+                                    ? "bg-gradient-to-br from-green-500 to-emerald-600"
+                                    : resultPopup.successCount === 0
+                                        ? "bg-gradient-to-br from-red-500 to-rose-700"
+                                        : "bg-gradient-to-br from-amber-500 to-orange-600"
+                            }`}
+                        >
+                            <div className="text-5xl mb-2">
+                                {resultPopup.failCount === 0
+                                    ? "✅"
+                                    : resultPopup.successCount === 0
+                                        ? "❌"
+                                        : "⚠️"}
+                            </div>
+                            <h2 className="text-xl font-bold">
+                                {resultPopup.failCount === 0
+                                    ? "Tous les emails envoyés !"
+                                    : resultPopup.successCount === 0
+                                        ? "Aucun email envoyé"
+                                        : "Envoi partiel"}
+                            </h2>
+                        </div>
+
+                        {/* Stats */}
+                        <div className="p-6">
+                            <div className="grid grid-cols-2 gap-3 mb-4">
+                                <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                                    <p className="text-3xl font-bold text-green-700">
+                                        {resultPopup.successCount}
+                                    </p>
+                                    <p className="text-xs uppercase tracking-widest text-green-700 mt-1">
+                                        Envoyé{resultPopup.successCount > 1 ? "s" : ""}
+                                    </p>
+                                </div>
+                                <div
+                                    className={`rounded-lg p-4 text-center border ${
+                                        resultPopup.failCount > 0
+                                            ? "bg-red-50 border-red-200"
+                                            : "bg-gray-50 border-gray-200"
+                                    }`}
+                                >
+                                    <p
+                                        className={`text-3xl font-bold ${
+                                            resultPopup.failCount > 0 ? "text-red-700" : "text-gray-400"
+                                        }`}
+                                    >
+                                        {resultPopup.failCount}
+                                    </p>
+                                    <p
+                                        className={`text-xs uppercase tracking-widest mt-1 ${
+                                            resultPopup.failCount > 0 ? "text-red-700" : "text-gray-400"
+                                        }`}
+                                    >
+                                        Échec{resultPopup.failCount > 1 ? "s" : ""}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Détail des échecs (jusqu'à 5) */}
+                            {resultPopup.failedSamples && resultPopup.failedSamples.length > 0 && (
+                                <div className="mt-4 pt-4 border-t">
+                                    <p className="text-sm font-semibold text-gray-700 mb-2">
+                                        Détail des échecs :
+                                    </p>
+                                    <ul className="space-y-1 max-h-32 overflow-y-auto text-xs text-gray-600">
+                                        {resultPopup.failedSamples.map((f, i) => (
+                                            <li key={i} className="flex flex-col bg-red-50 px-2 py-1 rounded">
+                                                <span className="font-mono">{f.email}</span>
+                                                <span className="text-red-700 italic">{f.error}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="bg-gray-50 px-6 py-4 flex justify-end">
+                            <button
+                                onClick={closeResultPopup}
+                                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                            >
+                                OK
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
