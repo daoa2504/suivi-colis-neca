@@ -115,7 +115,7 @@ export default function TrackClient({ initialTrackingId }: { initialTrackingId: 
                                 className="h-10 w-10 sm:h-14 sm:w-14 rounded-lg shadow-sm object-cover"
                             />
                             <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold tracking-tight bg-gradient-to-r from-[#8B0000] to-[#DC143C] bg-clip-text text-transparent">
-                                NIMAPLEX
+                                NIMAPLEX<span className="text-xs sm:text-sm md:text-base font-bold align-top">.INC</span>
                             </h1>
                         </div>
                         <p className="mt-1 sm:mt-2 text-[10px] sm:text-sm text-gray-600 italic">
