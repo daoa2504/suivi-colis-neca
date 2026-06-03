@@ -32,7 +32,7 @@ export default function Header() {
                     <div>
                         <div className="flex items-center gap-2">
             <span className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                NIMAPLEX<span className="text-[11px] font-semibold align-top">.INC</span>
+                NIMAPLEX<span className="text-[11px] font-semibold align-baseline">.INC</span>
             </span>
                             {role === 'AGENT_CA' && (
                                 <div className="flex items-center gap-1 text-xs">
