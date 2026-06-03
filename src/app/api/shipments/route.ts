@@ -199,7 +199,7 @@ export async function POST(req: NextRequest) {
         <img src="https://nimaplex.com/img.png" alt="NIMAPLEX" width="60" height="60" style="display: block; border-radius: 8px;" />
       </td>
       <td style="padding-left: 12px; line-height: 1.3;">
-        <div style="font-weight: 700; color: #8B0000; font-size: 18px; letter-spacing: 0.5px;">NIMAPLEX</div>
+        <div style="font-weight: 700; color: #8B0000; font-size: 18px; letter-spacing: 0.5px;">NIMAPLEX<span style="font-size: 11px; font-weight: 500; letter-spacing: 0; color: #8B0000;">.INC</span></div>
         <div style="font-size: 13px; color: #6c757d;">Plus qu'une solution, un service d'excellence global</div>
       </td>
     </tr>
@@ -253,7 +253,7 @@ export async function POST(req: NextRequest) {
   <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #e9ecef; text-align: center;">
     <p style="margin: 0 0 10px 0; color: #6c757d; font-size: 13px;">
       Cordialement,<br/>
-      <strong style="color: #8B0000;">L'équipe NIMAPLEX</strong><br/>
+      <strong style="color: #8B0000;">L'équipe NIMAPLEX<span style="font-size: 10px; font-weight: 400; letter-spacing: 0;">.INC</span></strong><br/>
       <span style="font-size: 12px;">${routeDisplay}</span>
     </p>
     
