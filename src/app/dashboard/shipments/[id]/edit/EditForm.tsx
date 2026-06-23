@@ -259,7 +259,8 @@ export default function EditForm({
                                 </label>
                                 <input
                                     type="number"
-                                    step="0.01"
+                                    step="0.5"
+                                    min="0"
                                     className="input border p-2 w-full rounded"
                                     value={weightKg}
                                     onChange={(e) => setWeightKg(e.target.value)}

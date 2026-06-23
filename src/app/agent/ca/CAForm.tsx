@@ -412,7 +412,8 @@ export default function CAForm() {
                             id="weightKg"
                             name="weightKg"
                             type="number"
-                            step="0.01"
+                            step="0.5"
+                            min="0"
                             className="input border p-2 w-full rounded"
                         />
                     </div>
