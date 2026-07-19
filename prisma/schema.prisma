@@ -207,3 +207,98 @@ enum ExpenseCategory {
   SHIPPING
   OTHER
 }
+
+// ============================================================================
+// FONDATIONS FISCALES (Phase 1)
+// ============================================================================
+
+// Régimes fiscaux appliqués à une transaction
+enum TaxRegime {
+  TAX_INCLUDED   // Taxes comprises dans le prix annoncé
+  TAX_EXCLUDED   // Taxes ajoutées au prix annoncé
+  ZERO_RATED     // Service taxable au taux de 0 %
+  TAX_EXEMPT     // Aucune taxe applicable
+  OUT_OF_SCOPE   // Hors du champ d'application des taxes
+}
+
+// Profil de l'entreprise (singleton — une seule ligne active à la fois)
+model CompanyProfile {
+  id              String   @id @default(cuid())
+  legalName       String                       // "NIMAPLEX INC." (dénomination sociale)
+  displayName     String                       // "NIMAPLEX" (nom d'usage)
+  neq             String?                      // Numéro d'entreprise du Québec
+  gstNumber       String?                      // Numéro TPS (RT0001)
+  qstNumber       String?                      // Numéro TVQ (TQ0001)
+  address         String
+  city            String
+  province        String
+  postalCode      String
+  country         String   @default("Canada")
+  email           String?
+  phone           String?
+  registeredAt    DateTime                     // Date d'incorporation
+  fiscalYearStart Int      @default(1)         // Mois de début (1-12) — utile pour rapports annuels
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Taux de taxes configurables (TPS, TVQ, TVH, etc.)
+// L'immutabilité passe par les colonnes validFrom/validTo et par le fait
+// qu'une facture émise stocke un snapshot du taux dans TaxSnapshot (Phase 2)
+model TaxRate {
+  id           String    @id @default(cuid())
+  name         String                          // "TPS", "TVQ", "TVH-ON"
+  code         String                          // Code fonctionnel : "GST", "QST", "HST"
+  rate         Decimal   @db.Decimal(7, 5)     // 0.05000, 0.09975 (max 99.99999) — 5 décimales pour taux comme TVQ 9,975 %
+  jurisdiction String                          // "CA-federal", "CA-QC", "CA-ON"
+  validFrom    DateTime                        // Date d'entrée en vigueur
+  validTo      DateTime?                       // Date de fin (null = pas de fin)
+  active       Boolean   @default(true)
+  notes        String?                         // Ex: "TPS fédérale — Loi sur la taxe d'accise"
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([code, active])
+  @@index([jurisdiction, active])
+}
+
+// Règles fiscales configurables — moteur de détermination du régime applicable
+// Chaque règle a une priorité (plus haute = évaluée en premier)
+// La première règle dont tous les critères remplis s'applique
+model TaxRule {
+  id                 String    @id @default(cuid())
+  name               String                     // "Transport international CA→NE"
+  priority           Int       @default(0)      // Plus haut = évalué en premier
+  originCountry      String?                    // Code pays : "CA", "NE" — null = n'importe
+  destinationCountry String?                    // Code pays destination — null = n'importe
+  clientProvince     String?                    // "QC", "ON", ... — null = n'importe
+  serviceType        String?                    // "SHIPPING", "STORAGE", "OTHER" — null = n'importe
+  regime             TaxRegime                  // Régime fiscal à appliquer
+  taxRateCodes       String[]                   // Codes de TaxRate à appliquer (ex: ["GST","QST"])
+  notes              String?                    // Justification légale, référence loi/annexe
+  active             Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([active, priority])
+}
+
+// Journal d'audit générique — utilisable pour n'importe quelle entité
+// À utiliser via lib/audit.ts::logAudit()
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  entityType String                              // "Invoice", "Expense", "TaxRate", "CompanyProfile"
+  entityId   String                              // ID de l'entité concernée
+  action     String                              // "CREATE", "UPDATE", "CANCEL", "REFUND", "DELETE", "LOGIN"
+  before     Json?                               // Snapshot avant modification
+  after      Json?                               // Snapshot après modification
+  reason     String?                             // Raison utilisateur (annulation, remboursement)
+  ipAddress  String?                             // Utile pour actions sensibles
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+}
