@@ -55,8 +55,16 @@ export function getEmailContent(
     pickupInfos?: PickupInfo[]
 ): EmailContent {
     const directionLabel = direction === "NE_TO_CA" ? "Niger → Canada" : "Canada → Niger";
-    const colisListText = trackingIds.map((t) => `• ${t}`).join("\n");
-    const colisListHtml = trackingIds.map((t) => `• ${t}`).join("<br>");
+    const colisListText = trackingIds
+        .map((t) => `• ${t}   →   https://nimaplex.com/track/${t}`)
+        .join("\n");
+    // Chaque tracking ID devient un bouton cliquable "Suivre" prominent (dégradé rouge)
+    const colisListHtml = trackingIds
+        .map(
+            (t) =>
+                `<a href="https://nimaplex.com/track/${t}" style="display: inline-block; margin: 4px 8px 4px 0; padding: 10px 18px; background: linear-gradient(to right, #8B0000, #DC143C); color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; font-family: 'Courier New', monospace;">📍 Suivre ${t}</a>`
+        )
+        .join("");
 
     // Bloc récupérateur(s) au Niger — utilisé uniquement pour CA → NE + OUT_FOR_DELIVERY
     const shouldShowPickup =

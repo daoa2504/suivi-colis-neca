@@ -247,6 +247,16 @@ export async function POST(req: NextRequest) {
     <p style="margin: 20px 0 0 0; color: #6c757d; font-size: 14px;">
       Votre colis est actuellement en notre possession et sera acheminé vers le ${destinationText} dans les meilleurs délais.
     </p>
+
+    <!-- Bouton de suivi -->
+    <div style="text-align: center; margin: 28px 0 8px 0;">
+      <a href="https://nimaplex.com/track/${shipment.trackingId}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(to right, #8B0000, #DC143C); color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; letter-spacing: 0.3px;">
+        📍 Suivre mon colis en direct
+      </a>
+    </div>
+    <p style="margin: 6px 0 0 0; text-align: center; color: #6c757d; font-size: 12px;">
+      ou copiez ce lien : https://nimaplex.com/track/${shipment.trackingId}
+    </p>
   </div>
 
   <!-- Pied de page -->

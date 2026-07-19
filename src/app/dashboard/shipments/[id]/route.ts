@@ -227,6 +227,16 @@ Numéro ID : ${updated.trackingId}
     <p style="margin: 20px 0 0 0; color: #6c757d; font-size: 14px; text-align: justify; text-justify: inter-word;">
       Pour toute question concernant votre colis, n'hésitez pas à nous contacter.
     </p>
+
+    <!-- Bouton de suivi -->
+    <div style="text-align: center; margin: 28px 0 8px 0;">
+      <a href="https://nimaplex.com/track/${updated.trackingId}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(to right, #8B0000, #DC143C); color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; letter-spacing: 0.3px;">
+        📍 Suivre mon colis en direct
+      </a>
+    </div>
+    <p style="margin: 6px 0 0 0; text-align: center; color: #6c757d; font-size: 12px;">
+      ou copiez ce lien : https://nimaplex.com/track/${updated.trackingId}
+    </p>
   </div>
 
   <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #e9ecef; text-align: center;">

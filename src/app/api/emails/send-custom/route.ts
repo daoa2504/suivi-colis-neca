@@ -128,6 +128,16 @@ export async function POST(req: NextRequest) {
     <div style="white-space: pre-wrap; color: #2c3e50; font-size: 14px; line-height: 1.8;">
 ${personalizedMessage}
     </div>
+
+    <!-- Bouton de suivi -->
+    <div style="text-align: center; margin: 28px 0 8px 0;">
+      <a href="https://nimaplex.com/track/${client.trackingId}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(to right, #8B0000, #DC143C); color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; letter-spacing: 0.3px;">
+        📍 Suivre mon colis en direct
+      </a>
+    </div>
+    <p style="margin: 6px 0 0 0; text-align: center; color: #6c757d; font-size: 12px;">
+      ou copiez ce lien : https://nimaplex.com/track/${client.trackingId}
+    </p>
   </div>
 
   <!-- Pied de page -->
