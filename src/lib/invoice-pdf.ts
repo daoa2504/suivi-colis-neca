@@ -102,7 +102,24 @@ function regimeLabel(regime: string): string {
 function routeLabel(origin?: string | null, destination?: string | null): string {
     const label = (c: string | null | undefined) =>
         c === "CA" ? "Canada" : c === "NE" ? "Niger" : (c ?? "?");
-    return `${label(origin)} → ${label(destination)}`;
+    // jsPDF helvetica utilise WinAnsi qui ne contient PAS les flèches Unicode.
+    // On utilise ">" qui rend correctement dans tous les viewers PDF.
+    return `${label(origin)} > ${label(destination)}`;
+}
+
+/** Nettoie un texte pour le rendu PDF (helvetica WinAnsi).
+ *  Remplace les caractères Unicode que la police par défaut ne peut pas rendre
+ *  (flèche → et similaires) par des équivalents ASCII. Utile pour les
+ *  textes venant de la base (detailedDescription) créés avant ce fix.
+ */
+function pdfSafe(text: string | null | undefined): string {
+    if (!text) return "";
+    return text
+        .replace(/→/g, ">")
+        .replace(/←/g, "<")
+        .replace(/↔/g, "<>")
+        .replace(/⇒/g, "=>")
+        .replace(/⇐/g, "<=");
 }
 
 // --- Génération PDF ----------------------------------------------------------
@@ -260,7 +277,7 @@ export function renderInvoicePdf(
         doc.setFontSize(9);
         doc.setTextColor(C.muted[0], C.muted[1], C.muted[2]);
         if (invoice.taxRuleName) {
-            const wrapped = doc.splitTextToSize(`Règle : ${invoice.taxRuleName}`, colW);
+            const wrapped = doc.splitTextToSize(pdfSafe(`Règle : ${invoice.taxRuleName}`), colW);
             doc.text(wrapped, rightColX, y + 10);
         }
     }
@@ -276,7 +293,7 @@ export function renderInvoicePdf(
             head: [["Description", "Montant"]],
             body: invoice.items.map((it) => [
                 {
-                    content: it.description + (it.detailedDescription ? "\n" + it.detailedDescription : ""),
+                    content: pdfSafe(it.description) + (it.detailedDescription ? "\n" + pdfSafe(it.detailedDescription) : ""),
                     styles: { fontStyle: "normal" },
                 },
                 { content: formatMoney(invoice.totalIncludingTax.toString(), invoice.currency), styles: { halign: "right" } },
@@ -321,7 +338,7 @@ export function renderInvoicePdf(
         for (const it of invoice.items) {
             const row: any[] = [
                 {
-                    content: it.description + (it.detailedDescription ? "\n" + it.detailedDescription : ""),
+                    content: pdfSafe(it.description) + (it.detailedDescription ? "\n" + pdfSafe(it.detailedDescription) : ""),
                     styles: { fontStyle: "normal" },
                 },
                 { content: formatMoneyRaw(it.amountBeforeTax.toString()), styles: { halign: "right" } },
@@ -374,7 +391,9 @@ export function renderInvoicePdf(
     y = (doc as any).lastAutoTable.finalY + 8;
 
     // ---- TOTAUX --------------------------------------------------------------
-    const totalsW = 70;
+    // Largeur réservée aux totaux : suffisamment large pour éviter que le libellé
+    // "Total (taxes incluses)" à 13pt colle au montant.
+    const totalsW = 105;
     const totalsX = pageW - marginX - totalsW;
 
     if (variant === "client") {
@@ -453,7 +472,7 @@ export function renderInvoicePdf(
 
         doc.setFont("helvetica", "normal");
         doc.setFontSize(7.5);
-        const wrapped = doc.splitTextToSize(invoice.taxRuleNotes, contentW - 6);
+        const wrapped = doc.splitTextToSize(pdfSafe(invoice.taxRuleNotes), contentW - 6);
         doc.text(wrapped, marginX + 3, y + 10);
         y += noteH + 4;
     }
