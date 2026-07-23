@@ -28,6 +28,12 @@ export function footerFor(direction: Direction) {
     return direction === "NE_TO_CA" ? "— Équipe NE → CA" : "— Équipe CA → NE";
 }
 
+export interface EmailAttachment {
+    filename: string;
+    content: Buffer | string;   // Buffer binaire, ou string base64
+    contentType?: string;
+}
+
 export async function sendEmailSafe(args: {
     from?: string;
     to: string;
@@ -35,6 +41,7 @@ export async function sendEmailSafe(args: {
     text?: string;
     html?: string;
     reply_to?: string | string[];
+    attachments?: EmailAttachment[];
 }, maxRetries = 3) {
     if (!process.env.RESEND_API_KEY) {
         if (process.env.NODE_ENV !== "production") {
@@ -43,13 +50,31 @@ export async function sendEmailSafe(args: {
         return { ok: true }; // no-op en dev sans clé
     }
 
-    const payload = { from: args.from ?? FROM, ...args };
+    // Resend attend `attachments` avec { filename, content: Buffer | base64 string }
+    const payload: any = {
+        from: args.from ?? FROM,
+        to: args.to,
+        subject: args.subject,
+    };
+    if (args.text) payload.text = args.text;
+    if (args.html) payload.html = args.html;
+    if (args.reply_to) payload.reply_to = args.reply_to;
+    if (args.attachments && args.attachments.length > 0) {
+        payload.attachments = args.attachments.map((a) => ({
+            filename: a.filename,
+            content: Buffer.isBuffer(a.content) ? a.content : a.content,
+            ...(a.contentType ? { content_type: a.contentType } : {}),
+        }));
+    }
 
     // ✅ Log l'envoi
     console.log("📧 Sending email:");
     console.log("  - From:", payload.from);
     console.log("  - To:", args.to);
     console.log("  - Subject:", args.subject);
+    if (args.attachments?.length) {
+        console.log("  - Attachments:", args.attachments.map((a) => a.filename).join(", "));
+    }
 
     let attempt = 0;
     while (true) {

@@ -29,10 +29,10 @@ async function main() {
                 neq: null,                                     // TODO comptable : NEQ à saisir
                 gstNumber: null,                               // TODO comptable : numéro TPS (RT0001)
                 qstNumber: null,                               // TODO comptable : numéro TVQ (TQ0001)
-                address: "TODO — adresse d'établissement",     // TODO
-                city: "TODO",
-                province: "QC",                                // TODO comptable : confirmer
-                postalCode: "TODO",
+                address: "1280 Rue de Kingston-Sherbrooke",
+                city: "Sherbrooke",
+                province: "QC",
+                postalCode: "TODO",                            // TODO — code postal à saisir
                 country: "Canada",
                 email: "contact@nimaplex.com",                 // TODO — email officiel
                 phone: null,

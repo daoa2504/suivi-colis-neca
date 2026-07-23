@@ -7,6 +7,7 @@ import Link from "next/link";
 import type { Prisma, ShipmentStatus, PaymentStatus } from "@prisma/client";
 import NotifyDeliveredButton from "./NotifyDeliveredButton";
 import DeleteShipmentButton from "./DeleteShipmentButton";
+import InvoiceDownloadButton from "./InvoiceDownloadButton";
 import ConvoyFilter from "./ConvoyFilter";
 import CityFilter from "./CityFilter";
 import ColumnsFilter from "./ColumnsFilter";
@@ -218,6 +219,13 @@ export default async function ShipmentsPage({
                 convoy: {
                     select: {
                         date: true,
+                    },
+                },
+                invoice: {
+                    select: {
+                        id: true,
+                        number: true,
+                        status: true,
                     },
                 },
                 _count: { select: { items: true } },
@@ -458,6 +466,13 @@ export default async function ShipmentsPage({
                                         >
                                             ✏️
                                         </Link>
+                                    )}
+                                    {s.invoice && (
+                                        <InvoiceDownloadButton
+                                            invoiceId={s.invoice.id}
+                                            invoiceNumber={s.invoice.number}
+                                            canAccessAccounting={role === "ADMIN" || role === "AGENT_CA"}
+                                        />
                                     )}
                                     {canNotify(s) && (
                                         <NotifyDeliveredButton

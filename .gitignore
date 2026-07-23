@@ -43,3 +43,6 @@ next-env.d.ts
 /src/generated/prisma
 # Prisma migrations SQL
 prisma/migrations/**/*.sql
+
+# Local script outputs (PDFs, exports générés localement)
+scripts/out/

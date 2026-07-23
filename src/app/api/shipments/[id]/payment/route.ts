@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { createInvoiceForShipment, updateInvoiceStatusFromPayment } from "@/lib/invoice";
 
 export const runtime = "nodejs";
 
@@ -52,6 +53,23 @@ export async function PATCH(
             data,
             select: { id: true, paymentStatus: true, amountPaid: true },
         });
+
+        // Sync facture : best-effort, ne bloque jamais le paiement
+        try {
+            // Cas 1 : le colis a maintenant un paiement mais pas de facture
+            //         (ex : colis créé avant Phase 2, ou création facture avait échoué)
+            //         → on tente une génération rétroactive
+            const existing = await prisma.invoice.findUnique({ where: { shipmentId } });
+            if (!existing && shipment.amountPaid && shipment.amountPaid > 0) {
+                await createInvoiceForShipment(shipmentId, { userId: session.user?.id ?? null });
+            } else {
+                // Cas 2 : facture existante → synchroniser le statut
+                await updateInvoiceStatusFromPayment(shipmentId, { userId: session.user?.id ?? null });
+            }
+        } catch (e) {
+            console.warn(`[payment] sync facture échoué pour shipment ${shipmentId}:`, e);
+        }
+
         return NextResponse.json({ ok: true, shipment });
     } catch (e: any) {
         return NextResponse.json({ ok: false, error: e?.message ?? "Erreur" }, { status: 500 });

@@ -19,6 +19,7 @@ model User {
   shipmentsCreated     Shipment[]        @relation("ShipmentCreatedBy")
   paymentsCreated      Payment[]         @relation("PaymentCreatedBy")
   expensesCreated      Expense[]         @relation("ExpenseCreatedBy")
+  invoicesCreated      Invoice[]         @relation("InvoiceCreatedBy")
   notificationsSent    NotificationLog[]
 }
 
@@ -66,6 +67,7 @@ model Shipment {
   events            ShipmentEvent[]
   items             ShipmentItem[]
   payments          Payment[]
+  invoice           Invoice?
 }
 
 model ShipmentItem {
@@ -301,4 +303,119 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([userId, createdAt])
   @@index([action, createdAt])
+}
+
+// ============================================================================
+// FACTURATION (Phase 2)
+// ============================================================================
+
+enum InvoiceStatus {
+  DRAFT        // En cours de création (transitoire)
+  ISSUED       // Émise, en attente de paiement
+  PARTIAL      // Paiement partiel reçu
+  PAID         // Payée intégralement
+  CANCELLED    // Annulée (conservée pour l'audit — numéro non ré-utilisé)
+  REFUNDED     // Remboursée
+}
+
+// Facture émise pour un envoi (relation 1:1 avec Shipment).
+// Toutes les valeurs fiscales et d'entreprise sont snapshotées (immuables)
+// pour préserver l'intégrité comptable même si TaxRate/CompanyProfile changent.
+model Invoice {
+  id                 String        @id @default(cuid())
+  number             String        @unique              // "NIMA-2026-0001"
+  fiscalYear         Int                                // 2026
+  sequence           Int                                // 1, 2, 3...
+  status             InvoiceStatus @default(ISSUED)
+
+  // --- Client (dénormalisé pour immutabilité) ---
+  clientName         String
+  clientEmail        String?
+  clientPhone        String?
+  clientProvince     String?
+  clientCountry      String?
+
+  // --- Envoi lié ---
+  shipmentId         Int?          @unique
+  shipment           Shipment?     @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
+  shipmentTrackingId String?                            // Snapshot du tracking pour affichage
+
+  // --- Montants (snapshot fiscal immuable) ---
+  regime             TaxRegime                          // Régime fiscal appliqué
+  amountBeforeTax    Decimal       @db.Decimal(12, 2)   // Sous-total HT
+  totalTax           Decimal       @db.Decimal(12, 2)   // Somme des taxes
+  totalIncludingTax  Decimal       @db.Decimal(12, 2)   // TTC (source de vérité — payé par le client)
+  currency           String        @default("CAD")
+
+  // --- Snapshot entreprise émettrice ---
+  companyName        String
+  companyAddress     String
+  companyCity        String
+  companyProvince    String
+  companyPostalCode  String?
+  companyCountry     String
+  companyEmail       String?
+  companyGstNumber   String?
+  companyQstNumber   String?
+  companyNeq         String?
+
+  // --- Snapshot règle fiscale appliquée (pour audit) ---
+  taxRuleId          String?
+  taxRuleName        String?
+  taxRuleNotes       String?
+
+  // --- Cycle de vie ---
+  issuedAt           DateTime      @default(now())
+  dueDate            DateTime?
+  paidAt             DateTime?
+  cancelledAt        DateTime?
+  cancelledReason    String?
+  refundedAt         DateTime?
+
+  items              InvoiceItem[]
+  taxSnapshots       InvoiceTaxSnapshot[]
+
+  createdById        String?
+  createdBy          User?         @relation("InvoiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@unique([fiscalYear, sequence])
+  @@index([status, issuedAt])
+  @@index([shipmentId])
+  @@index([fiscalYear, sequence])
+}
+
+// Lignes de la facture. Une seule ligne pour l'instant (le service de transport)
+// mais le modèle est pluriel pour permettre l'évolution (options, suppléments...)
+model InvoiceItem {
+  id                  String   @id @default(cuid())
+  invoiceId           String
+  invoice             Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description         String                             // "Service de transport de colis"
+  detailedDescription String?                            // "Envoi NECA-0176 · Convoi 03/08/2026"
+  quantity            Decimal  @db.Decimal(10, 4) @default(1)
+  unitPrice           Decimal  @db.Decimal(12, 2)        // Prix unitaire HT (ou TTC selon régime)
+  amountBeforeTax     Decimal  @db.Decimal(12, 2)        // Total HT ligne
+  createdAt           DateTime @default(now())
+
+  @@index([invoiceId])
+}
+
+// Snapshot immuable d'une taxe appliquée sur une facture.
+// Chaque ligne = une taxe (TPS, TVQ) avec son taux et son montant figés
+// au moment de l'émission — préserve l'intégrité comptable.
+model InvoiceTaxSnapshot {
+  id            String   @id @default(cuid())
+  invoiceId     String
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  taxRateId     String?                                  // Référence (nullable si TaxRate supprimé)
+  code          String                                   // "GST", "QST"
+  name          String                                   // "TPS", "TVQ"
+  rate          Decimal  @db.Decimal(7, 5)               // Taux figé
+  jurisdiction  String
+  amount        Decimal  @db.Decimal(12, 2)              // Montant taxe calculé
+
+  @@index([invoiceId])
+  @@index([code, invoiceId])
 }

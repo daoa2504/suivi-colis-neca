@@ -4,8 +4,10 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { Direction } from "@prisma/client";
-import { sendEmailSafe, FROM } from "@/lib/email";
+import { sendEmailSafe, FROM, type EmailAttachment } from "@/lib/email";
 import { createShipmentByCA } from "@/lib/validators";
+import { createInvoiceForShipment, getInvoiceByShipment } from "@/lib/invoice";
+import { renderInvoicePdf } from "@/lib/invoice-pdf";
 
 const toFloatOrNull = (v: unknown) => {
     if (v === undefined || v === null) return null;
@@ -151,6 +153,29 @@ export async function POST(req: NextRequest) {
             destinationCountry: shipment.destinationCountry,
         });
 
+        // 3.5) Facture — best-effort, ne bloque jamais la création du colis
+        let invoicePdfAttachment: EmailAttachment | null = null;
+        try {
+            const invoice = await createInvoiceForShipment(shipment.id, {
+                userId: session.user?.id ?? null,
+            });
+            if (invoice) {
+                const full = await getInvoiceByShipment(shipment.id);
+                if (full) {
+                    const pdfBuf = renderInvoicePdf(full, "client");
+                    invoicePdfAttachment = {
+                        filename: `${invoice.number}.pdf`,
+                        content: pdfBuf,
+                        contentType: "application/pdf",
+                    };
+                    console.log(`📄 Facture ${invoice.number} générée (${pdfBuf.length} bytes) — jointe à l'email`);
+                }
+            }
+        } catch (e) {
+            console.warn(`[shipments] Génération facture échouée pour ${shipment.trackingId}:`, e);
+            // On continue sans PDF — l'email de confirmation part quand même
+        }
+
         // 4) Email (optionnel)
         if (shipment.receiverEmail) {
             const notes =
@@ -276,7 +301,13 @@ export async function POST(req: NextRequest) {
 </div>
 `;
             try {
-                await sendEmailSafe({ from: FROM, to: shipment.receiverEmail, subject, html });
+                await sendEmailSafe({
+                    from: FROM,
+                    to: shipment.receiverEmail,
+                    subject,
+                    html,
+                    attachments: invoicePdfAttachment ? [invoicePdfAttachment] : undefined,
+                });
             } catch (e) {
                 console.warn(`[${direction} new-shipment] email send failed:`, e);
             }
