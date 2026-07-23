@@ -56,8 +56,15 @@ function formatMoneyRaw(v: string | number): string {
     });
 }
 
-function formatMoney(v: string | number): string {
-    return formatMoneyRaw(v) + " $";
+function formatMoney(v: string | number, currency = "CAD"): string {
+    const symbol = currency === "XOF" ? "FCFA" : "$";
+    return currency === "XOF"
+        ? formatMoneyRaw(v) + " " + symbol
+        : formatMoneyRaw(v) + " " + symbol;
+}
+
+function currencyLabel(c: string): string {
+    return c === "XOF" ? "FCFA" : "CAD";
 }
 
 function formatDate(d: Date | string): string {
@@ -272,7 +279,7 @@ export function renderInvoicePdf(
                     content: it.description + (it.detailedDescription ? "\n" + it.detailedDescription : ""),
                     styles: { fontStyle: "normal" },
                 },
-                { content: formatMoney(invoice.totalIncludingTax.toString()), styles: { halign: "right" } },
+                { content: formatMoney(invoice.totalIncludingTax.toString(), invoice.currency), styles: { halign: "right" } },
             ]),
             styles: {
                 font: "helvetica",
@@ -381,16 +388,18 @@ export function renderInvoicePdf(
         doc.setFontSize(13);
         doc.setTextColor(C.ink[0], C.ink[1], C.ink[2]);
         doc.text("Total (taxes incluses)", totalsX, y);
-        doc.text(formatMoney(invoice.totalIncludingTax.toString()) + " CAD", pageW - marginX, y, { align: "right" });
+        doc.text(formatMoney(invoice.totalIncludingTax.toString(), invoice.currency) + " " + currencyLabel(invoice.currency), pageW - marginX, y, { align: "right" });
         y += 6;
     } else {
         // HT + taxes + total
         doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
         doc.setTextColor(C.muted[0], C.muted[1], C.muted[2]);
+        const cur = invoice.currency;
+        const zeroLabel = cur === "XOF" ? "0 FCFA" : "0,00 $";
 
         doc.text("Sous-total HT", totalsX, y);
-        doc.text(formatMoney(invoice.amountBeforeTax.toString()), pageW - marginX, y, { align: "right" });
+        doc.text(formatMoney(invoice.amountBeforeTax.toString(), cur), pageW - marginX, y, { align: "right" });
         y += 5;
 
         for (const t of invoice.taxSnapshots) {
@@ -399,17 +408,17 @@ export function renderInvoicePdf(
                 maximumFractionDigits: 3,
             });
             doc.text(`${t.name} (${ratePercent} %)`, totalsX, y);
-            doc.text(formatMoney(t.amount.toString()), pageW - marginX, y, { align: "right" });
+            doc.text(formatMoney(t.amount.toString(), cur), pageW - marginX, y, { align: "right" });
             y += 5;
         }
 
         if (invoice.taxSnapshots.length === 0) {
             // ZERO_RATED / EXEMPT : afficher qd même TPS et TVQ à 0
             doc.text("TPS (5 %)", totalsX, y);
-            doc.text("0,00 $", pageW - marginX, y, { align: "right" });
+            doc.text(zeroLabel, pageW - marginX, y, { align: "right" });
             y += 5;
             doc.text("TVQ (9,975 %)", totalsX, y);
-            doc.text("0,00 $", pageW - marginX, y, { align: "right" });
+            doc.text(zeroLabel, pageW - marginX, y, { align: "right" });
             y += 5;
         }
 
@@ -422,7 +431,7 @@ export function renderInvoicePdf(
         doc.setFontSize(13);
         doc.setTextColor(C.ink[0], C.ink[1], C.ink[2]);
         doc.text("Total facturé", totalsX, y);
-        doc.text(formatMoney(invoice.totalIncludingTax.toString()) + " CAD", pageW - marginX, y, { align: "right" });
+        doc.text(formatMoney(invoice.totalIncludingTax.toString(), cur) + " " + currencyLabel(cur), pageW - marginX, y, { align: "right" });
         y += 8;
     }
 

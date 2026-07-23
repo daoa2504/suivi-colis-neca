@@ -53,7 +53,9 @@ model Shipment {
 
   // Paiement
   paymentStatus     PaymentStatus   @default(UNPAID)
-  amountPaid        Float?
+  totalAmount       Float?                              // Prix convenu avec le client (source de facture)
+  amountPaid        Float?                              // Cumul reçu (jusqu'à totalAmount)
+  currency          Currency        @default(CAD)
 
   // Timestamps des transitions de statut (pour la timeline publique)
   readyAt           DateTime?

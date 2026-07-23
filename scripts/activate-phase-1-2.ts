@@ -31,6 +31,11 @@ async function main() {
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     await applyPhase2Schema();
 
+    console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("  PHASE 2.8 — Colonnes paiement sur Shipment");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    await applyPhase28Schema();
+
     console.log("\n✅ Activation terminée");
     console.log("⚠️  Les valeurs marquées TODO (NEQ, TPS, TVQ, code postal) doivent être saisies.");
 }
@@ -352,6 +357,22 @@ async function applyPhase2Schema() {
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "InvoiceTaxSnapshot_code_invoiceId_idx" ON "InvoiceTaxSnapshot"("code","invoiceId");`);
 
     console.log("  ✅ Tables Phase 2 (Invoice, InvoiceItem, InvoiceTaxSnapshot)");
+}
+
+async function applyPhase28Schema() {
+    console.log("→ Ajout colonnes paiement sur Shipment (idempotent)...");
+
+    // totalAmount : montant total à facturer au client
+    await prisma.$executeRawUnsafe(`
+        ALTER TABLE "Shipment" ADD COLUMN IF NOT EXISTS "totalAmount" DOUBLE PRECISION;
+    `);
+
+    // currency : devise du montant (CAD par défaut, XOF pour FCFA)
+    await prisma.$executeRawUnsafe(`
+        ALTER TABLE "Shipment" ADD COLUMN IF NOT EXISTS "currency" "Currency" NOT NULL DEFAULT 'CAD';
+    `);
+
+    console.log("  ✅ Colonnes Shipment.totalAmount + Shipment.currency ajoutées");
 }
 
 /** Exécute une commande SQL et ignore l'erreur si contrainte déjà existante. */

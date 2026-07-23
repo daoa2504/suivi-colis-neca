@@ -3,6 +3,7 @@
 
 import * as React from 'react';
 import { useState, useEffect, useRef } from 'react';
+import PaymentSection from '@/components/PaymentSection';
 
 export default function GNForm() {
     // ⚙️ CONFIGURATION - Modifiez ces valeurs selon vos besoins
@@ -519,6 +520,9 @@ export default function GNForm() {
                     />
                 </div>
             </div>
+
+            {/* Paiement */}
+            <PaymentSection />
 
             {/* Notes */}
             <div>

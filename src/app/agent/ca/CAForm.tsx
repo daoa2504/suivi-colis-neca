@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import PaymentSection from "@/components/PaymentSection";
 
 export default function CAForm() {
     const router = useRouter();
@@ -515,6 +516,9 @@ export default function CAForm() {
                     </div>
                 </div>
             </fieldset>
+
+            {/* Paiement */}
+            <PaymentSection />
 
             {/* Notes */}
             <div>

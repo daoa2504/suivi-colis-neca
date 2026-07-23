@@ -115,6 +115,18 @@ export async function POST(req: NextRequest) {
 
         const weightKg = toFloatOrNull(body.weightKg);
 
+        // Paiement (nouveau — Phase 2.8)
+        const totalAmount = toFloatOrNull(body.totalAmount);
+        const rawStatus = String(body.paymentStatus ?? "UNPAID").toUpperCase();
+        const paymentStatus: "PAID" | "PARTIAL" | "UNPAID" =
+            rawStatus === "PAID" || rawStatus === "PARTIAL" ? rawStatus : "UNPAID";
+        const rawCurrency = String(body.currency ?? "CAD").toUpperCase();
+        const currency: "CAD" | "XOF" = rawCurrency === "XOF" ? "XOF" : "CAD";
+        let amountPaid = toFloatOrNull(body.amountPaid);
+        // Cohérence : PAID → totalité, UNPAID → 0
+        if (paymentStatus === "PAID") amountPaid = totalAmount;
+        if (paymentStatus === "UNPAID") amountPaid = 0;
+
         // 2) 🎯 GÉNÉRER LE TRACKING ID AVANT DE CRÉER LE SHIPMENT
         const trackingPrefix = isNeToCA ? "NECA" : "CANE";
         const nextNumber = await getNextTrackingNumber(trackingPrefix);
@@ -143,6 +155,10 @@ export async function POST(req: NextRequest) {
                 originCountry,
                 destinationCountry,
                 status: isNeToCA ? "RECEIVED_IN_NIGER" : "RECEIVED_IN_CANADA",
+                totalAmount: totalAmount ?? null,
+                amountPaid: amountPaid ?? null,
+                paymentStatus,
+                currency: currency as any,
             },
         });
 

@@ -79,8 +79,9 @@ export async function createInvoiceForShipment(
     // Idempotence : facture déjà existante ?
     if (shipment.invoice) return shipment.invoice;
 
-    // Pas de montant → rien à facturer
-    const total = shipment.amountPaid;
+    // Total à facturer : totalAmount en priorité (Phase 2.8+),
+    // fallback amountPaid pour les colis créés avant Phase 2.8.
+    const total = (shipment.totalAmount ?? shipment.amountPaid);
     if (total === null || total === undefined || total <= 0) {
         console.log(`[invoice] shipment ${shipment.trackingId}: aucun montant, pas de facture`);
         return null;
@@ -134,7 +135,7 @@ export async function createInvoiceForShipment(
             amountBeforeTax: new Prisma.Decimal(calculation.amountBeforeTax),
             totalTax: new Prisma.Decimal(calculation.totalTax),
             totalIncludingTax: new Prisma.Decimal(calculation.totalIncludingTax),
-            currency: "CAD",
+            currency: shipment.currency ?? "CAD",
 
             companyName: company.displayName || company.legalName,
             companyAddress: company.address,
