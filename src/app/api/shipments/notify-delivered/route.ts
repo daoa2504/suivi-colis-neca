@@ -89,6 +89,29 @@ export async function POST(req: NextRequest) {
             );
         }
 
+        // Vérifier que le workflow a été suivi : le colis doit être passé par
+        // EN ROUTE → À LA DOUANE → PRÊT À RÉCUPÉRER avant de pouvoir remercier.
+        // Concrètement : status doit être READY_FOR_PICKUP (le remerciement
+        // fera passer à DELIVERED juste après).
+        if (shipment.status !== "READY_FOR_PICKUP") {
+            const readable: Record<string, string> = {
+                CREATED: "Créé",
+                RECEIVED_IN_NIGER: "Reçu au Niger",
+                RECEIVED_IN_CANADA: "Reçu au Canada",
+                IN_TRANSIT: "En transit",
+                IN_TRANSIT_STOP: "En escale",
+                IN_CUSTOMS: "À la douane",
+                DELIVERED: "Déjà livré",
+            };
+            return NextResponse.json(
+                {
+                    ok: false,
+                    error: `Le colis doit d'abord passer par « En route », « À la douane » puis « Prêt à récupérer » avant l'envoi du remerciement. Statut actuel : ${readable[shipment.status] ?? shipment.status}.`,
+                },
+                { status: 400 }
+            );
+        }
+
         // Vérifier les permissions
         const direction = shipment.convoy?.direction;
         if (role === "AGENT_CA" && direction !== Direction.NE_TO_CA) {

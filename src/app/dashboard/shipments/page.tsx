@@ -256,13 +256,14 @@ export default async function ShipmentsPage({
     };
 
     const canNotify = (shipment: (typeof items)[0]) => {
-        // ADMIN peut toujours notifier
+        // Règle métier : le colis DOIT être passé par En route → Douane → Prêt
+        // (donc status actuel = READY_FOR_PICKUP) avant le remerciement.
+        // Vaut pour tous les rôles, ADMIN inclus.
+        if (shipment.status !== "READY_FOR_PICKUP") return false;
+
+        // Permissions par rôle sur la direction
         if (role === "ADMIN") return true;
-
-        // Agent CA peut notifier SEULEMENT les colis NE→CA (pour remercier)
         if (role === "AGENT_CA" && direction === "NE_TO_CA") return true;
-
-        // Agent NE peut notifier SEULEMENT les colis CA→NE (pour remercier)
         if (role === "AGENT_NE" && direction === "CA_TO_NE") return true;
 
         return false;
