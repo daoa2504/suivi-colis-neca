@@ -16,11 +16,13 @@ export default async function FoodDashboardPage() {
     if (!session) redirect("/login");
     if (session.user.role !== "ADMIN") redirect("/");
 
-    const [clientsCount, lotsCount, inTransitCount, recalledCount] = await Promise.all([
+    const [clientsCount, lotsCount, inTransitCount, recalledCount, openComplaints, highRiskComplaints] = await Promise.all([
         prisma.foodClient.count({ where: { active: true } }),
         prisma.foodLot.count({ where: { active: true } }),
         prisma.foodLot.count({ where: { active: true, status: "IN_TRANSIT" } }),
         prisma.foodLot.count({ where: { active: true, status: "RECALLED" } }),
+        prisma.foodComplaint.count({ where: { status: { notIn: ["RESOLVED", "CLOSED"] } } }),
+        prisma.foodComplaint.count({ where: { riskLevel: "HIGH", status: { notIn: ["RESOLVED", "CLOSED"] } } }),
     ]);
 
     return (
@@ -41,11 +43,13 @@ export default async function FoodDashboardPage() {
 
             {/* KPI */}
             <section className="mb-8">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                     <Kpi label="Clients actifs" value={clientsCount.toString()} accent="text-blue-700" />
                     <Kpi label="Lots enregistrés" value={lotsCount.toString()} accent="text-emerald-700" />
                     <Kpi label="Lots en transit" value={inTransitCount.toString()} accent="text-amber-700" />
                     <Kpi label="Lots rappelés" value={recalledCount.toString()} accent="text-red-700" />
+                    <Kpi label="Plaintes ouvertes" value={openComplaints.toString()} accent="text-red-700" />
+                    <Kpi label="Risque élevé" value={highRiskComplaints.toString()} accent="text-red-900" />
                 </div>
             </section>
 
@@ -73,10 +77,12 @@ export default async function FoodDashboardPage() {
                     title="Ventes (Phase 3.2)"
                     desc="Enregistrer une vente : associe un client à un lot avec quantité."
                 />
-                <CardDisabled
+                <Card
+                    href="/admin/food/complaints"
                     icon="⚠️"
-                    title="Plaintes (Phase 3.3)"
-                    desc="Plaintes reçues (biologique, chimique, physique, qualité) + risque + résolution + ACIA."
+                    title="Plaintes"
+                    desc="Registre Article 82 RSAC : biologique/chimique/physique/qualité + risque + résolution + notification ACIA."
+                    color="red"
                 />
                 <CardDisabled
                     icon="🔔"

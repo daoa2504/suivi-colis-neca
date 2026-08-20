@@ -21,6 +21,8 @@ model User {
   expensesCreated      Expense[]         @relation("ExpenseCreatedBy")
   invoicesCreated      Invoice[]         @relation("InvoiceCreatedBy")
   foodSalesCreated     FoodSale[]        @relation("FoodSaleCreatedBy")
+  foodComplaintsCreated FoodComplaint[]  @relation("FoodComplaintCreatedBy")
+  foodComplaintsHandled FoodComplaint[]  @relation("FoodComplaintHandledBy")
   notificationsSent    NotificationLog[]
 }
 
@@ -489,9 +491,7 @@ model FoodClient {
   updatedAt      DateTime   @updatedAt
 
   sales          FoodSale[]
-
-  // Relations à venir en Phase 3.3+ :
-  // complaints  FoodComplaint[]
+  complaints     FoodComplaint[]
 
   @@index([customerCode])
   @@index([name])
@@ -519,9 +519,9 @@ model FoodLot {
   updatedAt         DateTime      @updatedAt
 
   sales             FoodSale[]
+  complaints        FoodComplaint[]
 
-  // Relations à venir en Phase 3.3+ :
-  // complaints        FoodComplaint[]
+  // Relations à venir en Phase 3.4 :
   // recalls           FoodRecall[]
 
   @@index([lotNumber])
@@ -555,6 +555,135 @@ model FoodSale {
   @@index([saleDate])
   @@index([clientId, saleDate])
   @@index([lotId, saleDate])
+}
+
+// ============================================================================
+// PLAINTES ALIMENTAIRES — Article 82 RSAC (Phase 3.3)
+// ============================================================================
+// Registre officiel des plaintes. Conservation obligatoire 2 ans (Article 82).
+// Chaque plainte suit un workflow d'enquête complet avec traçabilité fournisseur
+// et notification ACIA (CFIA) si applicable.
+
+enum ComplaintChannel {
+  PHONE            // Téléphone
+  EMAIL            // Courriel
+  WEBSITE_FORM     // Formulaire /food/plainte
+  IN_PERSON        // En personne
+  MAIL             // Courrier postal
+  OTHER
+}
+
+enum HealthRiskCategory {
+  BIOLOGICAL       // Bactéries, moisissures, contamination microbio
+  CHEMICAL         // Résidus chimiques, allergène non déclaré
+  PHYSICAL         // Corps étranger (verre, métal, plastique)
+  QUALITY          // Qualité (goût, texture, apparence, péremption)
+  OTHER
+  NONE             // Pas un risque santé (ex : livraison en retard)
+}
+
+enum ComplaintRiskLevel {
+  HIGH             // Risque élevé — potentiellement dangereux
+  MEDIUM           // Risque moyen
+  LOW              // Risque faible
+  NONE             // Aucun risque santé
+}
+
+enum ComplaintStatus {
+  RECEIVED             // Reçue, à investiguer
+  INVESTIGATION        // Enquête en cours
+  SUPPLIER_CONTACTED   // Fournisseur étranger contacté
+  RESPONDED            // Client informé des mesures
+  RESOLVED             // Résolue (remboursement/remplacement effectué)
+  CLOSED               // Fermée (dossier archivé)
+}
+
+enum ComplaintResolution {
+  REPLACEMENT          // Remplacement du produit
+  REFUND               // Remboursement
+  APOLOGY_ONLY         // Excuses uniquement
+  NO_ACTION_NEEDED     // Aucune action nécessaire
+  RECALL_INITIATED     // A déclenché un rappel
+  OTHER
+}
+
+model FoodComplaint {
+  id                     String              @id @default(cuid())
+  complaintNumber        String              @unique                     // "PLA-YYYY-NNNN"
+
+  // --- 1. RÉCEPTION (Article 82 RSAC) ---
+  channel                ComplaintChannel                                // Comment reçue
+  receivedAt             DateTime            @default(now())             // Date de réception
+
+  // --- Client concerné ---
+  // Peut ne PAS être en base (client inconnu ou nouveau)
+  clientId               String?
+  client                 FoodClient?         @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  clientNameSnapshot     String                                          // Nom (snapshot, immuable pour audit)
+  clientEmail            String?
+  clientPhone            String?
+
+  // --- Lot concerné (peut être null si client ne connaît pas le n° de lot) ---
+  lotId                  String?
+  lot                    FoodLot?            @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  lotNumberSnapshot      String?                                         // "LOT-2026-0001" snapshot
+
+  // --- 2. Nature du problème ---
+  natureCategory         HealthRiskCategory                              // Catégorie de risque
+  natureDescription      String                                          // Description détaillée (obligatoire)
+  productDescription     String?                                         // Produit concerné (ex : "riz basmati 5kg")
+
+  // --- 3. ÉVALUATION du risque santé ---
+  isHealthRisk           Boolean             @default(false)             // Représente un risque pour la santé ?
+  riskLevel              ComplaintRiskLevel  @default(LOW)
+
+  // --- 4. ENQUÊTE (workflow) ---
+  status                 ComplaintStatus     @default(RECEIVED)
+  investigationNotes     String?                                         // Journal d'enquête (peut être long)
+  traceabilityChecked    Boolean             @default(false)             // Registre traçabilité vérifié ?
+  traceabilityCheckedAt  DateTime?
+
+  supplierContacted      Boolean             @default(false)             // Fournisseur étranger contacté ?
+  supplierContactedAt    DateTime?
+  supplierResponse       String?
+
+  // --- 5. RÉPONSE au client ---
+  respondedAt            DateTime?
+  responseChannel        ComplaintChannel?
+  responseSummary        String?
+  resolution             ComplaintResolution?
+  resolutionNotes        String?
+
+  // --- 6. MESURES CORRECTIVES ---
+  correctiveMeasures     String?
+
+  // --- 7. NOTIFICATION ACIA (CFIA) ---
+  cfiaNotificationRequired Boolean           @default(false)             // ACIA doit-elle être avisée ?
+  cfiaNotifiedAt         DateTime?
+  cfiaReference          String?                                         // N° de dossier ACIA
+
+  // --- 8. Rappel déclenché ---
+  triggeredRecall        Boolean             @default(false)             // A déclenché un rappel ?
+
+  // --- 9. RÉTENTION (Article 82 : min. 2 ans) ---
+  retentionUntil         DateTime                                        // = receivedAt + 2 ans
+
+  // --- Audit ---
+  ipAddress              String?                                         // Si soumise via formulaire public
+  createdById            String?
+  createdBy              User?               @relation("FoodComplaintCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  handledById            String?
+  handledBy              User?               @relation("FoodComplaintHandledBy", fields: [handledById], references: [id], onDelete: SetNull)
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+
+  @@index([complaintNumber])
+  @@index([status, receivedAt])
+  @@index([lotId])
+  @@index([clientId])
+  @@index([riskLevel, status])
+  @@index([cfiaNotificationRequired, cfiaNotifiedAt])
+  @@index([channel, receivedAt])
 }
 
 // Demande de rappel téléphonique depuis la page de suivi publique

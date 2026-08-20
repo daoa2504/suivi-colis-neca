@@ -10,8 +10,8 @@ export default function Header() {
     const role = session?.user?.role as AppRole | undefined;
     const pathname = usePathname();
 
-    // Pages où le header doit être caché (suivi public)
-    const hideHeaderPrefixes = ["/track", "/tracking"];
+    // Pages où le header doit être caché (public : suivi + formulaires publics food)
+    const hideHeaderPrefixes = ["/track", "/tracking", "/food"];
     if (hideHeaderPrefixes.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
         return null;
     }
@@ -254,6 +254,13 @@ function FoodNav({ role }: { role?: AppRole }) {
             >
                 <span className="hidden sm:inline">📦</span>
                 <span className="hidden md:inline">Lots</span>
+            </Link>
+            <Link
+                href="/admin/food/complaints"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors shadow-sm font-medium"
+            >
+                <span className="hidden sm:inline">⚠️</span>
+                <span className="hidden md:inline">Plaintes</span>
             </Link>
             <Link
                 href="/admin"

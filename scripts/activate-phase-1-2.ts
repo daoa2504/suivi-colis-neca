@@ -51,6 +51,11 @@ async function main() {
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     await applyPhase32Schema();
 
+    console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("  PHASE 3.3 — Plaintes alimentaires (Article 82 RSAC)");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    await applyPhase33Schema();
+
     console.log("\n✅ Activation terminée");
     console.log("⚠️  Les valeurs marquées TODO (NEQ, TPS, TVQ, code postal) doivent être saisies.");
 }
@@ -603,6 +608,107 @@ async function applyPhase32Schema() {
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodSale_lotId_saleDate_idx" ON "FoodSale"("lotId","saleDate");`);
 
     console.log("  ✅ FoodClient.customerCode + table FoodSale");
+}
+
+async function applyPhase33Schema() {
+    console.log("→ Application schéma Phase 3.3 (idempotent)...");
+
+    // Enums
+    await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+            CREATE TYPE "ComplaintChannel" AS ENUM ('PHONE','EMAIL','WEBSITE_FORM','IN_PERSON','MAIL','OTHER');
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    `);
+    await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+            CREATE TYPE "HealthRiskCategory" AS ENUM ('BIOLOGICAL','CHEMICAL','PHYSICAL','QUALITY','OTHER','NONE');
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    `);
+    await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+            CREATE TYPE "ComplaintRiskLevel" AS ENUM ('HIGH','MEDIUM','LOW','NONE');
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    `);
+    await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+            CREATE TYPE "ComplaintStatus" AS ENUM ('RECEIVED','INVESTIGATION','SUPPLIER_CONTACTED','RESPONDED','RESOLVED','CLOSED');
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    `);
+    await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+            CREATE TYPE "ComplaintResolution" AS ENUM ('REPLACEMENT','REFUND','APOLOGY_ONLY','NO_ACTION_NEEDED','RECALL_INITIATED','OTHER');
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    `);
+
+    // FoodComplaint table
+    await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "FoodComplaint" (
+            "id" TEXT PRIMARY KEY,
+            "complaintNumber" TEXT NOT NULL UNIQUE,
+            "channel" "ComplaintChannel" NOT NULL,
+            "receivedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "clientId" TEXT,
+            "clientNameSnapshot" TEXT NOT NULL,
+            "clientEmail" TEXT,
+            "clientPhone" TEXT,
+            "lotId" TEXT,
+            "lotNumberSnapshot" TEXT,
+            "natureCategory" "HealthRiskCategory" NOT NULL,
+            "natureDescription" TEXT NOT NULL,
+            "productDescription" TEXT,
+            "isHealthRisk" BOOLEAN NOT NULL DEFAULT false,
+            "riskLevel" "ComplaintRiskLevel" NOT NULL DEFAULT 'LOW',
+            "status" "ComplaintStatus" NOT NULL DEFAULT 'RECEIVED',
+            "investigationNotes" TEXT,
+            "traceabilityChecked" BOOLEAN NOT NULL DEFAULT false,
+            "traceabilityCheckedAt" TIMESTAMP(3),
+            "supplierContacted" BOOLEAN NOT NULL DEFAULT false,
+            "supplierContactedAt" TIMESTAMP(3),
+            "supplierResponse" TEXT,
+            "respondedAt" TIMESTAMP(3),
+            "responseChannel" "ComplaintChannel",
+            "responseSummary" TEXT,
+            "resolution" "ComplaintResolution",
+            "resolutionNotes" TEXT,
+            "correctiveMeasures" TEXT,
+            "cfiaNotificationRequired" BOOLEAN NOT NULL DEFAULT false,
+            "cfiaNotifiedAt" TIMESTAMP(3),
+            "cfiaReference" TEXT,
+            "triggeredRecall" BOOLEAN NOT NULL DEFAULT false,
+            "retentionUntil" TIMESTAMP(3) NOT NULL,
+            "ipAddress" TEXT,
+            "createdById" TEXT,
+            "handledById" TEXT,
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" TIMESTAMP(3) NOT NULL
+        );
+    `);
+    await execIgnoreDup(`
+        ALTER TABLE "FoodComplaint" ADD CONSTRAINT "FoodComplaint_clientId_fkey"
+        FOREIGN KEY ("clientId") REFERENCES "FoodClient"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    `);
+    await execIgnoreDup(`
+        ALTER TABLE "FoodComplaint" ADD CONSTRAINT "FoodComplaint_lotId_fkey"
+        FOREIGN KEY ("lotId") REFERENCES "FoodLot"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    `);
+    await execIgnoreDup(`
+        ALTER TABLE "FoodComplaint" ADD CONSTRAINT "FoodComplaint_createdById_fkey"
+        FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    `);
+    await execIgnoreDup(`
+        ALTER TABLE "FoodComplaint" ADD CONSTRAINT "FoodComplaint_handledById_fkey"
+        FOREIGN KEY ("handledById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    `);
+
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodComplaint_complaintNumber_idx" ON "FoodComplaint"("complaintNumber");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodComplaint_status_receivedAt_idx" ON "FoodComplaint"("status","receivedAt");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodComplaint_lotId_idx" ON "FoodComplaint"("lotId");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodComplaint_clientId_idx" ON "FoodComplaint"("clientId");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodComplaint_riskLevel_status_idx" ON "FoodComplaint"("riskLevel","status");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodComplaint_cfia_idx" ON "FoodComplaint"("cfiaNotificationRequired","cfiaNotifiedAt");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodComplaint_channel_receivedAt_idx" ON "FoodComplaint"("channel","receivedAt");`);
+
+    console.log("  ✅ Table FoodComplaint + enums + FKs + indexes");
 }
 
 /** Exécute une commande SQL et ignore toute erreur (utile pour SET NOT NULL sur déjà-NOT-NULL). */
