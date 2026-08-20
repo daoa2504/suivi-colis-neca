@@ -230,103 +230,129 @@ export default async function AdminPage() {
                 </div>
             </section>
 
-            {/* === Cartes de navigation === */}
-            <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-500 mb-3">
-                Accès rapide
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <Link
-                    href="/admin/convoys"
-                    className="block p-6 bg-white rounded-lg border shadow-sm hover:shadow-md hover:border-blue-400 transition-all"
-                >
-                    <div className="text-3xl mb-2">🚚</div>
-                    <h2 className="font-semibold text-lg mb-1">Gestion des convois</h2>
-                    <p className="text-sm text-gray-600">
-                        Créer, lister et supprimer les convois. Les agents ne peuvent enregistrer
-                        que sur des convois existants.
-                    </p>
-                </Link>
-                <Link
-                    href="/dashboard/shipments"
-                    className="block p-6 bg-white rounded-lg border shadow-sm hover:shadow-md hover:border-blue-400 transition-all"
-                >
-                    <div className="text-3xl mb-2">📦</div>
-                    <h2 className="font-semibold text-lg mb-1">Tous les colis</h2>
-                    <p className="text-sm text-gray-600">
-                        Voir et gérer tous les colis (NE→CA et CA→NE).
-                    </p>
-                </Link>
-                <Link
-                    href="/dashboard/notify"
-                    className="block p-6 bg-white rounded-lg border shadow-sm hover:shadow-md hover:border-blue-400 transition-all"
-                >
-                    <div className="text-3xl mb-2">📧</div>
-                    <h2 className="font-semibold text-lg mb-1">Notifications convoi</h2>
-                    <p className="text-sm text-gray-600">
-                        Envoyer les emails "en route", "douane", "prêt à récupérer".
-                    </p>
-                </Link>
+            {/* ═══════════════════════════════════════════════════════════ */}
+            {/*  SECTION 1 — Gestion des colis                                */}
+            {/* ═══════════════════════════════════════════════════════════ */}
+            <section className="mb-10">
+                <div className="flex items-center gap-3 mb-4 pb-3 border-b-2 border-blue-200">
+                    <span className="text-3xl">📦</span>
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-900">Gestion des colis</h2>
+                        <p className="text-sm text-gray-600">
+                            Envois entre le Canada et le Niger, agents, notifications et trésorerie.
+                        </p>
+                    </div>
+                </div>
 
-                <Link
-                    href="/admin/finances"
-                    className="block p-6 bg-white rounded-lg border shadow-sm hover:shadow-md hover:border-green-400 transition-all"
-                >
-                    <div className="text-3xl mb-2">💰</div>
-                    <h2 className="font-semibold text-lg mb-1">Trésorerie</h2>
-                    <p className="text-sm text-gray-600">
-                        Paiements clients, dépenses, dashboard et taux de change.
-                    </p>
-                </Link>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <Link
+                        href="/admin/convoys"
+                        className="block p-6 bg-white rounded-lg border shadow-sm hover:shadow-md hover:border-blue-400 transition-all"
+                    >
+                        <div className="text-3xl mb-2">🚚</div>
+                        <h3 className="font-semibold text-lg mb-1">Gestion des convois</h3>
+                        <p className="text-sm text-gray-600">
+                            Créer, lister et supprimer les convois. Les agents enregistrent sur convois existants.
+                        </p>
+                    </Link>
+                    <Link
+                        href="/dashboard/shipments"
+                        className="block p-6 bg-white rounded-lg border shadow-sm hover:shadow-md hover:border-blue-400 transition-all"
+                    >
+                        <div className="text-3xl mb-2">📦</div>
+                        <h3 className="font-semibold text-lg mb-1">Tous les colis</h3>
+                        <p className="text-sm text-gray-600">Voir et gérer tous les colis (NE→CA et CA→NE).</p>
+                    </Link>
+                    <Link
+                        href="/dashboard/notify"
+                        className="block p-6 bg-white rounded-lg border shadow-sm hover:shadow-md hover:border-blue-400 transition-all"
+                    >
+                        <div className="text-3xl mb-2">📧</div>
+                        <h3 className="font-semibold text-lg mb-1">Notifications convoi</h3>
+                        <p className="text-sm text-gray-600">
+                            Emails « en route », « douane », « prêt à récupérer ».
+                        </p>
+                    </Link>
+                    <Link
+                        href="/admin/finances"
+                        className="block p-6 bg-white rounded-lg border shadow-sm hover:shadow-md hover:border-green-400 transition-all"
+                    >
+                        <div className="text-3xl mb-2">💰</div>
+                        <h3 className="font-semibold text-lg mb-1">Trésorerie</h3>
+                        <p className="text-sm text-gray-600">
+                            Paiements clients, dépenses, dashboard et taux de change.
+                        </p>
+                    </Link>
+                    <Link
+                        href="/admin/users"
+                        className="block p-6 bg-white rounded-lg border shadow-sm hover:shadow-md hover:border-indigo-400 transition-all"
+                    >
+                        <div className="text-3xl mb-2">👥</div>
+                        <h3 className="font-semibold text-lg mb-1">Utilisateurs</h3>
+                        <p className="text-sm text-gray-600">
+                            Activité des agents et réinitialisation de mot de passe.
+                        </p>
+                    </Link>
+                    <Link
+                        href="/admin/clients"
+                        className="block p-6 bg-white rounded-lg border shadow-sm hover:shadow-md hover:border-amber-400 transition-all"
+                    >
+                        <div className="text-3xl mb-2">👤</div>
+                        <h3 className="font-semibold text-lg mb-1">Clients (colis)</h3>
+                        <p className="text-sm text-gray-600">
+                            Liste des clients uniques et historique de leurs colis.
+                        </p>
+                    </Link>
+                    <Link
+                        href="/admin/custom-email"
+                        className="block p-6 bg-white rounded-lg border shadow-sm hover:shadow-md hover:border-cyan-400 transition-all"
+                    >
+                        <div className="text-3xl mb-2">✉️</div>
+                        <h3 className="font-semibold text-lg mb-1">Email personnalisé</h3>
+                        <p className="text-sm text-gray-600">
+                            Envoyer un mail à un groupe de clients.
+                        </p>
+                    </Link>
+                </div>
+            </section>
 
-                <Link
-                    href="/admin/users"
-                    className="block p-6 bg-white rounded-lg border shadow-sm hover:shadow-md hover:border-indigo-400 transition-all"
-                >
-                    <div className="text-3xl mb-2">👥</div>
-                    <h2 className="font-semibold text-lg mb-1">Utilisateurs</h2>
-                    <p className="text-sm text-gray-600">
-                        Activité de chaque agent (colis créés, paiements, notifications) et réinitialisation de mot de passe.
-                    </p>
-                </Link>
-
-                <Link
-                    href="/admin/clients"
-                    className="block p-6 bg-white rounded-lg border shadow-sm hover:shadow-md hover:border-amber-400 transition-all"
-                >
-                    <div className="text-3xl mb-2">👤</div>
-                    <h2 className="font-semibold text-lg mb-1">Clients</h2>
-                    <p className="text-sm text-gray-600">
-                        Liste des clients uniques et historique complet de leurs colis.
-                    </p>
-                </Link>
-
-                <Link
-                    href="/admin/custom-email"
-                    className="block p-6 bg-white rounded-lg border shadow-sm hover:shadow-md hover:border-cyan-400 transition-all"
-                >
-                    <div className="text-3xl mb-2">✉️</div>
-                    <h2 className="font-semibold text-lg mb-1">Email personnalisé</h2>
-                    <p className="text-sm text-gray-600">
-                        Envoyer un mail à un groupe de clients (retard, info importante, excuses…).
-                    </p>
-                </Link>
+            {/* ═══════════════════════════════════════════════════════════ */}
+            {/*  SECTION 2 — Gestion des marchandises                         */}
+            {/* ═══════════════════════════════════════════════════════════ */}
+            <section>
+                <div className="flex items-center gap-3 mb-4 pb-3 border-b-2 border-emerald-200">
+                    <span className="text-3xl">🌾</span>
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                            Gestion des marchandises
+                            <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-medium">
+                                NOUVEAU
+                            </span>
+                        </h2>
+                        <p className="text-sm text-gray-600">
+                            Import alimentaire depuis le Niger. Traçabilité ACIA (clients, lots, plaintes, rappels).
+                        </p>
+                    </div>
+                </div>
 
                 <Link
                     href="/admin/food"
-                    className="block p-6 bg-white rounded-lg border-2 border-emerald-300 shadow-sm hover:shadow-md hover:border-emerald-500 transition-all"
+                    className="block p-8 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg border-2 border-emerald-300 shadow-sm hover:shadow-md hover:border-emerald-500 transition-all"
                 >
-                    <div className="text-3xl mb-2">🌾</div>
-                    <h2 className="font-semibold text-lg mb-1">
-                        Traçabilité alimentaire
-                        <span className="ml-2 text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full align-middle">
-                            NOUVEAU
-                        </span>
-                    </h2>
-                    <p className="text-sm text-gray-600">
-                        Module ACIA : clients, lots importés, plaintes, rappels. Activité distincte des colis.
-                    </p>
+                    <div className="flex items-center justify-between flex-wrap gap-4">
+                        <div>
+                            <h3 className="text-xl font-bold text-emerald-900 mb-2">
+                                Ouvrir le module marchandises →
+                            </h3>
+                            <p className="text-sm text-emerald-800 max-w-2xl">
+                                Interface dédiée avec ses propres sections : registre clients, lots importés,
+                                enregistrement des ventes, plaintes ACIA, rappels de lots.
+                            </p>
+                        </div>
+                        <div className="text-6xl opacity-80">🌾</div>
+                    </div>
                 </Link>
-            </div>
+            </section>
         </main>
     );
 }

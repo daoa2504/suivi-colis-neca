@@ -15,12 +15,28 @@ export default function Header() {
     if (hideHeaderPrefixes.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
         return null;
     }
+
+    // Contexte : module marchandises (food) OU shipping (défaut)
+    const isFoodModule = pathname?.startsWith("/admin/food") ?? false;
+
+    // Sous-titre contextuel
+    const subtitle = isFoodModule
+        ? "Traçabilité alimentaire · ACIA"
+        : "Gestion de colis international";
+
+    // Cible du clic sur le logo
+    const logoHref = isFoodModule
+        ? "/admin/food"
+        : role === "ADMIN"
+            ? "/admin"
+            : "/dashboard/shipments";
+
     return (
         <header className="w-full bg-white shadow-md border-b-2 border-gray-100">
             <div className="w-full flex flex-wrap items-center justify-between gap-3 px-4 sm:px-8 lg:px-12 py-3">
-                {/* Logo / Titre — clic ramène à l'accueil admin/agent */}
+                {/* Logo / Titre */}
                 <Link
-                    href={role === "ADMIN" ? "/admin" : "/dashboard/shipments"}
+                    href={logoHref}
                     className="flex items-center gap-3 hover:opacity-90 transition-opacity flex-shrink-0"
                 >
                     <img
@@ -31,122 +47,47 @@ export default function Header() {
 
                     <div>
                         <div className="flex items-center gap-2">
-            <span className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                NIMAPLEX<span className="text-[11px] font-semibold align-baseline">.INC</span>
-            </span>
-                            {role === 'AGENT_CA' && (
+                            <span className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                                NIMAPLEX<span className="text-[11px] font-semibold align-baseline">.INC</span>
+                            </span>
+                            {!isFoodModule && role === 'AGENT_CA' && (
                                 <div className="flex items-center gap-1 text-xs">
                                     <img src="/flags/ca.svg" alt="CA" className="w-4 h-3 rounded" />
                                     <span>→</span>
                                     <img src="/flags/ne.svg" alt="NE" className="w-4 h-3 rounded" />
                                 </div>
                             )}
-                            {role === 'AGENT_NE' && (
+                            {!isFoodModule && role === 'AGENT_NE' && (
                                 <div className="flex items-center gap-1 text-xs">
                                     <img src="/flags/ne.svg" alt="NE" className="w-4 h-3 rounded" />
                                     <span>→</span>
                                     <img src="/flags/ca.svg" alt="CA" className="w-4 h-3 rounded" />
                                 </div>
+                            )}
+                            {isFoodModule && (
+                                <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-medium">
+                                    🌾 Marchandises
+                                </span>
                             )}
                         </div>
-                        <p className="text-xs text-gray-500">Gestion de colis international</p>
+                        <p className="text-xs text-gray-500">{subtitle}</p>
                     </div>
                 </Link>
 
-                {/* Navigation */}
+                {/* Navigation contextuelle */}
                 <nav className="flex flex-wrap items-center gap-2 justify-end">
-                    {(role === 'ADMIN' || role === 'AGENT_NE' || role === 'AGENT_CA') && (
-                        <Link
-                            href="/dashboard/shipments"
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors font-medium"
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                            </svg>
-                            <span className="hidden sm:inline">Liste</span>
-                        </Link>
+                    {isFoodModule ? (
+                        <FoodNav role={role} />
+                    ) : (
+                        <ShippingNav role={role} />
                     )}
 
-                    {["ADMIN", "AGENT_NE"].includes(role || "") && (
-                        <Link
-                            href="/agent/ne"
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700 transition-all shadow-sm font-medium"
-                        >
-                            <span className="hidden sm:inline">🇳🇪</span>
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                            </svg>
-                            <span className="hidden md:inline">Niger</span>
-                        </Link>
-                    )}
-
-                    {["ADMIN", "AGENT_CA"].includes(role || "") && (
-                        <Link
-                            href="/agent/ca"
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 transition-all shadow-sm font-medium"
-                        >
-                            <span className="hidden sm:inline">🇨🇦</span>
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                            </svg>
-                            <span className="hidden md:inline">Canada</span>
-                        </Link>
-                    )}
-
-                    {["ADMIN", "AGENT_CA", "AGENT_NE"].includes(role || "") && (
-                        <Link
-                            href="/dashboard/notify"
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm font-medium"
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                            </svg>
-                            <span className="hidden lg:inline">Notifier</span>
-                        </Link>
-                    )}
-
-                    {role === "ADMIN" && (
-                        <Link
-                            href="/admin/convoys"
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors shadow-sm font-medium"
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                            </svg>
-                            <span className="hidden lg:inline">Convois</span>
-                        </Link>
-                    )}
-
-                    {role === "ADMIN" && (
-                        <Link
-                            href="/admin/finances"
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors shadow-sm font-medium"
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <span className="hidden lg:inline">Trésorerie</span>
-                        </Link>
-                    )}
-
-                    {role === "ADMIN" && (
-                        <Link
-                            href="/admin/users"
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-sm font-medium"
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 014-4h2m6-4a4 4 0 11-8 0 4 4 0 018 0zm6 4a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                            <span className="hidden lg:inline">Utilisateurs</span>
-                        </Link>
-                    )}
-
+                    {/* Séparateur + badge utilisateur + déconnexion : commun aux 2 modules */}
                     {session && (
                         <>
                             <div className="w-px h-8 bg-gray-300 mx-2 hidden sm:block"></div>
 
                             <div className="flex items-center gap-3">
-                                {/* ✅ Badge coloré avec drapeau */}
                                 <div className="hidden lg:block text-right">
                                     <p className="text-sm font-semibold text-gray-800">{session.user.username}</p>
                                     <div className="flex items-center justify-end gap-1.5 mt-0.5">
@@ -186,5 +127,144 @@ export default function Header() {
                 </nav>
             </div>
         </header>
+    );
+}
+
+// ============================================================================
+// Nav module SHIPPING (colis) — la nav historique
+// ============================================================================
+
+function ShippingNav({ role }: { role?: AppRole }) {
+    return (
+        <>
+            {(role === 'ADMIN' || role === 'AGENT_NE' || role === 'AGENT_CA') && (
+                <Link
+                    href="/dashboard/shipments"
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors font-medium"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    <span className="hidden sm:inline">Liste</span>
+                </Link>
+            )}
+
+            {["ADMIN", "AGENT_NE"].includes(role || "") && (
+                <Link
+                    href="/agent/ne"
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700 transition-all shadow-sm font-medium"
+                >
+                    <span className="hidden sm:inline">🇳🇪</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span className="hidden md:inline">Niger</span>
+                </Link>
+            )}
+
+            {["ADMIN", "AGENT_CA"].includes(role || "") && (
+                <Link
+                    href="/agent/ca"
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 transition-all shadow-sm font-medium"
+                >
+                    <span className="hidden sm:inline">🇨🇦</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span className="hidden md:inline">Canada</span>
+                </Link>
+            )}
+
+            {["ADMIN", "AGENT_CA", "AGENT_NE"].includes(role || "") && (
+                <Link
+                    href="/dashboard/notify"
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm font-medium"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    <span className="hidden lg:inline">Notifier</span>
+                </Link>
+            )}
+
+            {role === "ADMIN" && (
+                <Link
+                    href="/admin/convoys"
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors shadow-sm font-medium"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                    </svg>
+                    <span className="hidden lg:inline">Convois</span>
+                </Link>
+            )}
+
+            {role === "ADMIN" && (
+                <Link
+                    href="/admin/finances"
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors shadow-sm font-medium"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="hidden lg:inline">Trésorerie</span>
+                </Link>
+            )}
+
+            {role === "ADMIN" && (
+                <Link
+                    href="/admin/users"
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-sm font-medium"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 014-4h2m6-4a4 4 0 11-8 0 4 4 0 018 0zm6 4a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span className="hidden lg:inline">Utilisateurs</span>
+                </Link>
+            )}
+        </>
+    );
+}
+
+// ============================================================================
+// Nav module FOOD (marchandises) — nav dédiée
+// ============================================================================
+
+function FoodNav({ role }: { role?: AppRole }) {
+    if (role !== "ADMIN") return null;
+    return (
+        <>
+            <Link
+                href="/admin/food"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors font-medium"
+            >
+                <span className="hidden sm:inline">🏠</span>
+                <span className="hidden md:inline">Accueil</span>
+            </Link>
+            <Link
+                href="/admin/food/clients"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm font-medium"
+            >
+                <span className="hidden sm:inline">👥</span>
+                <span className="hidden md:inline">Clients</span>
+            </Link>
+            <Link
+                href="/admin/food/lots"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm font-medium"
+            >
+                <span className="hidden sm:inline">📦</span>
+                <span className="hidden md:inline">Lots</span>
+            </Link>
+            <Link
+                href="/admin"
+                title="Revenir à la gestion des colis"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors font-medium"
+            >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                <span className="hidden md:inline">Retour Colis</span>
+            </Link>
+        </>
     );
 }

@@ -46,6 +46,11 @@ async function main() {
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     await applyPhase31Schema();
 
+    console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("  PHASE 3.2 — Ventes food + customerCode client");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    await applyPhase32Schema();
+
     console.log("\n✅ Activation terminée");
     console.log("⚠️  Les valeurs marquées TODO (NEQ, TPS, TVQ, code postal) doivent être saisies.");
 }
@@ -522,6 +527,89 @@ async function applyPhase31Schema() {
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodLot_active_idx" ON "FoodLot"("active");`);
 
     console.log("  ✅ Tables Phase 3.1 (FoodClient, FoodLot)");
+}
+
+async function applyPhase32Schema() {
+    console.log("→ Application schéma Phase 3.2 (idempotent)...");
+
+    // 1. Ajouter FoodClient.customerCode (nullable pour ne pas casser les rows existantes)
+    await prisma.$executeRawUnsafe(`
+        ALTER TABLE "FoodClient" ADD COLUMN IF NOT EXISTS "customerCode" TEXT;
+    `);
+
+    // 2. Backfill : générer un code pour toutes les rows qui n'en ont pas
+    const rowsWithoutCode = await prisma.$queryRawUnsafe<{ id: string; createdAt: Date }[]>(
+        `SELECT id, "createdAt" FROM "FoodClient" WHERE "customerCode" IS NULL ORDER BY "createdAt" ASC`
+    );
+    if (rowsWithoutCode.length > 0) {
+        console.log(`  → Backfill de ${rowsWithoutCode.length} code(s) client existants...`);
+        // Grouper par année
+        const byYear = new Map<number, { id: string }[]>();
+        for (const r of rowsWithoutCode) {
+            const y = new Date(r.createdAt).getUTCFullYear();
+            if (!byYear.has(y)) byYear.set(y, []);
+            byYear.get(y)!.push({ id: r.id });
+        }
+        for (const [year, rows] of byYear.entries()) {
+            for (let i = 0; i < rows.length; i++) {
+                const code = `FCL-${year}-${String(i + 1).padStart(4, "0")}`;
+                await prisma.$executeRawUnsafe(
+                    `UPDATE "FoodClient" SET "customerCode" = $1 WHERE id = $2`,
+                    code,
+                    rows[i].id
+                );
+            }
+        }
+    }
+
+    // 3. Rendre NOT NULL + UNIQUE
+    await execIgnore(`ALTER TABLE "FoodClient" ALTER COLUMN "customerCode" SET NOT NULL;`);
+    await execIgnoreDup(`ALTER TABLE "FoodClient" ADD CONSTRAINT "FoodClient_customerCode_key" UNIQUE ("customerCode");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodClient_customerCode_idx" ON "FoodClient"("customerCode");`);
+
+    // 4. Table FoodSale
+    await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "FoodSale" (
+            "id" TEXT PRIMARY KEY,
+            "clientId" TEXT NOT NULL,
+            "lotId" TEXT NOT NULL,
+            "quantityKg" DOUBLE PRECISION NOT NULL,
+            "productDetails" TEXT,
+            "saleDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "price" DOUBLE PRECISION,
+            "currency" "Currency" NOT NULL DEFAULT 'CAD',
+            "notes" TEXT,
+            "createdById" TEXT,
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" TIMESTAMP(3) NOT NULL
+        );
+    `);
+    await execIgnoreDup(`
+        ALTER TABLE "FoodSale" ADD CONSTRAINT "FoodSale_clientId_fkey"
+        FOREIGN KEY ("clientId") REFERENCES "FoodClient"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    `);
+    await execIgnoreDup(`
+        ALTER TABLE "FoodSale" ADD CONSTRAINT "FoodSale_lotId_fkey"
+        FOREIGN KEY ("lotId") REFERENCES "FoodLot"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    `);
+    await execIgnoreDup(`
+        ALTER TABLE "FoodSale" ADD CONSTRAINT "FoodSale_createdById_fkey"
+        FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    `);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodSale_clientId_idx" ON "FoodSale"("clientId");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodSale_lotId_idx" ON "FoodSale"("lotId");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodSale_saleDate_idx" ON "FoodSale"("saleDate");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodSale_clientId_saleDate_idx" ON "FoodSale"("clientId","saleDate");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodSale_lotId_saleDate_idx" ON "FoodSale"("lotId","saleDate");`);
+
+    console.log("  ✅ FoodClient.customerCode + table FoodSale");
+}
+
+/** Exécute une commande SQL et ignore toute erreur (utile pour SET NOT NULL sur déjà-NOT-NULL). */
+async function execIgnore(sql: string) {
+    try {
+        await prisma.$executeRawUnsafe(sql);
+    } catch { /* ignore */ }
 }
 
 /** Exécute une commande SQL et ignore l'erreur si contrainte déjà existante. */

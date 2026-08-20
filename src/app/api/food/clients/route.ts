@@ -43,6 +43,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, clients });
 }
 
+/** Génère le prochain code client au format FCL-YYYY-NNNN, séquentiel par année. */
+async function nextCustomerCode(): Promise<string> {
+    const year = new Date().getUTCFullYear();
+    const prefix = `FCL-${year}-`;
+    const last = await prisma.foodClient.findFirst({
+        where: { customerCode: { startsWith: prefix } },
+        orderBy: { customerCode: "desc" },
+        select: { customerCode: true },
+    });
+    let seq = 1;
+    if (last?.customerCode) {
+        const parts = last.customerCode.split("-");
+        const n = parseInt(parts[2] ?? "0", 10);
+        if (!Number.isNaN(n)) seq = n + 1;
+    }
+    return `${prefix}${String(seq).padStart(4, "0")}`;
+}
+
 export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions);
     if (!session || session.user?.role !== "ADMIN") {
@@ -60,8 +78,11 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, error: "Email invalide" }, { status: 400 });
     }
 
+    const customerCode = await nextCustomerCode();
+
     const client = await prisma.foodClient.create({
         data: {
+            customerCode,
             name,
             email,
             phone: body.phone ? String(body.phone).trim() : null,

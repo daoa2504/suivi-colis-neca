@@ -99,6 +99,7 @@ export default async function FoodClientsPage({
                 <table className="min-w-full text-sm">
                     <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
                         <tr>
+                            <th className="p-3">Code</th>
                             <th className="p-3">Nom</th>
                             <th className="p-3">Contact</th>
                             <th className="p-3">Ville</th>
@@ -109,13 +110,16 @@ export default async function FoodClientsPage({
                     <tbody className="divide-y">
                         {clients.length === 0 && (
                             <tr>
-                                <td colSpan={5} className="p-6 text-center text-gray-500">
+                                <td colSpan={6} className="p-6 text-center text-gray-500">
                                     Aucun client trouvé.
                                 </td>
                             </tr>
                         )}
                         {clients.map((c) => (
                             <tr key={c.id} className={`hover:bg-gray-50 ${!c.active ? "opacity-60" : ""}`}>
+                                <td className="p-3 font-mono text-xs font-semibold text-blue-800">
+                                    {c.customerCode}
+                                </td>
                                 <td className="p-3 font-medium">{c.name}</td>
                                 <td className="p-3 text-xs text-gray-700">
                                     {c.email && <div>{c.email}</div>}
