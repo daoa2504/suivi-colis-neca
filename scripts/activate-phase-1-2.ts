@@ -36,6 +36,11 @@ async function main() {
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     await applyPhase28Schema();
 
+    console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("  PHASE 2.9 — Plaintes + demandes de rappel (support client)");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    await applyPhase29Schema();
+
     console.log("\n✅ Activation terminée");
     console.log("⚠️  Les valeurs marquées TODO (NEQ, TPS, TVQ, code postal) doivent être saisies.");
 }
@@ -373,6 +378,85 @@ async function applyPhase28Schema() {
     `);
 
     console.log("  ✅ Colonnes Shipment.totalAmount + Shipment.currency ajoutées");
+}
+
+async function applyPhase29Schema() {
+    console.log("→ Application schéma Phase 2.9 (idempotent)...");
+
+    // Enums
+    await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+            CREATE TYPE "ClaimType" AS ENUM ('DAMAGED','MISSING','LATE','WRONG_ITEM','BILLING','OTHER');
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    `);
+    await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+            CREATE TYPE "CallbackReason" AS ENUM ('DELIVERY_INFO','PAYMENT','ADDRESS_CHANGE','URGENT','OTHER');
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    `);
+    await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+            CREATE TYPE "RequestStatus" AS ENUM ('PENDING','IN_PROGRESS','RESOLVED','CLOSED');
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    `);
+
+    // ClaimRequest
+    await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "ClaimRequest" (
+            "id" TEXT PRIMARY KEY,
+            "shipmentId" INTEGER,
+            "trackingId" TEXT,
+            "clientName" TEXT NOT NULL,
+            "clientEmail" TEXT NOT NULL,
+            "clientPhone" TEXT,
+            "type" "ClaimType" NOT NULL,
+            "description" TEXT NOT NULL,
+            "ipAddress" TEXT,
+            "status" "RequestStatus" NOT NULL DEFAULT 'PENDING',
+            "handledById" TEXT,
+            "handledAt" TIMESTAMP(3),
+            "resolution" TEXT,
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" TIMESTAMP(3) NOT NULL
+        );
+    `);
+    await execIgnoreDup(`
+        ALTER TABLE "ClaimRequest" ADD CONSTRAINT "ClaimRequest_shipmentId_fkey"
+        FOREIGN KEY ("shipmentId") REFERENCES "Shipment"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    `);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ClaimRequest_shipmentId_idx" ON "ClaimRequest"("shipmentId");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ClaimRequest_status_createdAt_idx" ON "ClaimRequest"("status","createdAt");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ClaimRequest_trackingId_idx" ON "ClaimRequest"("trackingId");`);
+
+    // CallbackRequest
+    await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "CallbackRequest" (
+            "id" TEXT PRIMARY KEY,
+            "shipmentId" INTEGER,
+            "trackingId" TEXT,
+            "clientName" TEXT NOT NULL,
+            "clientPhone" TEXT NOT NULL,
+            "clientEmail" TEXT,
+            "reason" "CallbackReason" NOT NULL,
+            "message" TEXT,
+            "preferredTime" TEXT,
+            "ipAddress" TEXT,
+            "status" "RequestStatus" NOT NULL DEFAULT 'PENDING',
+            "handledById" TEXT,
+            "handledAt" TIMESTAMP(3),
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" TIMESTAMP(3) NOT NULL
+        );
+    `);
+    await execIgnoreDup(`
+        ALTER TABLE "CallbackRequest" ADD CONSTRAINT "CallbackRequest_shipmentId_fkey"
+        FOREIGN KEY ("shipmentId") REFERENCES "Shipment"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    `);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "CallbackRequest_shipmentId_idx" ON "CallbackRequest"("shipmentId");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "CallbackRequest_status_createdAt_idx" ON "CallbackRequest"("status","createdAt");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "CallbackRequest_trackingId_idx" ON "CallbackRequest"("trackingId");`);
+
+    console.log("  ✅ Tables Phase 2.9 (ClaimRequest, CallbackRequest)");
 }
 
 /** Exécute une commande SQL et ignore l'erreur si contrainte déjà existante. */

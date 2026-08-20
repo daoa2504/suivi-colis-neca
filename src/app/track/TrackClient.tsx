@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import ShipmentTracker from "@/components/ShipmentTracker";
+import ClientSupportForms from "@/components/ClientSupportForms";
 
 const POLL_INTERVAL_MS = 20_000; // 20 secondes
 
@@ -240,6 +241,14 @@ export default function TrackClient({ initialTrackingId }: { initialTrackingId: 
                             paymentStatus={shipmentData.paymentStatus}
                             amountPaid={shipmentData.amountPaid}
                             payments={shipmentData.payments || []}
+                        />
+
+                        {/* Formulaires client : plainte + rappel */}
+                        <ClientSupportForms
+                            trackingId={shipmentData.trackingId}
+                            suggestedName={shipmentData.receiverName}
+                            suggestedEmail={shipmentData.receiverEmail}
+                            suggestedPhone={shipmentData.receiverPhone}
                         />
                     </div>
                 )}

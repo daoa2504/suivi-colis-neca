@@ -70,6 +70,8 @@ model Shipment {
   items             ShipmentItem[]
   payments          Payment[]
   invoice           Invoice?
+  claims            ClaimRequest[]
+  callbacks         CallbackRequest[]
 }
 
 model ShipmentItem {
@@ -402,6 +404,82 @@ model InvoiceItem {
   createdAt           DateTime @default(now())
 
   @@index([invoiceId])
+}
+
+// ============================================================================
+// SUPPORT CLIENT (Phase 2.9) — plaintes et demandes de rappel
+// ============================================================================
+
+enum ClaimType {
+  DAMAGED         // Colis endommagé
+  MISSING         // Colis perdu / non reçu
+  LATE            // Retard important
+  WRONG_ITEM      // Mauvais contenu
+  BILLING         // Problème de facturation
+  OTHER
+}
+
+enum CallbackReason {
+  DELIVERY_INFO     // Question sur la livraison
+  PAYMENT           // Question sur le paiement / la facture
+  ADDRESS_CHANGE    // Modification de l'adresse
+  URGENT            // Urgent
+  OTHER
+}
+
+enum RequestStatus {
+  PENDING           // Nouveau, non traité
+  IN_PROGRESS       // En cours de traitement
+  RESOLVED          // Résolu
+  CLOSED            // Fermé
+}
+
+// Plainte déposée par le client depuis la page de suivi publique
+model ClaimRequest {
+  id            String        @id @default(cuid())
+  shipmentId    Int?
+  shipment      Shipment?     @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
+  trackingId    String?                              // Snapshot pour affichage même si le colis est supprimé
+  clientName    String
+  clientEmail   String
+  clientPhone   String?
+  type          ClaimType
+  description   String
+  ipAddress     String?                              // Anti-spam / audit
+  status        RequestStatus @default(PENDING)
+  handledById   String?                              // Agent qui traite
+  handledAt     DateTime?
+  resolution    String?                              // Note de résolution interne
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([shipmentId])
+  @@index([status, createdAt])
+  @@index([trackingId])
+}
+
+// Demande de rappel téléphonique depuis la page de suivi publique
+model CallbackRequest {
+  id            String         @id @default(cuid())
+  shipmentId    Int?
+  shipment      Shipment?      @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
+  trackingId    String?
+  clientName    String
+  clientPhone   String                              // Obligatoire pour rappeler
+  clientEmail   String?
+  reason        CallbackReason
+  message       String?
+  preferredTime String?                             // "matin", "après-midi", "soir"
+  ipAddress     String?
+  status        RequestStatus  @default(PENDING)
+  handledById   String?
+  handledAt     DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([shipmentId])
+  @@index([status, createdAt])
+  @@index([trackingId])
 }
 
 // Snapshot immuable d'une taxe appliquée sur une facture.
