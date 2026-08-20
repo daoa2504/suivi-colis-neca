@@ -458,6 +458,73 @@ model ClaimRequest {
   @@index([trackingId])
 }
 
+// ============================================================================
+// TRAÇABILITÉ ALIMENTAIRE (Phase 3.1) — module distinct pour l'ACIA
+// ============================================================================
+
+enum FoodLotStatus {
+  IN_TRANSIT       // En cours d'importation
+  DELIVERED        // Reçu, distribué aux clients
+  RECALLED         // Rappelé (voir FoodRecall en Phase 3.4)
+}
+
+// Client acheteur de produits alimentaires (SÉPARÉ des receivers Shipment).
+// Une seule fiche par personne physique/morale — nécessaire pour la
+// traçabilité ACIA (retrouver rapidement qui a reçu quel lot).
+model FoodClient {
+  id          String   @id @default(cuid())
+  name        String                              // Nom / raison sociale
+  address     String?
+  city        String?
+  province    String?
+  postalCode  String?
+  country     String   @default("Canada")
+  phone       String?
+  email       String?
+  notes       String?                             // Notes internes admin
+  active      Boolean  @default(true)             // Soft-delete
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations à venir en Phase 3.2+ :
+  // sales       FoodSale[]
+  // complaints  FoodComplaint[]
+
+  @@index([name])
+  @@index([email])
+  @@index([phone])
+  @@index([active])
+}
+
+// Lot importé du Niger. Numéro unique pour ACIA. Une fois créé, le
+// lotNumber ne change plus (traçabilité).
+model FoodLot {
+  id                String        @id @default(cuid())
+  lotNumber         String        @unique          // "LOT-2026-001"
+  description       String                         // Produits (riz, haricots, épices…)
+  awbNumber         String?                        // N° AWB (transport aérien)
+  supplier          String?                        // Fournisseur au Niger
+  supplierCity      String?
+  importDate        DateTime                       // Date d'importation
+  quantityKg        Float                          // Quantité totale importée
+  quantityRemaining Float?                         // Reste disponible (calcul rappel)
+  status            FoodLotStatus @default(IN_TRANSIT)
+  notes             String?
+  active            Boolean       @default(true)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  // Relations à venir en Phase 3.2+ :
+  // sales             FoodSale[]
+  // complaints        FoodComplaint[]
+  // recalls           FoodRecall[]
+
+  @@index([lotNumber])
+  @@index([status, importDate])
+  @@index([supplier])
+  @@index([active])
+}
+
 // Demande de rappel téléphonique depuis la page de suivi publique
 model CallbackRequest {
   id            String         @id @default(cuid())

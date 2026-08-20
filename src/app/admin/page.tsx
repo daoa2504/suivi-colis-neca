@@ -310,6 +310,22 @@ export default async function AdminPage() {
                         Envoyer un mail à un groupe de clients (retard, info importante, excuses…).
                     </p>
                 </Link>
+
+                <Link
+                    href="/admin/food"
+                    className="block p-6 bg-white rounded-lg border-2 border-emerald-300 shadow-sm hover:shadow-md hover:border-emerald-500 transition-all"
+                >
+                    <div className="text-3xl mb-2">🌾</div>
+                    <h2 className="font-semibold text-lg mb-1">
+                        Traçabilité alimentaire
+                        <span className="ml-2 text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full align-middle">
+                            NOUVEAU
+                        </span>
+                    </h2>
+                    <p className="text-sm text-gray-600">
+                        Module ACIA : clients, lots importés, plaintes, rappels. Activité distincte des colis.
+                    </p>
+                </Link>
             </div>
         </main>
     );

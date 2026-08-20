@@ -41,6 +41,11 @@ async function main() {
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     await applyPhase29Schema();
 
+    console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("  PHASE 3.1 — Traçabilité alimentaire (FoodClient, FoodLot)");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    await applyPhase31Schema();
+
     console.log("\n✅ Activation terminée");
     console.log("⚠️  Les valeurs marquées TODO (NEQ, TPS, TVQ, code postal) doivent être saisies.");
 }
@@ -457,6 +462,66 @@ async function applyPhase29Schema() {
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "CallbackRequest_trackingId_idx" ON "CallbackRequest"("trackingId");`);
 
     console.log("  ✅ Tables Phase 2.9 (ClaimRequest, CallbackRequest)");
+}
+
+async function applyPhase31Schema() {
+    console.log("→ Application schéma Phase 3.1 (idempotent)...");
+
+    // Enum FoodLotStatus
+    await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+            CREATE TYPE "FoodLotStatus" AS ENUM ('IN_TRANSIT','DELIVERED','RECALLED');
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    `);
+
+    // FoodClient
+    await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "FoodClient" (
+            "id" TEXT PRIMARY KEY,
+            "name" TEXT NOT NULL,
+            "address" TEXT,
+            "city" TEXT,
+            "province" TEXT,
+            "postalCode" TEXT,
+            "country" TEXT NOT NULL DEFAULT 'Canada',
+            "phone" TEXT,
+            "email" TEXT,
+            "notes" TEXT,
+            "active" BOOLEAN NOT NULL DEFAULT true,
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" TIMESTAMP(3) NOT NULL
+        );
+    `);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodClient_name_idx" ON "FoodClient"("name");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodClient_email_idx" ON "FoodClient"("email");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodClient_phone_idx" ON "FoodClient"("phone");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodClient_active_idx" ON "FoodClient"("active");`);
+
+    // FoodLot
+    await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "FoodLot" (
+            "id" TEXT PRIMARY KEY,
+            "lotNumber" TEXT NOT NULL UNIQUE,
+            "description" TEXT NOT NULL,
+            "awbNumber" TEXT,
+            "supplier" TEXT,
+            "supplierCity" TEXT,
+            "importDate" TIMESTAMP(3) NOT NULL,
+            "quantityKg" DOUBLE PRECISION NOT NULL,
+            "quantityRemaining" DOUBLE PRECISION,
+            "status" "FoodLotStatus" NOT NULL DEFAULT 'IN_TRANSIT',
+            "notes" TEXT,
+            "active" BOOLEAN NOT NULL DEFAULT true,
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" TIMESTAMP(3) NOT NULL
+        );
+    `);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodLot_lotNumber_idx" ON "FoodLot"("lotNumber");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodLot_status_importDate_idx" ON "FoodLot"("status","importDate");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodLot_supplier_idx" ON "FoodLot"("supplier");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodLot_active_idx" ON "FoodLot"("active");`);
+
+    console.log("  ✅ Tables Phase 3.1 (FoodClient, FoodLot)");
 }
 
 /** Exécute une commande SQL et ignore l'erreur si contrainte déjà existante. */
