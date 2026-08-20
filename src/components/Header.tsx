@@ -263,6 +263,13 @@ function FoodNav({ role }: { role?: AppRole }) {
                 <span className="hidden md:inline">Plaintes</span>
             </Link>
             <Link
+                href="/admin/food/recalls"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-800 text-white hover:bg-red-900 transition-colors shadow-sm font-medium"
+            >
+                <span className="hidden sm:inline">🔔</span>
+                <span className="hidden md:inline">Rappels</span>
+            </Link>
+            <Link
                 href="/admin"
                 title="Revenir à la gestion des colis"
                 className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors font-medium"

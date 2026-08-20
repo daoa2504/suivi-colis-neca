@@ -23,6 +23,7 @@ model User {
   foodSalesCreated     FoodSale[]        @relation("FoodSaleCreatedBy")
   foodComplaintsCreated FoodComplaint[]  @relation("FoodComplaintCreatedBy")
   foodComplaintsHandled FoodComplaint[]  @relation("FoodComplaintHandledBy")
+  foodRecallsCreated   FoodRecall[]      @relation("FoodRecallCreatedBy")
   notificationsSent    NotificationLog[]
 }
 
@@ -492,6 +493,7 @@ model FoodClient {
 
   sales          FoodSale[]
   complaints     FoodComplaint[]
+  recallContacts RecallContact[]
 
   @@index([customerCode])
   @@index([name])
@@ -520,9 +522,7 @@ model FoodLot {
 
   sales             FoodSale[]
   complaints        FoodComplaint[]
-
-  // Relations à venir en Phase 3.4 :
-  // recalls           FoodRecall[]
+  recalls           FoodRecall[]
 
   @@index([lotNumber])
   @@index([status, importDate])
@@ -664,6 +664,7 @@ model FoodComplaint {
 
   // --- 8. Rappel déclenché ---
   triggeredRecall        Boolean             @default(false)             // A déclenché un rappel ?
+  triggeredRecalls       FoodRecall[]        @relation("ComplaintTriggeredRecall")
 
   // --- 9. RÉTENTION (Article 82 : min. 2 ans) ---
   retentionUntil         DateTime                                        // = receivedAt + 2 ans
@@ -726,4 +727,136 @@ model InvoiceTaxSnapshot {
 
   @@index([invoiceId])
   @@index([code, invoiceId])
+}
+
+// ============================================================================
+// RAPPELS ALIMENTAIRES — Article 7 procédure interne (Phase 3.4)
+// ============================================================================
+// Cœur de la traçabilité ACIA : retrouver en secondes tous les clients
+// ayant reçu un lot, initier le contact, tracer les retours/destructions.
+// Inclut la simulation annuelle (RSAC exige 1 simulation/an, rétention 2 ans).
+
+enum RecallType {
+  REAL              // Vrai rappel
+  SIMULATION        // Simulation annuelle (Article 7)
+}
+
+enum RecallReason {
+  BIOLOGICAL_HAZARD         // Contamination microbiologique
+  CHEMICAL_HAZARD           // Contamination chimique
+  PHYSICAL_HAZARD           // Corps étranger
+  UNDECLARED_ALLERGEN       // Allergène non déclaré
+  QUALITY_DEFECT            // Défaut qualité
+  REGULATORY_REQUIREMENT    // Exigence réglementaire ACIA
+  VOLUNTARY                 // Rappel volontaire
+  OTHER
+}
+
+// Classification ACIA officielle
+enum RecallClassification {
+  CLASS_I           // Risque grave pour la santé (conséquences graves)
+  CLASS_II          // Risque temporaire ou réversible
+  CLASS_III         // Peu ou pas de risque santé (étiquetage)
+}
+
+enum RecallStatus {
+  DRAFT             // En préparation
+  ACTIVE            // Rappel officiellement lancé, contacts en cours
+  MONITORING        // Récupération/destruction en cours
+  COMPLETED         // Toutes les actions terminées
+  CLOSED            // Rapport de clôture archivé
+}
+
+model FoodRecall {
+  id                     String              @id @default(cuid())
+  recallNumber           String              @unique                       // "RAP-YYYY-NNNN"
+  type                   RecallType          @default(REAL)
+  status                 RecallStatus        @default(DRAFT)
+
+  // --- Lot concerné ---
+  lotId                  String
+  lot                    FoodLot             @relation(fields: [lotId], references: [id], onDelete: Restrict)
+
+  // --- Motif + classification ---
+  reason                 RecallReason
+  classification         RecallClassification
+  description            String
+
+  // --- Plainte déclencheur (facultatif) ---
+  triggeringComplaintId  String?
+  triggeringComplaint    FoodComplaint?      @relation("ComplaintTriggeredRecall", fields: [triggeringComplaintId], references: [id], onDelete: SetNull)
+
+  // --- Cycle de vie ---
+  initiatedAt            DateTime            @default(now())
+  activatedAt            DateTime?
+  completedAt            DateTime?
+  closedAt               DateTime?
+
+  // --- Communication publique ---
+  publicNoticeText       String?
+  publicNoticeUrl        String?
+
+  // --- Notification ACIA ---
+  cfiaNotifiedAt         DateTime?
+  cfiaReference          String?
+  cfiaNoticeUrl          String?
+
+  // --- Bilan quantitatif ---
+  quantityRecovered      Float?                                            // kg récupérés
+  quantityDestroyed      Float?                                            // kg détruits
+
+  // --- Rapport de clôture (Article 7 + rétention 2 ans) ---
+  closureReport          String?
+  retentionUntil         DateTime                                          // = initiatedAt + 2 ans
+
+  contacts               RecallContact[]
+
+  createdById            String?
+  createdBy              User?               @relation("FoodRecallCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+
+  @@index([recallNumber])
+  @@index([lotId])
+  @@index([status, initiatedAt])
+  @@index([type, status])
+  @@index([classification, status])
+}
+
+// Un contact par client affecté par le rappel (auto-généré depuis FoodSale)
+model RecallContact {
+  id                 String            @id @default(cuid())
+  recallId           String
+  recall             FoodRecall        @relation(fields: [recallId], references: [id], onDelete: Cascade)
+
+  clientId           String
+  client             FoodClient        @relation(fields: [clientId], references: [id], onDelete: Restrict)
+
+  // --- Snapshot au moment de la génération (immuable) ---
+  clientNameSnapshot String                                                // Nom du client au moment du rappel
+  quantityReceived   Float                                                 // Total kg reçu (somme FoodSale)
+
+  // --- Contact ---
+  contactedAt        DateTime?                                             // Quand contacté (null = pas encore)
+  contactChannel     ComplaintChannel?                                     // Réutilise l'enum des plaintes
+  contactNotes       String?
+
+  // --- Retour du produit ---
+  productReturned    Boolean           @default(false)
+  quantityReturned   Float?
+  returnedAt         DateTime?
+
+  // --- Destruction ---
+  quantityDestroyed  Float?
+  destroyedAt        DateTime?
+
+  notes              String?
+
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@unique([recallId, clientId])
+  @@index([recallId])
+  @@index([clientId])
+  @@index([contactedAt])
 }

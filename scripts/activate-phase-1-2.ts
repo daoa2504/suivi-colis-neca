@@ -56,6 +56,11 @@ async function main() {
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     await applyPhase33Schema();
 
+    console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("  PHASE 3.4 — Rappels alimentaires (Article 7 procédure interne)");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    await applyPhase34Schema();
+
     console.log("\n✅ Activation terminée");
     console.log("⚠️  Les valeurs marquées TODO (NEQ, TPS, TVQ, code postal) doivent être saisies.");
 }
@@ -709,6 +714,107 @@ async function applyPhase33Schema() {
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodComplaint_channel_receivedAt_idx" ON "FoodComplaint"("channel","receivedAt");`);
 
     console.log("  ✅ Table FoodComplaint + enums + FKs + indexes");
+}
+
+async function applyPhase34Schema() {
+    console.log("→ Application schéma Phase 3.4 (idempotent)...");
+
+    // Enums
+    await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+            CREATE TYPE "RecallType" AS ENUM ('REAL','SIMULATION');
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    `);
+    await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+            CREATE TYPE "RecallReason" AS ENUM (
+                'BIOLOGICAL_HAZARD','CHEMICAL_HAZARD','PHYSICAL_HAZARD',
+                'UNDECLARED_ALLERGEN','QUALITY_DEFECT','REGULATORY_REQUIREMENT',
+                'VOLUNTARY','OTHER'
+            );
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    `);
+    await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+            CREATE TYPE "RecallClassification" AS ENUM ('CLASS_I','CLASS_II','CLASS_III');
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    `);
+    await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+            CREATE TYPE "RecallStatus" AS ENUM ('DRAFT','ACTIVE','MONITORING','COMPLETED','CLOSED');
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    `);
+
+    // FoodRecall
+    await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "FoodRecall" (
+            "id" TEXT PRIMARY KEY,
+            "recallNumber" TEXT NOT NULL UNIQUE,
+            "type" "RecallType" NOT NULL DEFAULT 'REAL',
+            "status" "RecallStatus" NOT NULL DEFAULT 'DRAFT',
+            "lotId" TEXT NOT NULL,
+            "reason" "RecallReason" NOT NULL,
+            "classification" "RecallClassification" NOT NULL,
+            "description" TEXT NOT NULL,
+            "triggeringComplaintId" TEXT,
+            "initiatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "activatedAt" TIMESTAMP(3),
+            "completedAt" TIMESTAMP(3),
+            "closedAt" TIMESTAMP(3),
+            "publicNoticeText" TEXT,
+            "publicNoticeUrl" TEXT,
+            "cfiaNotifiedAt" TIMESTAMP(3),
+            "cfiaReference" TEXT,
+            "cfiaNoticeUrl" TEXT,
+            "quantityRecovered" DOUBLE PRECISION,
+            "quantityDestroyed" DOUBLE PRECISION,
+            "closureReport" TEXT,
+            "retentionUntil" TIMESTAMP(3) NOT NULL,
+            "createdById" TEXT,
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" TIMESTAMP(3) NOT NULL
+        );
+    `);
+    await execIgnoreDup(`ALTER TABLE "FoodRecall" ADD CONSTRAINT "FoodRecall_lotId_fkey" FOREIGN KEY ("lotId") REFERENCES "FoodLot"("id") ON DELETE RESTRICT ON UPDATE CASCADE;`);
+    await execIgnoreDup(`ALTER TABLE "FoodRecall" ADD CONSTRAINT "FoodRecall_triggeringComplaintId_fkey" FOREIGN KEY ("triggeringComplaintId") REFERENCES "FoodComplaint"("id") ON DELETE SET NULL ON UPDATE CASCADE;`);
+    await execIgnoreDup(`ALTER TABLE "FoodRecall" ADD CONSTRAINT "FoodRecall_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;`);
+
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodRecall_recallNumber_idx" ON "FoodRecall"("recallNumber");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodRecall_lotId_idx" ON "FoodRecall"("lotId");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodRecall_status_initiatedAt_idx" ON "FoodRecall"("status","initiatedAt");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodRecall_type_status_idx" ON "FoodRecall"("type","status");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "FoodRecall_classification_status_idx" ON "FoodRecall"("classification","status");`);
+
+    // RecallContact
+    await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "RecallContact" (
+            "id" TEXT PRIMARY KEY,
+            "recallId" TEXT NOT NULL,
+            "clientId" TEXT NOT NULL,
+            "clientNameSnapshot" TEXT NOT NULL,
+            "quantityReceived" DOUBLE PRECISION NOT NULL,
+            "contactedAt" TIMESTAMP(3),
+            "contactChannel" "ComplaintChannel",
+            "contactNotes" TEXT,
+            "productReturned" BOOLEAN NOT NULL DEFAULT false,
+            "quantityReturned" DOUBLE PRECISION,
+            "returnedAt" TIMESTAMP(3),
+            "quantityDestroyed" DOUBLE PRECISION,
+            "destroyedAt" TIMESTAMP(3),
+            "notes" TEXT,
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" TIMESTAMP(3) NOT NULL
+        );
+    `);
+    await execIgnoreDup(`ALTER TABLE "RecallContact" ADD CONSTRAINT "RecallContact_recallId_fkey" FOREIGN KEY ("recallId") REFERENCES "FoodRecall"("id") ON DELETE CASCADE ON UPDATE CASCADE;`);
+    await execIgnoreDup(`ALTER TABLE "RecallContact" ADD CONSTRAINT "RecallContact_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "FoodClient"("id") ON DELETE RESTRICT ON UPDATE CASCADE;`);
+    await execIgnoreDup(`ALTER TABLE "RecallContact" ADD CONSTRAINT "RecallContact_recallId_clientId_key" UNIQUE ("recallId","clientId");`);
+
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "RecallContact_recallId_idx" ON "RecallContact"("recallId");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "RecallContact_clientId_idx" ON "RecallContact"("clientId");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "RecallContact_contactedAt_idx" ON "RecallContact"("contactedAt");`);
+
+    console.log("  ✅ Tables FoodRecall + RecallContact + enums + FKs + indexes");
 }
 
 /** Exécute une commande SQL et ignore toute erreur (utile pour SET NOT NULL sur déjà-NOT-NULL). */

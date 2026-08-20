@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 type Complaint = any;
 
@@ -118,6 +119,21 @@ export default function ComplaintWorkflow({ initial }: { initial: Complaint }) {
                         </span>
                     )}
                 </div>
+                {/* Action : déclencher un rappel */}
+                {complaint.riskLevel === "HIGH" || complaint.isHealthRisk ? (
+                    <Link
+                        href={`/admin/food/recalls/new?complaintId=${complaint.id}`}
+                        className="inline-block mt-2 text-sm bg-red-700 text-white px-3 py-1.5 rounded hover:bg-red-800 font-medium"
+                    >
+                        🔔 Déclencher un rappel depuis cette plainte
+                    </Link>
+                ) : (
+                    <p className="text-xs text-gray-500 mt-2">
+                        <Link href={`/admin/food/recalls/new?complaintId=${complaint.id}`} className="text-red-700 hover:underline">
+                            Déclencher un rappel depuis cette plainte →
+                        </Link>
+                    </p>
+                )}
                 <p className="text-sm text-gray-700">
                     Reçue le <strong>{fmt(complaint.receivedAt)}</strong> via <strong>{complaint.channel}</strong>
                     {complaint.handledBy && (

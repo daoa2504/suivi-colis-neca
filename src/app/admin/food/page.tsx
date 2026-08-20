@@ -84,10 +84,12 @@ export default async function FoodDashboardPage() {
                     desc="Registre Article 82 RSAC : biologique/chimique/physique/qualité + risque + résolution + notification ACIA."
                     color="red"
                 />
-                <CardDisabled
+                <Card
+                    href="/admin/food/recalls"
                     icon="🔔"
-                    title="Rappels (Phase 3.4)"
-                    desc="Initier un rappel de lot : liste auto des clients affectés, suivi contact + retour."
+                    title="Rappels"
+                    desc="Initier un rappel : liste auto des clients affectés, suivi contact + retour, ACIA + rapport de clôture. Simulation annuelle Article 7."
+                    color="red"
                 />
             </div>
         </main>
