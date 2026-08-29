@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { canAccessFood } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { nextRecallNumber } from "@/lib/recallNumber";
@@ -26,7 +27,7 @@ const STATUSES: RecallStatus[] = ["DRAFT", "ACTIVE", "MONITORING", "COMPLETED", 
 
 export async function GET(req: NextRequest) {
     const session = await getServerSession(authOptions);
-    if (!session || session.user?.role !== "ADMIN") {
+    if (!session || !canAccessFood(session.user?.role)) {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
     }
 
@@ -61,7 +62,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions);
-    if (!session || session.user?.role !== "ADMIN") {
+    if (!session || !canAccessFood(session.user?.role)) {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
     }
 

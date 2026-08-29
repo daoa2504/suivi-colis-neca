@@ -41,6 +41,8 @@ export default function LoginPage() {
                     router.push("/agent/ne");
                 } else if (role === "AGENT_CA") {
                     router.push("/agent/ca");
+                } else if (role === "AGENT_MARCHANDISE") {
+                    router.push("/admin/food");
                 } else if (role === "ADMIN") {
                     router.push("/dashboard");
                 } else {

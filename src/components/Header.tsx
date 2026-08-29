@@ -3,7 +3,7 @@
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathname } from "next/navigation";
-type AppRole = 'ADMIN' | 'AGENT_NE' | 'AGENT_CA';
+import { canAccessFood, isFoodOnly, type AppRole } from '@/lib/roles';
 
 export default function Header() {
     const { data: session } = useSession();
@@ -102,6 +102,10 @@ export default function Header() {
                                             <span className="flex items-center gap-1.5 text-xs bg-red-50 text-red-700 px-2 py-0.5 rounded-full font-medium border border-red-200">
                                                 <img src="/flags/ca.svg" alt="CA" className="w-4 h-3 rounded" />
                                                 Canada
+                                            </span>
+                                        ) : role === 'AGENT_MARCHANDISE' ? (
+                                            <span className="flex items-center gap-1.5 text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-medium border border-emerald-200">
+                                                🌾 Marchandises
                                             </span>
                                         ) : (
                                             <span className="flex items-center gap-1.5 text-xs bg-orange-50 text-orange-700 px-2 py-0.5 rounded-full font-medium border border-orange-200">
@@ -231,7 +235,7 @@ function ShippingNav({ role }: { role?: AppRole }) {
 // ============================================================================
 
 function FoodNav({ role }: { role?: AppRole }) {
-    if (role !== "ADMIN") return null;
+    if (!canAccessFood(role)) return null;
     return (
         <>
             <Link
@@ -269,16 +273,19 @@ function FoodNav({ role }: { role?: AppRole }) {
                 <span className="hidden sm:inline">🔔</span>
                 <span className="hidden md:inline">Rappels</span>
             </Link>
-            <Link
-                href="/admin"
-                title="Revenir à la gestion des colis"
-                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors font-medium"
-            >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-                <span className="hidden md:inline">Retour Colis</span>
-            </Link>
+            {/* L'agent marchandises n'a pas accès aux colis : pas de porte de sortie vers /admin */}
+            {!isFoodOnly(role) && (
+                <Link
+                    href="/admin"
+                    title="Revenir à la gestion des colis"
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors font-medium"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    <span className="hidden md:inline">Retour Colis</span>
+                </Link>
+            )}
         </>
     );
 }

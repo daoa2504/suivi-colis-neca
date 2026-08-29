@@ -3,6 +3,7 @@
 
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { canAccessFood } from "@/lib/roles";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -17,7 +18,7 @@ export default async function FoodClientsPage({
 }) {
     const session = await getServerSession(authOptions);
     if (!session) redirect("/login");
-    if (session.user.role !== "ADMIN") redirect("/");
+    if (!canAccessFood(session.user.role)) redirect("/");
 
     const sp = await searchParams;
     const q = (sp.q ?? "").trim();

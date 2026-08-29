@@ -1,6 +1,7 @@
 // src/app/admin/users/[id]/page.tsx
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { ROLE_LABEL } from "@/lib/roles";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
@@ -19,12 +20,6 @@ function fmt(d: Date | string | null) {
         timeZone: "America/Montreal",
     });
 }
-
-const ROLE_LABEL: Record<string, string> = {
-    ADMIN: "Admin",
-    AGENT_CA: "Agent Canada",
-    AGENT_NE: "Agent Niger",
-};
 
 const TEMPLATE_LABEL: Record<string, string> = {
     EN_ROUTE: "En route",

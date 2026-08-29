@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { canAccessFood } from "@/lib/roles";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function NewFoodClientPage() {
     const session = await getServerSession(authOptions);
     if (!session) redirect("/login");
-    if (session.user.role !== "ADMIN") redirect("/");
+    if (!canAccessFood(session.user.role)) redirect("/");
 
     // Lots disponibles pour la section "Première commande"
     const availableLots = await prisma.foodLot.findMany({

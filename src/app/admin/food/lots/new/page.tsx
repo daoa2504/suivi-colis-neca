@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { canAccessFood } from "@/lib/roles";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import FoodLotForm from "../FoodLotForm";
@@ -9,7 +10,7 @@ export const runtime = "nodejs";
 export default async function NewFoodLotPage() {
     const session = await getServerSession(authOptions);
     if (!session) redirect("/login");
-    if (session.user.role !== "ADMIN") redirect("/");
+    if (!canAccessFood(session.user.role)) redirect("/");
 
     return (
         <main className="p-6 max-w-3xl mx-auto">

@@ -25,10 +25,20 @@ async function main() {
             password: "niger123"
         },
         {
+            // Agent Marchandises : accès au module food uniquement, aucun accès colis.
+            // ⚠️ Dépôt public : jamais de mot de passe réel ici.
+            // Définir AGENT_MARCHANDISE_PASSWORD pour un vrai mot de passe.
             username: "Sodik",
             email: "www.sodikabdouramane@gmail.com",
+            role: "AGENT_MARCHANDISE",
+            password: process.env.AGENT_MARCHANDISE_PASSWORD || "dev-changeme"
+        },
+        {
+            // ⚠️ Dépôt public : définir AASODIK_PASSWORD pour un vrai mot de passe.
+            username: "AASodik",
+            email: null,
             role: "AGENT_CA",
-            password: "niger1234"
+            password: process.env.AASODIK_PASSWORD || "dev-changeme"
         },
         {
             username: "Mananou",
@@ -68,7 +78,8 @@ async function main() {
     console.log("  Admin:      username=admin, password=admin123");
     console.log("  Agent CA:   username=agent_ca, password=canada123");
     console.log("  Agent NE:   username=agent_ne, password=niger123");
-    console.log("  Sodika:     username=sodika, password=niger1234");
+    console.log("  Marchandises: username=Sodik (rôle AGENT_MARCHANDISE)");
+    console.log("  Agent CA 2:   username=AASodik (rôle AGENT_CA)");
     console.log("  Assoumani:  username=assoumani, password=niger123");
     console.log("  Mananou:    username=Mananou, password=niger123");
 }

@@ -2,29 +2,18 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { ROLE_BADGE, ROLE_LABEL, type AppRole } from "@/lib/roles";
 
 type Row = {
     id: string;
     username: string;
     email: string | null;
-    role: "ADMIN" | "AGENT_CA" | "AGENT_NE";
+    role: AppRole;
     shipmentsCount: number;
     paymentsCount: number;
     expensesCount: number;
     notificationsCount: number;
     lastActivity: string | null;
-};
-
-const ROLE_BADGE: Record<string, string> = {
-    ADMIN: "bg-purple-100 text-purple-800",
-    AGENT_CA: "bg-red-100 text-red-800",
-    AGENT_NE: "bg-green-100 text-green-800",
-};
-
-const ROLE_LABEL: Record<string, string> = {
-    ADMIN: "Admin",
-    AGENT_CA: "Agent Canada",
-    AGENT_NE: "Agent Niger",
 };
 
 function fmtDate(s: string | null) {

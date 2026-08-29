@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { canAccessFood } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { sendEmailSafe, FROM } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
@@ -60,7 +61,7 @@ const CATEGORY_LABEL: Record<HealthRiskCategory, string> = {
 // --- GET (admin uniquement) ---
 export async function GET(req: NextRequest) {
     const session = await getServerSession(authOptions);
-    if (!session || session.user?.role !== "ADMIN") {
+    if (!session || !canAccessFood(session.user?.role)) {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
     }
 
@@ -99,11 +100,12 @@ export async function GET(req: NextRequest) {
 // --- POST (public via formulaire OU admin en saisie manuelle) ---
 export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions);
-    const isAdmin = session?.user?.role === "ADMIN";
+    // Saisie interne (ADMIN ou agent marchandises) vs soumission publique du formulaire
+    const isStaff = canAccessFood(session?.user?.role);
     const ip = getIp(req);
 
     // Rate-limit uniquement pour les submissions publiques (pas admin)
-    if (!isAdmin && !checkRateLimit(ip)) {
+    if (!isStaff && !checkRateLimit(ip)) {
         return NextResponse.json(
             { ok: false, error: "Trop de plaintes déposées. Réessayez dans une heure." },
             { status: 429 }
@@ -209,14 +211,14 @@ export async function POST(req: NextRequest) {
             isHealthRisk,
             riskLevel,
             retentionUntil,
-            ipAddress: isAdmin ? null : ip,
-            createdById: isAdmin ? (session!.user?.id ?? null) : null,
+            ipAddress: isStaff ? null : ip,
+            createdById: isStaff ? (session!.user?.id ?? null) : null,
         },
     });
 
     // Audit
     await logAudit({
-        userId: isAdmin ? (session!.user?.id ?? null) : null,
+        userId: isStaff ? (session!.user?.id ?? null) : null,
         entityType: "FoodComplaint",
         entityId: complaint.id,
         action: "CREATE",
@@ -228,7 +230,7 @@ export async function POST(req: NextRequest) {
             client: clientNameSnapshot,
             lot: lotNumberSnapshot,
         },
-        ipAddress: isAdmin ? null : ip,
+        ipAddress: isStaff ? null : ip,
     });
 
     // Email de notification admin
@@ -282,7 +284,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Accusé de réception au client (si soumission publique + email fourni)
-    if (!isAdmin && clientEmail) {
+    if (!isStaff && clientEmail) {
         try {
             await sendEmailSafe({
                 from: FROM,

@@ -2,11 +2,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { canAccessShipping } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
     const session = await getServerSession(authOptions);
-    if (!session) {
+    if (!session || !canAccessShipping(session.user?.role)) {
         return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
 

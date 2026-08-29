@@ -173,6 +173,7 @@ enum Role {
   ADMIN
   AGENT_CA
   AGENT_NE
+  AGENT_MARCHANDISE // Accès au module Marchandises (food) uniquement — aucun accès colis
 }
 
 enum ShipmentStatus {
