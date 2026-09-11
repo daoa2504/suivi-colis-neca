@@ -18,6 +18,7 @@ const COLUMNS: ColumnDef[] = [
     { id: "statut", label: "Statut" },
     { id: "paiement", label: "Paiement" },
     { id: "colis", label: "Colis" },
+    { id: "contenu", label: "Contenu" },
     { id: "poids", label: "Poids" },
     { id: "ville", label: "Ville" },
     { id: "cree", label: "Créé le" },

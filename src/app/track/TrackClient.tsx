@@ -229,6 +229,8 @@ export default function TrackClient({ initialTrackingId }: { initialTrackingId: 
                             origin={shipmentData.origin}
                             destination={shipmentData.destination}
                             weight={shipmentData.weightKg}
+                            itemKind={shipmentData.itemKind}
+                            deviceType={shipmentData.deviceType}
                             pieces={shipmentData.pieces || 1}
                             trackingId={shipmentData.trackingId}
                             receiverCity={shipmentData.receiverCity}

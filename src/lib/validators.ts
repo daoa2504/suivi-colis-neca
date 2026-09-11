@@ -1,16 +1,58 @@
 // src/lib/validators.ts
 import { z } from "zod";
+
+// Nombre facultatif venant d'un <input type="number"> : "" et null → undefined
+const optionalPositive = z.preprocess(
+    (v) => (v === "" || v === null ? undefined : Number(v)),
+    z.number().positive().optional()
+);
+
+// Champs décrivant le contenu de l'envoi, communs aux deux sens
+const contentFields = {
+    itemKind: z.enum(["PARCEL", "DEVICE"]).default("PARCEL"),
+    deviceType: z.string().trim().min(1).nullish(),
+    weightKg: optionalPositive,
+    lengthCm: optionalPositive,
+    widthCm: optionalPositive,
+    heightCm: optionalPositive,
+};
+
+/**
+ * Colis → le poids est obligatoire (il sert au calcul du tarif).
+ * Appareil → c'est le type qui est obligatoire ; poids et dimensions sont
+ * souvent inconnus à la prise en charge et restent donc facultatifs.
+ */
+function refineContent(
+    data: { itemKind?: "PARCEL" | "DEVICE"; deviceType?: string | null; weightKg?: number },
+    ctx: z.RefinementCtx
+) {
+    if (data.itemKind === "DEVICE") {
+        if (!data.deviceType) {
+            ctx.addIssue({
+                path: ["deviceType"],
+                code: z.ZodIssueCode.custom,
+                message: "Type d'appareil requis",
+            });
+        }
+        return;
+    }
+    if (data.weightKg == null) {
+        ctx.addIssue({
+            path: ["weightKg"],
+            code: z.ZodIssueCode.custom,
+            message: "Poids obligatoire pour un colis",
+        });
+    }
+}
+
 // Formulaire Agent GN : enregistre un colis + date de convoi (obligatoire)
-export const createShipmentByGN = z.object({
+const shipmentBase = z.object({
     receiverName: z.string().min(1),
     receiverEmail: z.string().email(),
     receiverPhone: z.string().nullish(),
     originCountry: z.string().default("Niger"),
     destinationCountry: z.string().default("Canada"),
-    weightKg: z.preprocess(
-        (v) => (v === "" || v === null ? undefined : Number(v)),
-        z.number().positive().optional()
-    ),
+    ...contentFields,
     receiverAddress: z.string().nullish(),
     receiverCity: z.string().nullish(),
     receiverPoBox: z.string().nullish(),
@@ -19,15 +61,19 @@ export const createShipmentByGN = z.object({
     convoyDate: z.union([z.string(), z.date()]).optional(), // legacy, remplacé par convoyId
 });
 
+export const createShipmentByGN = shipmentBase.superRefine(refineContent);
+
 // Formulaire Agent CA : identique à GN + infos du récupérateur au Niger (obligatoires)
-export const createShipmentByCA = createShipmentByGN.extend({
-    originCountry: z.string().default("Canada"),
-    destinationCountry: z.string().default("Niger"),
-    pickupLastName: z.string().min(1, "Nom du récupérateur requis"),
-    pickupFirstName: z.string().min(1, "Prénoms du récupérateur requis"),
-    pickupQuartier: z.string().nullish(),
-    pickupPhone: z.string().min(1, "Téléphone du récupérateur requis"),
-});
+export const createShipmentByCA = shipmentBase
+    .extend({
+        originCountry: z.string().default("Canada"),
+        destinationCountry: z.string().default("Niger"),
+        pickupLastName: z.string().min(1, "Nom du récupérateur requis"),
+        pickupFirstName: z.string().min(1, "Prénoms du récupérateur requis"),
+        pickupQuartier: z.string().nullish(),
+        pickupPhone: z.string().min(1, "Téléphone du récupérateur requis"),
+    })
+    .superRefine(refineContent);
 
 // src/lib/validators.ts
 

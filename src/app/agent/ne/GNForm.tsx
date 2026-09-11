@@ -4,6 +4,7 @@
 import * as React from 'react';
 import { useState, useEffect, useRef } from 'react';
 import PaymentSection from '@/components/PaymentSection';
+import ContentKindSection from '@/components/ContentKindSection';
 
 export default function GNForm() {
     // ⚙️ CONFIGURATION - Modifiez ces valeurs selon vos besoins
@@ -26,6 +27,9 @@ export default function GNForm() {
     const [city, setCity] = useState("");
     const [otherCity, setOtherCity] = useState("");
     const [receiverName, setReceiverName] = useState('');
+    // Incrémenté après un envoi réussi : form.reset() ne vide pas l'état React
+    // de la section « Nature du contenu ».
+    const [contentResetSignal, setContentResetSignal] = useState(0);
 
     // États pour les convois disponibles
     const [availableConvoys, setAvailableConvoys] = useState<
@@ -228,6 +232,7 @@ export default function GNForm() {
             setReceiverName('');
             setSelectedConvoyId('');
             setSearchPhone('');
+            setContentResetSignal((n) => n + 1);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Erreur inconnue';
             setMsg(`❌ ${message}`);
@@ -502,24 +507,8 @@ export default function GNForm() {
                 </div>
             </div>
 
-            {/* Métadonnées colis */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label htmlFor="weightKg" className="label block mb-1 text-sm font-medium text-neutral-700">
-                        Poids (kg) <span className="text-red-600">*</span>
-                    </label>
-                    <input
-                        id="weightKg"
-                        name="weightKg"
-                        required
-                        type="number"
-                        step="0.5"
-                        min="1"
-                        placeholder="ex: 2.5"
-                        className="input border p-2 w-full rounded"
-                    />
-                </div>
-            </div>
+            {/* Nature du contenu : colis ou appareil */}
+            <ContentKindSection resetSignal={contentResetSignal} />
 
             {/* Paiement */}
             <PaymentSection />

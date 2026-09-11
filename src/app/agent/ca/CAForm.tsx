@@ -4,6 +4,15 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import PaymentSection from "@/components/PaymentSection";
+import ContentKindSection from "@/components/ContentKindSection";
+
+// Champ numérique facultatif d'un FormData → nombre ou null
+function numOrNull(v: FormDataEntryValue | null): number | null {
+    const s = String(v ?? "").trim();
+    if (!s) return null;
+    const n = Number(s.replace(",", "."));
+    return Number.isFinite(n) ? n : null;
+}
 
 export default function CAForm() {
     const router = useRouter();
@@ -25,6 +34,9 @@ export default function CAForm() {
     const [msg, setMsg] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [receiverName, setReceiverName] = useState('');
+    // Incrémenté après un envoi réussi : form.reset() ne vide pas l'état React
+    // de la section « Nature du contenu ».
+    const [contentResetSignal, setContentResetSignal] = useState(0);
 
     // États pour le récupérateur au Niger
     const [pickupLastName, setPickupLastName] = useState('');
@@ -207,10 +219,12 @@ export default function CAForm() {
             receiverName: String(fd.get("receiverName") || "").trim(),
             receiverEmail: String(fd.get("receiverEmail") || "").trim(),
             receiverPhone: (fd.get("receiverPhone") as string) || null,
-            weightKg:
-                fd.get("weightKg") && String(fd.get("weightKg")).length > 0
-                    ? Number(fd.get("weightKg"))
-                    : null,
+            weightKg: numOrNull(fd.get("weightKg")),
+            itemKind: String(fd.get("itemKind") || "PARCEL"),
+            deviceType: String(fd.get("deviceType") || "").trim() || null,
+            lengthCm: numOrNull(fd.get("lengthCm")),
+            widthCm: numOrNull(fd.get("widthCm")),
+            heightCm: numOrNull(fd.get("heightCm")),
             receiverAddress: (fd.get("receiverAddress") as string) || null,
             receiverCity: (fd.get("receiverCity") as string) || null,
             receiverPoBox: (fd.get("receiverPoBox") as string) || null,
@@ -258,6 +272,7 @@ export default function CAForm() {
             setPickupFirstName('');
             setSelectedConvoyId('');
             setSearchPhone('');
+            setContentResetSignal((n) => n + 1);
             setMsg(`✅ Colis enregistré. Tracking: ${(data as any).trackingId}`);
             router.refresh();
         } catch (err: any) {
@@ -405,20 +420,10 @@ export default function CAForm() {
                             placeholder="(optionnel)"
                         />
                     </div>
-                    <div>
-                        <label htmlFor="weightKg" className="label block mb-1 text-sm font-medium text-neutral-700">
-                            Poids (kg)
-                        </label>
-                        <input
-                            id="weightKg"
-                            name="weightKg"
-                            type="number"
-                            step="0.5"
-                            min="0"
-                            className="input border p-2 w-full rounded"
-                        />
-                    </div>
                 </div>
+
+                {/* Nature du contenu : colis ou appareil */}
+                <ContentKindSection resetSignal={contentResetSignal} />
 
                 <div>
                     <label htmlFor="receiverAddress" className="label block mb-1 text-sm font-medium text-neutral-700">

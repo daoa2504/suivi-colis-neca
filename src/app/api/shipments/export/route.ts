@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { formatDimensions } from "@/lib/itemKind";
 import type { Prisma } from "@prisma/client";
 
 export const runtime = "nodejs";
@@ -66,6 +67,9 @@ export async function GET(req: NextRequest) {
             pickupQuartier: s.pickupQuartier,
             pickupPhone: s.pickupPhone,
             weightKg: s.weightKg,
+            itemKind: s.itemKind,
+            deviceType: s.deviceType,
+            dimensions: formatDimensions(s.lengthCm, s.widthCm, s.heightCm),
             itemsCount: s._count.items,
             status: s.status,
             paymentStatus: s.paymentStatus,

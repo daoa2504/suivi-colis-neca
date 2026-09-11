@@ -34,6 +34,8 @@ interface ShipmentTrackerProps {
     origin: string;
     destination: string;
     weight: number;
+    itemKind?: "PARCEL" | "DEVICE" | null;
+    deviceType?: string | null;
     pieces: number;
     trackingId: string;
     receiverCity?: string | null;
@@ -202,6 +204,8 @@ export default function ShipmentTracker({
     origin,
     destination,
     weight,
+    itemKind,
+    deviceType,
     trackingId,
     receiverCity,
     convoyDate,
@@ -523,10 +527,26 @@ export default function ShipmentTracker({
                         <p className="text-xs sm:text-sm text-gray-500 mb-1">Destination</p>
                         <p className="font-semibold text-sm sm:text-base">{countryLabel(destination)}</p>
                     </div>
-                    <div className="text-center">
-                        <p className="text-xs sm:text-sm text-gray-500 mb-1">Poids</p>
-                        <p className="font-semibold text-sm sm:text-base">{weight ?? "—"} kg</p>
-                    </div>
+                    {/* Pour un appareil, le poids est souvent inconnu : on montre
+                        le type, plus parlant pour le client qu'un « — kg ». */}
+                    {itemKind === "DEVICE" ? (
+                        <div className="text-center">
+                            <p className="text-xs sm:text-sm text-gray-500 mb-1">Contenu</p>
+                            <p className="font-semibold text-sm sm:text-base">
+                                {deviceType || "Appareil"}
+                            </p>
+                            {weight != null && (
+                                <p className="text-xs text-gray-500">{weight} kg</p>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="text-center">
+                            <p className="text-xs sm:text-sm text-gray-500 mb-1">Poids</p>
+                            <p className="font-semibold text-sm sm:text-base">
+                                {weight != null ? `${weight} kg` : "—"}
+                            </p>
+                        </div>
+                    )}
                 </div>
             </div>
 

@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import * as React from "react";
+import ContentKindSection, { type ContentValue } from "@/components/ContentKindSection";
 
 type Shipment = {
     id: number;
@@ -11,6 +12,11 @@ type Shipment = {
     receiverEmail: string;
     receiverPhone?: string | null;
     weightKg?: number | null;
+    itemKind?: "PARCEL" | "DEVICE" | null;
+    deviceType?: string | null;
+    lengthCm?: number | null;
+    widthCm?: number | null;
+    heightCm?: number | null;
     notes?: string | null;
     receiverAddress?: string | null;
     receiverCity?: string | null;
@@ -37,6 +43,13 @@ function dateToISO(d: Date | string | null | undefined) {
     return new Date(d).toISOString().slice(0, 10);
 }
 
+function numOrNull(s: string): number | null {
+    const t = s.trim();
+    if (!t) return null;
+    const n = Number(t.replace(",", "."));
+    return Number.isFinite(n) ? n : null;
+}
+
 export default function EditForm({
     shipment,
     direction,
@@ -52,7 +65,20 @@ export default function EditForm({
     const [receiverName, setReceiverName] = useState(shipment.receiverName || "");
     const [receiverEmail, setReceiverEmail] = useState(shipment.receiverEmail || "");
     const [phone, setPhone] = useState(shipment.receiverPhone || "");
-    const [weightKg, setWeightKg] = useState(shipment.weightKg?.toString() || "");
+
+    // Nature du contenu : gérée par ContentKindSection, qui remonte ses valeurs ici.
+    const [content, setContent] = useState<ContentValue>({
+        itemKind: shipment.itemKind === "DEVICE" ? "DEVICE" : "PARCEL",
+        deviceType: shipment.deviceType || "",
+        weightKg: shipment.weightKg?.toString() || "",
+        lengthCm: shipment.lengthCm?.toString() || "",
+        widthCm: shipment.widthCm?.toString() || "",
+        heightCm: shipment.heightCm?.toString() || "",
+    });
+
+    // Référence stable : ContentKindSection appelle onChange dans un effet.
+    const onContentChange = useCallback((v: ContentValue) => setContent(v), []);
+
     const [receiverAddress, setReceiverAddress] = useState(shipment.receiverAddress || "");
     const [receiverPoBox, setReceiverPoBox] = useState(shipment.receiverPoBox || "");
     const [notes, setNotes] = useState(shipment.notes || "");
@@ -136,7 +162,12 @@ export default function EditForm({
             receiverName: receiverName.trim(),
             receiverEmail: receiverEmail.trim(),
             receiverPhone: phone || null,
-            weightKg: weightKg && weightKg.length > 0 ? Number(weightKg) : null,
+            weightKg: numOrNull(content.weightKg),
+            itemKind: content.itemKind,
+            deviceType: content.itemKind === "DEVICE" ? content.deviceType || null : null,
+            lengthCm: numOrNull(content.lengthCm),
+            widthCm: numOrNull(content.widthCm),
+            heightCm: numOrNull(content.heightCm),
             notes: notes || null,
             receiverAddress: receiverAddress || null,
             receiverCity: effectiveCity || null,
@@ -253,20 +284,9 @@ export default function EditForm({
                                     onChange={(e) => setPhone(e.target.value)}
                                 />
                             </div>
-                            <div>
-                                <label className="label block mb-1 text-sm font-medium text-neutral-700">
-                                    Poids (kg)
-                                </label>
-                                <input
-                                    type="number"
-                                    step="0.5"
-                                    min="0"
-                                    className="input border p-2 w-full rounded"
-                                    value={weightKg}
-                                    onChange={(e) => setWeightKg(e.target.value)}
-                                />
-                            </div>
                         </div>
+
+                        <ContentKindSection initial={content} onChange={onContentChange} />
 
                         <div>
                             <label className="label block mb-1 text-sm font-medium text-neutral-700">Adresse</label>
@@ -397,17 +417,9 @@ export default function EditForm({
                                 onChange={(e) => setPhone(formatPhoneCA(e.target.value))}
                             />
                         </div>
-                        <div>
-                            <label className="label block mb-1 text-sm font-medium text-neutral-700">Poids (kg)</label>
-                            <input
-                                type="number"
-                                step="0.5"
-                                className="input border p-2 w-full rounded"
-                                value={weightKg}
-                                onChange={(e) => setWeightKg(e.target.value)}
-                            />
-                        </div>
                     </div>
+
+                    <ContentKindSection initial={content} onChange={onContentChange} />
 
                     {/* Adresse au Canada */}
                     <div className="space-y-4">

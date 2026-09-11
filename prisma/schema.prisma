@@ -38,6 +38,16 @@ model Shipment {
   receiverPoBox      String?
   destinationCountry String
   weightKg           Float?
+
+  // Nature du contenu : colis ordinaire ou appareil.
+  // PARCEL → weightKg obligatoire. DEVICE → deviceType obligatoire,
+  // poids et dimensions facultatifs (souvent inconnus à la prise en charge).
+  itemKind           ItemKind       @default(PARCEL)
+  deviceType         String? // Téléphone, Télévision, Machine à laver… (libre si "Autre")
+  lengthCm           Float?
+  widthCm            Float?
+  heightCm           Float?
+
   notes              String?
   status             ShipmentStatus @default(CREATED)
   statusHistory      Json?
@@ -190,6 +200,11 @@ enum ShipmentStatus {
 enum Direction {
   NE_TO_CA
   CA_TO_NE
+}
+
+enum ItemKind {
+  PARCEL // Colis ordinaire — poids obligatoire
+  DEVICE // Appareil — type obligatoire, poids et dimensions facultatifs
 }
 
 enum PaymentStatus {

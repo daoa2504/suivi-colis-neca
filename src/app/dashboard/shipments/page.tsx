@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import Link from "next/link";
+import { formatDimensions } from "@/lib/itemKind";
 import type { Prisma, ShipmentStatus, PaymentStatus } from "@prisma/client";
 import NotifyDeliveredButton from "./NotifyDeliveredButton";
 import DeleteShipmentButton from "./DeleteShipmentButton";
@@ -203,6 +204,11 @@ export default async function ShipmentsPage({
                 receiverPhone: true,
                 status: true,
                 weightKg: true,
+                itemKind: true,
+                deviceType: true,
+                lengthCm: true,
+                widthCm: true,
+                heightCm: true,
                 receiverCity: true,
                 receiverAddress: true,
                 receiverPoBox: true,
@@ -398,6 +404,7 @@ export default async function ShipmentsPage({
                         <th data-col="statut" className="text-left p-3">Statut</th>
                         <th data-col="paiement" className="text-left p-3">Paiement</th>
                         <th data-col="colis" className="text-left p-3">Colis</th>
+                        <th data-col="contenu" className="text-left p-3">Contenu</th>
                         <th data-col="poids" className="text-left p-3">Poids</th>
                         <th data-col="ville" className="text-left p-3">Ville</th>
                         <th data-col="cree" className="text-left p-3">Créé le</th>
@@ -450,6 +457,21 @@ export default async function ShipmentsPage({
                                 >
                                     📦 {s._count.items}
                                 </Link>
+                            </td>
+                            <td data-col="contenu" className="p-3">
+                                {s.itemKind === "DEVICE" ? (
+                                    <span
+                                        className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-xs font-medium"
+                                        title={
+                                            formatDimensions(s.lengthCm, s.widthCm, s.heightCm) ??
+                                            undefined
+                                        }
+                                    >
+                                        🔌 {s.deviceType || "Appareil"}
+                                    </span>
+                                ) : (
+                                    <span className="text-xs text-neutral-500">📦 Colis</span>
+                                )}
                             </td>
                             <td data-col="poids" className="p-3">{s.weightKg ?? "—"}</td>
                             <td data-col="ville" className="p-3">{s.receiverCity ?? "—"}</td>

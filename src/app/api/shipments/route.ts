@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { Direction } from "@prisma/client";
 import { sendEmailSafe, FROM, type EmailAttachment } from "@/lib/email";
-import { createShipmentByCA } from "@/lib/validators";
+import { createShipmentByCA, createShipmentByGN } from "@/lib/validators";
 import { createInvoiceForShipment, getInvoiceByShipment } from "@/lib/invoice";
 import { renderInvoicePdf } from "@/lib/invoice-pdf";
 
@@ -89,15 +89,19 @@ export async function POST(req: NextRequest) {
         // La direction provient du convoi, source de vérité
         const direction: Direction = convoy.direction;
 
-        // Validation spécifique CA→NE : infos du récupérateur au Niger obligatoires
-        if (direction === "CA_TO_NE") {
-            const parsed = createShipmentByCA.safeParse(body);
-            if (!parsed.success) {
-                return NextResponse.json(
-                    { ok: false, error: parsed.error.flatten() },
-                    { status: 400 }
-                );
-            }
+        // Validation : CA→NE exige en plus les infos du récupérateur au Niger.
+        // Les deux sens passent par le schéma, qui porte la règle colis/appareil
+        // (poids obligatoire pour un colis, type obligatoire pour un appareil).
+        const parsed =
+            direction === "CA_TO_NE"
+                ? createShipmentByCA.safeParse(body)
+                : createShipmentByGN.safeParse(body);
+
+        if (!parsed.success) {
+            return NextResponse.json(
+                { ok: false, error: parsed.error.flatten() },
+                { status: 400 }
+            );
         }
 
         const isNeToCA = direction === "NE_TO_CA";
@@ -114,6 +118,17 @@ export async function POST(req: NextRequest) {
         console.log("  - Route:", routeDisplay);
 
         const weightKg = toFloatOrNull(body.weightKg);
+
+        // Nature du contenu : colis ou appareil.
+        // Pour un colis, le type d'appareil et les dimensions sont ignorés même
+        // si le client les a envoyés — pas de données orphelines en base.
+        const itemKind: "PARCEL" | "DEVICE" =
+            String(body.itemKind ?? "PARCEL").toUpperCase() === "DEVICE" ? "DEVICE" : "PARCEL";
+        const isDevice = itemKind === "DEVICE";
+        const deviceType = isDevice ? String(body.deviceType ?? "").trim() || null : null;
+        const lengthCm = isDevice ? toFloatOrNull(body.lengthCm) : null;
+        const widthCm = isDevice ? toFloatOrNull(body.widthCm) : null;
+        const heightCm = isDevice ? toFloatOrNull(body.heightCm) : null;
 
         // Paiement (nouveau — Phase 2.8)
         const totalAmount = toFloatOrNull(body.totalAmount);
@@ -142,6 +157,11 @@ export async function POST(req: NextRequest) {
                 receiverEmail: body.receiverEmail?.trim() || "",
                 receiverPhone: body.receiverPhone || null,
                 weightKg: weightKg ?? null,
+                itemKind,
+                deviceType,
+                lengthCm,
+                widthCm,
+                heightCm,
                 receiverAddress: body.receiverAddress || null,
                 receiverCity: body.receiverCity || null,
                 receiverPoBox: body.receiverPoBox || null,

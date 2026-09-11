@@ -3,6 +3,7 @@
 import { useState } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { describeContent } from "@/lib/itemKind";
 
 type ConvoyShipment = {
     id: number;
@@ -11,6 +12,8 @@ type ConvoyShipment = {
     receiverPhone: string | null;
     receiverCity: string | null;
     weightKg: number | null;
+    itemKind: "PARCEL" | "DEVICE" | null;
+    deviceType: string | null;
     paymentStatus: "PAID" | "PARTIAL" | "UNPAID";
     amountPaid: number | null;
     items: { id: string; label: string; quantity: number; weightKg: number | null }[];
@@ -177,6 +180,7 @@ export default function ExportPdfButtons({
                 "Nom",
                 "Téléphone",
                 "Nb colis",
+                "Contenu",
                 "Poids (kg)",
                 "Paiement",
                 ...itemHeaders,
@@ -218,6 +222,7 @@ export default function ExportPdfButtons({
                         s.receiverName,
                         s.receiverPhone ?? "—",
                         String(totalQty || s.items.length || 0),
+                        describeContent(s.itemKind, s.deviceType),
                         totalWeight.toFixed(2),
                         payment,
                         ...s.items.map(

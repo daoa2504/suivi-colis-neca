@@ -48,6 +48,8 @@ export async function GET(
             receiverPhone: s.receiverPhone,
             receiverCity: s.receiverCity,
             weightKg: s.weightKg,
+            itemKind: s.itemKind,
+            deviceType: s.deviceType,
             paymentStatus: s.paymentStatus,
             amountPaid: s.amountPaid,
             pickupLastName: s.pickupLastName,

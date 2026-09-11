@@ -83,6 +83,41 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if ("receiverEmail" in body) data.receiverEmail = String(body.receiverEmail ?? "");
     if ("receiverPhone" in body) data.receiverPhone = body.receiverPhone ? String(body.receiverPhone) : null;
     if ("weightKg" in body) data.weightKg = body.weightKg !== "" && body.weightKg !== undefined ? Number(body.weightKg) : null;
+
+    // Nature du contenu. Repasser un appareil en colis efface type et dimensions,
+    // pour ne pas garder de données qui ne décrivent plus l'envoi.
+    if ("itemKind" in body) {
+        const isDevice = String(body.itemKind ?? "").toUpperCase() === "DEVICE";
+        data.itemKind = isDevice ? "DEVICE" : "PARCEL";
+        if (!isDevice) {
+            data.deviceType = null;
+            data.lengthCm = null;
+            data.widthCm = null;
+            data.heightCm = null;
+        } else {
+            const num = (v: unknown) =>
+                v === "" || v === undefined || v === null ? null : Number(v);
+            if ("deviceType" in body) data.deviceType = body.deviceType ? String(body.deviceType) : null;
+            if ("lengthCm" in body) data.lengthCm = num(body.lengthCm);
+            if ("widthCm" in body) data.widthCm = num(body.widthCm);
+            if ("heightCm" in body) data.heightCm = num(body.heightCm);
+        }
+
+        // Un colis doit garder un poids : on refuse de le vider par une modification.
+        if (!isDevice && data.weightKg == null) {
+            return NextResponse.json(
+                { ok: false, error: "Poids obligatoire pour un colis" },
+                { status: 400 }
+            );
+        }
+        if (isDevice && !data.deviceType) {
+            return NextResponse.json(
+                { ok: false, error: "Type d'appareil requis" },
+                { status: 400 }
+            );
+        }
+    }
+
     if ("receiverAddress" in body) data.receiverAddress = body.receiverAddress ? String(body.receiverAddress) : null;
     if ("receiverCity" in body) data.receiverCity = body.receiverCity ? String(body.receiverCity) : null;
     if ("receiverPoBox" in body) data.receiverPoBox = body.receiverPoBox ? String(body.receiverPoBox) : null;

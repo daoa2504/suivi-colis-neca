@@ -12,6 +12,7 @@
 
 import { Prisma, PaymentStatus, InvoiceStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { formatDimensions } from "@/lib/itemKind";
 import { determineAndCalculate, type TaxContext } from "@/lib/tax";
 import { logAudit } from "@/lib/audit";
 
@@ -111,8 +112,19 @@ export async function createInvoiceForShipment(
 
     // Description ligne : « Service de transport · CA → NE »
     const routeLabel = describeRoute(shipment.originCountry, shipment.destinationCountry);
-    const description = "Service de transport de colis";
-    const detailedDescription = `Envoi ${shipment.trackingId} · ${routeLabel}`;
+    const isDevice = shipment.itemKind === "DEVICE";
+    const description = isDevice
+        ? "Service de transport d'appareil"
+        : "Service de transport de colis";
+    const dims = formatDimensions(shipment.lengthCm, shipment.widthCm, shipment.heightCm);
+    const detailedDescription = [
+        `Envoi ${shipment.trackingId}`,
+        routeLabel,
+        isDevice ? shipment.deviceType || "Appareil" : null,
+        isDevice ? dims : null,
+    ]
+        .filter(Boolean)
+        .join(" · ");
 
     // Création atomique (facture + items + taxSnapshots)
     const invoice = await prisma.invoice.create({

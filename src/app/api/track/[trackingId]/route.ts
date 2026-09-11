@@ -18,6 +18,8 @@ export async function GET(
                 originCountry: true,
                 destinationCountry: true,
                 weightKg: true,
+                itemKind: true,
+                deviceType: true,
                 currentLocation: true,
                 receiverCity: true,
                 pickupQuartier: true,
