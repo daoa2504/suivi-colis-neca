@@ -20,11 +20,6 @@ export default function Header() {
     // Contexte : module marchandises (food) OU shipping (défaut)
     const isFoodModule = pathname?.startsWith("/admin/food") ?? false;
 
-    // Sous-titre contextuel
-    const subtitle = isFoodModule
-        ? "Traçabilité alimentaire · ACIA"
-        : "Gestion de colis international";
-
     // Cible du clic sur le logo
     const logoHref = isFoodModule
         ? "/admin/food"
@@ -48,8 +43,19 @@ export default function Header() {
 
                     <div>
                         <div className="flex items-center gap-2">
-                            <span className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                                NIMAPLEX<span className="text-[11px] font-semibold align-baseline">.INC</span>
+                            {/* Reprend la signature du logo : GROUPE au-dessus,
+                                NIMA sombre / PLEX rouge, puis Inc. */}
+                            <span className="leading-none">
+                                <span className="block text-[9px] font-semibold tracking-[0.35em] text-[#1F2A37]">
+                                    GROUPE
+                                </span>
+                                <span className="block text-xl font-extrabold tracking-tight">
+                                    <span className="text-[#1F2A37]">NIMA</span>
+                                    <span className="text-[#D0202A]">PLEX</span>
+                                    <span className="text-[11px] font-bold align-baseline text-[#1F2A37]">
+                                        {" "}Inc.
+                                    </span>
+                                </span>
                             </span>
                             {!isFoodModule && role === 'AGENT_CA' && (
                                 <div className="flex items-center gap-1 text-xs">
@@ -71,7 +77,9 @@ export default function Header() {
                                 </span>
                             )}
                         </div>
-                        <p className="text-xs text-gray-500">{subtitle}</p>
+                        <p className="text-xs text-gray-500">
+                            Plus qu'une solution, un service d'excellence global
+                        </p>
                     </div>
                 </Link>
 

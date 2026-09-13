@@ -32,9 +32,8 @@ const C = {
 };
 
 // --- Logo (cache module-level) -----------------------------------------------
-// On préfère le verrouillage complet (symbole + nom + signature) : l'en-tête
-// d'une facture a la largeur pour le porter. À défaut, on retombe sur le
-// symbole seul, et en dernier recours le PDF s'imprime sans logo.
+// Le symbole seul, pas le verrouillage complet : la raison sociale est déjà
+// écrite en toutes lettres à côté, et le verrouillage la répéterait.
 type Logo = { uri: string; file: string } | null;
 
 let LOGO: Logo | undefined;
@@ -42,7 +41,7 @@ let LOGO: Logo | undefined;
 function getLogo(): Logo {
     if (LOGO !== undefined) return LOGO;
 
-    for (const file of ["logo-full.png", "img.png"]) {
+    for (const file of ["img.png", "logo-full.png"]) {
         try {
             const buf = fs.readFileSync(path.join(process.cwd(), "public", file));
             LOGO = { uri: `data:image/png;base64,${buf.toString("base64")}`, file };
@@ -164,10 +163,10 @@ export function renderInvoicePdf(
     // ---- HEADER --------------------------------------------------------------
     let y = 18;
 
-    // Logo (à gauche). Le verrouillage complet est carré mais dense : on lui
-    // donne 24 mm, contre 15 mm pour le symbole seul.
+    // Logo (à gauche) : le symbole, à une taille qui tient la comparaison
+    // avec la raison sociale posée à côté.
     const logo = getLogo();
-    const logoSize = logo?.file === "logo-full.png" ? 24 : 15;
+    const logoSize = 20;
     if (logo) {
         try {
             doc.addImage(logo.uri, "PNG", marginX, y, logoSize, logoSize, undefined, "FAST");
@@ -176,18 +175,18 @@ export function renderInvoicePdf(
         }
     }
 
-    // Nom entreprise + adresse (à côté du logo)
-    const brandX = marginX + (logo ? logoSize + 4 : 0);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(C.ink[0], C.ink[1], C.ink[2]);
-    doc.setFontSize(15);
-    doc.text(invoice.companyName, brandX, y + 5);
-    // .INC en petit
-    const nameW = doc.getTextWidth(invoice.companyName);
-    doc.setFontSize(7);
-    doc.setTextColor(C.accent[0], C.accent[1], C.accent[2]);
+    // Raison sociale en grand, puis adresse, à côté du logo
+    const brandX = marginX + (logo ? logoSize + 5 : 0);
     doc.setFont("helvetica", "bold");
-    doc.text(".INC", brandX + nameW + 0.5, y + 2.5);
+    doc.setTextColor(C.ink[0], C.ink[1], C.ink[2]);
+    doc.setFontSize(21);
+    doc.text(invoice.companyName, brandX, y + 8);
+    // .INC en exposant
+    const nameW = doc.getTextWidth(invoice.companyName);
+    doc.setFontSize(9);
+    doc.setTextColor(C.accent[0], C.accent[1], C.accent[2]);
+    doc.text(".INC", brandX + nameW + 0.8, y + 4);
+    doc.setFont("helvetica", "normal");
 
     // Adresse & coordonnées entreprise
     doc.setFont("helvetica", "normal");
@@ -206,7 +205,7 @@ export function renderInvoicePdf(
     }
     if (invoice.companyEmail) addrLines.push(invoice.companyEmail);
 
-    doc.text(addrLines, brandX, y + 10);
+    doc.text(addrLines, brandX, y + 13);
 
     // Meta facture (à droite)
     const rightX = pageW - marginX;

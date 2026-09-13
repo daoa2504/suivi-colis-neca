@@ -79,14 +79,14 @@ function routeLabel(direction: string) {
 
 /**
  * Charge le logo en data URI pour jsPDF, qui ne sait pas suivre une URL.
- * Le verrouillage complet d'abord, le symbole seul à défaut ; si aucun des
- * deux n'est servi, le document s'imprime avec un en-tête typographique
- * plutôt que d'échouer.
+ * Le symbole seul : la raison sociale est écrite en toutes lettres à côté,
+ * le verrouillage complet la répéterait. Si aucun fichier n'est servi, le
+ * document s'imprime avec un en-tête typographique plutôt que d'échouer.
  */
 async function loadLogo(): Promise<{ uri: string; full: boolean } | null> {
     for (const [path, full] of [
-        [LOGO_FULL, true],
         [LOGO_MARK, false],
+        [LOGO_FULL, true],
     ] as const) {
         try {
             const res = await fetch(path);
@@ -176,7 +176,7 @@ export default function PackingListButton({
             let y = MARGIN;
 
             const logo = await loadLogo();
-            const logoSize = logo?.full ? 62 : 40;
+            const logoSize = logo?.full ? 62 : 54;
             let textX = MARGIN;
             if (logo) {
                 try {
@@ -189,9 +189,9 @@ export default function PackingListButton({
             }
 
             doc.setFont("helvetica", "bold");
-            doc.setFontSize(18);
+            doc.setFontSize(22);
             doc.setTextColor(...BRAND);
-            doc.text(company?.displayName || "NIMAPLEX", textX, y + 4);
+            doc.text(company?.displayName || "NIMAPLEX", textX, y + 8);
 
             doc.setFont("helvetica", "normal");
             doc.setFontSize(8);
@@ -211,7 +211,7 @@ export default function PackingListButton({
                     .join(" · ") || null,
             ].filter(Boolean) as string[];
 
-            let ly = y + 18;
+            let ly = y + 22;
             const identityX = textX;
             for (const line of identity) {
                 doc.text(line, identityX, ly);
