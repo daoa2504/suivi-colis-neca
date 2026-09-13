@@ -1,5 +1,6 @@
 "use client";
 
+import { LOGO_MARK } from "@/lib/branding";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import ShipmentTracker from "@/components/ShipmentTracker";
@@ -111,7 +112,7 @@ export default function TrackClient({ initialTrackingId }: { initialTrackingId: 
                     <div className="flex flex-col items-center text-center">
                         <div className="flex items-center gap-2 sm:gap-3">
                             <img
-                                src="https://nimaplex.com/img.png"
+                                src={LOGO_MARK}
                                 alt="NIMAPLEX"
                                 className="h-10 w-10 sm:h-14 sm:w-14 rounded-lg shadow-sm object-cover"
                             />

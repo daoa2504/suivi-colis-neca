@@ -1,9 +1,12 @@
 // src/lib/validators.ts
 import { z } from "zod";
 
-// Nombre facultatif venant d'un <input type="number"> : "" et null → undefined
+// Nombre facultatif venant d'un <input type="number">.
+// Le champ absent (undefined) doit être traité comme les autres formes de
+// « vide » : un formulaire lu par Object.fromEntries n'envoie tout simplement
+// pas les champs qu'il n'affiche pas, et Number(undefined) vaut NaN.
 const optionalPositive = z.preprocess(
-    (v) => (v === "" || v === null ? undefined : Number(v)),
+    (v) => (v === "" || v === null || v === undefined ? undefined : Number(v)),
     z.number().positive().optional()
 );
 

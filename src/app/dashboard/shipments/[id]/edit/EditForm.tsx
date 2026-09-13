@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import * as React from "react";
 import ContentKindSection, { type ContentValue } from "@/components/ContentKindSection";
+import { formatApiError } from "@/lib/apiError";
 
 type Shipment = {
     id: number;
@@ -199,7 +200,7 @@ export default function EditForm({
                 : { ok: res.ok, error: await res.text() };
 
             if (!res.ok || !data?.ok) {
-                throw new Error((data as any)?.error || "Mise à jour échouée");
+                throw new Error(formatApiError((data as any)?.error, "Mise à jour échouée"));
             }
 
             setMsg("✅ Modifications enregistrées");

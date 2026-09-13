@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import PaymentSection from "@/components/PaymentSection";
 import ContentKindSection from "@/components/ContentKindSection";
+import { formatApiError } from "@/lib/apiError";
 
 // Champ numérique facultatif d'un FormData → nombre ou null
 function numOrNull(v: FormDataEntryValue | null): number | null {
@@ -252,18 +253,7 @@ export default function CAForm() {
                     : { ok: false, error: await res.text() };
 
             if (!res.ok || !(data as any).ok) {
-                const rawErr = (data as any).error;
-                let errMsg = "Création échouée";
-                if (typeof rawErr === "string") {
-                    errMsg = rawErr;
-                } else if (rawErr && typeof rawErr === "object") {
-                    const fieldErrors = rawErr.fieldErrors || {};
-                    const msgs = Object.entries(fieldErrors)
-                        .map(([k, v]) => `${k}: ${(v as string[]).join(", ")}`)
-                        .join(" | ");
-                    errMsg = msgs || rawErr.formErrors?.join(", ") || "Validation échouée";
-                }
-                throw new Error(errMsg);
+                throw new Error(formatApiError((data as any).error, "Création échouée"));
             }
 
             form.reset();

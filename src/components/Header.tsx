@@ -3,6 +3,7 @@
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathname } from "next/navigation";
+import { LOGO_MARK } from "@/lib/branding";
 import { canAccessFood, isFoodOnly, type AppRole } from '@/lib/roles';
 
 export default function Header() {
@@ -40,7 +41,7 @@ export default function Header() {
                     className="flex items-center gap-3 hover:opacity-90 transition-opacity flex-shrink-0"
                 >
                     <img
-                        src="https://nimaplex.com/img.png"
+                        src={LOGO_MARK}
                         alt="NIMAPLEX"
                         className="w-12 h-12 rounded-lg shadow-lg object-cover"
                     />

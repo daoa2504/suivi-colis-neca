@@ -5,6 +5,7 @@ import * as React from 'react';
 import { useState, useEffect, useRef } from 'react';
 import PaymentSection from '@/components/PaymentSection';
 import ContentKindSection from '@/components/ContentKindSection';
+import { formatApiError } from '@/lib/apiError';
 
 export default function GNForm() {
     // ⚙️ CONFIGURATION - Modifiez ces valeurs selon vos besoins
@@ -219,8 +220,7 @@ export default function GNForm() {
 
             if (!res.ok || !data?.ok) {
                 throw new Error(
-                    (data && (data.error?.message || data.error)) ||
-                    'Erreur lors de la création du colis'
+                    formatApiError(data?.error, 'Erreur lors de la création du colis')
                 );
             }
 

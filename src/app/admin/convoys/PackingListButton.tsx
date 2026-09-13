@@ -17,6 +17,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { describeContent, formatDimensions } from "@/lib/itemKind";
+import { LOGO_FULL, LOGO_MARK } from "@/lib/branding";
 
 type Company = {
     legalName: string;
@@ -74,6 +75,35 @@ function fmtDate(d: string | Date) {
 
 function routeLabel(direction: string) {
     return direction === "CA_TO_NE" ? "Canada → Niger" : "Niger → Canada";
+}
+
+/**
+ * Charge le logo en data URI pour jsPDF, qui ne sait pas suivre une URL.
+ * Le verrouillage complet d'abord, le symbole seul à défaut ; si aucun des
+ * deux n'est servi, le document s'imprime avec un en-tête typographique
+ * plutôt que d'échouer.
+ */
+async function loadLogo(): Promise<{ uri: string; full: boolean } | null> {
+    for (const [path, full] of [
+        [LOGO_FULL, true],
+        [LOGO_MARK, false],
+    ] as const) {
+        try {
+            const res = await fetch(path);
+            if (!res.ok) continue;
+            const blob = await res.blob();
+            const uri = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(String(reader.result));
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+            return { uri, full };
+        } catch {
+            // fichier absent ou illisible : on tente le suivant
+        }
+    }
+    return null;
 }
 
 /** Description du contenu d'un envoi, une ligne de texte par article. */
@@ -142,13 +172,26 @@ export default function PackingListButton({
             );
             const totalWeight = data.shipments.reduce((acc, s) => acc + (s.weightKg ?? 0), 0);
 
-            // ---- En-tête : identité de l'entreprise ----
+            // ---- En-tête : logo + identité de l'entreprise ----
             let y = MARGIN;
+
+            const logo = await loadLogo();
+            const logoSize = logo?.full ? 62 : 40;
+            let textX = MARGIN;
+            if (logo) {
+                try {
+                    doc.addImage(logo.uri, "PNG", MARGIN, y - 6, logoSize, logoSize, undefined, "FAST");
+                    textX = MARGIN + logoSize + 12;
+                } catch {
+                    // addImage peut échouer sur un format inattendu : on garde
+                    // l'en-tête typographique seul plutôt que de perdre le document
+                }
+            }
 
             doc.setFont("helvetica", "bold");
             doc.setFontSize(18);
             doc.setTextColor(...BRAND);
-            doc.text(company?.displayName || "NIMAPLEX", MARGIN, y + 4);
+            doc.text(company?.displayName || "NIMAPLEX", textX, y + 4);
 
             doc.setFont("helvetica", "normal");
             doc.setFontSize(8);
@@ -169,8 +212,9 @@ export default function PackingListButton({
             ].filter(Boolean) as string[];
 
             let ly = y + 18;
+            const identityX = textX;
             for (const line of identity) {
-                doc.text(line, MARGIN, ly);
+                doc.text(line, identityX, ly);
                 ly += 10;
             }
 
@@ -185,7 +229,7 @@ export default function PackingListButton({
             doc.setFontSize(8);
             doc.text(documentNumber(), pageW - MARGIN, y + 28, { align: "right" });
 
-            y = Math.max(ly, y + 40) + 6;
+            y = Math.max(ly, y + (logo ? logoSize - 4 : 40)) + 6;
 
             doc.setDrawColor(...BRAND);
             doc.setLineWidth(1.5);
@@ -291,8 +335,6 @@ export default function PackingListButton({
                         String(lineNo),
                         s.trackingId,
                         s.receiverName,
-                        String(s.packageCount ?? 1),
-                        describeContent(s.itemKind, s.deviceType),
                         contentLines(s),
                         String(totalQty(s)),
                         s.weightKg != null ? s.weightKg.toFixed(2) : "—",
@@ -303,8 +345,6 @@ export default function PackingListButton({
                     "",
                     "",
                     `Sous-total ${city}`,
-                    String(cityPackages),
-                    "",
                     "",
                     "",
                     cityWeight.toFixed(2),
@@ -318,8 +358,6 @@ export default function PackingListButton({
                             "N°",
                             "Marque & n°\nMarks & nos",
                             "Destinataire\nConsignee",
-                            "Cartons\nPkgs",
-                            "Nature\nType",
                             "Description du contenu\nDescription of contents",
                             "Qté\nQty",
                             "Poids (kg)\nWeight",
@@ -336,14 +374,12 @@ export default function PackingListButton({
                     headStyles: { fillColor: BRAND, textColor: 255, fontSize: 7, valign: "middle" },
                     alternateRowStyles: { fillColor: [250, 250, 250] },
                     columnStyles: {
-                        0: { cellWidth: 22, halign: "right" },
-                        1: { cellWidth: 62 },
-                        2: { cellWidth: 95 },
-                        3: { cellWidth: 34, halign: "center" },
-                        4: { cellWidth: 60 },
-                        5: { cellWidth: "auto" },
-                        6: { cellWidth: 26, halign: "center" },
-                        7: { cellWidth: 48, halign: "right" },
+                        0: { cellWidth: 24, halign: "right" },
+                        1: { cellWidth: 70 },
+                        2: { cellWidth: 110 },
+                        3: { cellWidth: "auto" },
+                        4: { cellWidth: 30, halign: "center" },
+                        5: { cellWidth: 52, halign: "right" },
                     },
                     margin: { left: MARGIN, right: MARGIN },
                     // La dernière ligne de chaque bloc est le sous-total

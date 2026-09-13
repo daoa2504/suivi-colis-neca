@@ -32,19 +32,29 @@ const C = {
 };
 
 // --- Logo (cache module-level) -----------------------------------------------
-let LOGO_DATA_URI: string | null = null;
-function getLogoDataUri(): string | null {
-    if (LOGO_DATA_URI !== null) return LOGO_DATA_URI;
-    try {
-        const logoPath = path.join(process.cwd(), "public", "img.png");
-        const buf = fs.readFileSync(logoPath);
-        LOGO_DATA_URI = `data:image/png;base64,${buf.toString("base64")}`;
-        return LOGO_DATA_URI;
-    } catch (e) {
-        console.warn("[invoice-pdf] logo public/img.png introuvable, PDF sans logo");
-        LOGO_DATA_URI = ""; // Sentinelle pour ne pas re-tenter
-        return null;
+// On préfère le verrouillage complet (symbole + nom + signature) : l'en-tête
+// d'une facture a la largeur pour le porter. À défaut, on retombe sur le
+// symbole seul, et en dernier recours le PDF s'imprime sans logo.
+type Logo = { uri: string; file: string } | null;
+
+let LOGO: Logo | undefined;
+
+function getLogo(): Logo {
+    if (LOGO !== undefined) return LOGO;
+
+    for (const file of ["logo-full.png", "img.png"]) {
+        try {
+            const buf = fs.readFileSync(path.join(process.cwd(), "public", file));
+            LOGO = { uri: `data:image/png;base64,${buf.toString("base64")}`, file };
+            return LOGO;
+        } catch {
+            // fichier absent : on essaie le suivant
+        }
     }
+
+    console.warn("[invoice-pdf] aucun logo dans public/, PDF sans logo");
+    LOGO = null;
+    return LOGO;
 }
 
 // --- Formats -----------------------------------------------------------------
@@ -154,18 +164,20 @@ export function renderInvoicePdf(
     // ---- HEADER --------------------------------------------------------------
     let y = 18;
 
-    // Logo (à gauche)
-    const logoUri = getLogoDataUri();
-    if (logoUri) {
+    // Logo (à gauche). Le verrouillage complet est carré mais dense : on lui
+    // donne 24 mm, contre 15 mm pour le symbole seul.
+    const logo = getLogo();
+    const logoSize = logo?.file === "logo-full.png" ? 24 : 15;
+    if (logo) {
         try {
-            doc.addImage(logoUri, "PNG", marginX, y, 15, 15, undefined, "FAST");
+            doc.addImage(logo.uri, "PNG", marginX, y, logoSize, logoSize, undefined, "FAST");
         } catch (e) {
             console.warn("[invoice-pdf] addImage failed:", e);
         }
     }
 
     // Nom entreprise + adresse (à côté du logo)
-    const brandX = marginX + 19;
+    const brandX = marginX + (logo ? logoSize + 4 : 0);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(C.ink[0], C.ink[1], C.ink[2]);
     doc.setFontSize(15);

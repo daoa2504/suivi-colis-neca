@@ -1,6 +1,7 @@
 // src/app/food/plainte/page.tsx
 // Formulaire public de plainte alimentaire (Article 82 RSAC).
 
+import { LOGO_MARK } from "@/lib/branding";
 import ComplaintForm from "./ComplaintForm";
 
 export const runtime = "nodejs";
@@ -17,7 +18,7 @@ export default function FoodComplaintPage() {
             <div className="max-w-2xl mx-auto">
                 {/* Header brand */}
                 <div className="flex items-center gap-3 mb-6">
-                    <img src="/img.png" alt="NIMAPLEX" className="w-14 h-14 rounded-lg shadow-sm" />
+                    <img src={LOGO_MARK} alt="NIMAPLEX" className="w-14 h-14 rounded-lg shadow-sm" />
                     <div>
                         <div className="text-xl font-bold text-gray-900">
                             NIMAPLEX<span className="text-[10px] font-semibold align-baseline ml-0.5">.INC</span>

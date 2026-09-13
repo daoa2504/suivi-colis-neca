@@ -241,7 +241,9 @@ export default function ContentKindSection({
                             id="weightKg"
                             name="weightKg"
                             type="number"
-                            step="0.5"
+                            // step="any" : sans ça le navigateur n'accepte que les
+                            // multiples du pas depuis le minimum, et refuse 22
+                            step="any"
                             min="0"
                             placeholder="si connu"
                             value={weightKg}
@@ -263,9 +265,10 @@ export default function ContentKindSection({
                         name="weightKg"
                         required
                         type="number"
-                        step="0.5"
+                        // step="any" : accepte aussi bien 22 que 22,5
+                        step="any"
                         min="0.1"
-                        placeholder="ex: 2.5"
+                        placeholder="ex: 22 ou 2,5"
                         value={weightKg}
                         onChange={(e) => setWeightKg(e.target.value)}
                         className="input border p-2 w-full rounded"
@@ -291,7 +294,7 @@ function DimInput({
         <input
             name={name}
             type="number"
-            step="1"
+            step="any"
             min="0"
             placeholder={label}
             aria-label={`${label} en cm`}
