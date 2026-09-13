@@ -15,6 +15,10 @@ const contentFields = {
     lengthCm: optionalPositive,
     widthCm: optionalPositive,
     heightCm: optionalPositive,
+    packageCount: z.preprocess(
+        (v) => (v === "" || v === null || v === undefined ? 1 : Number(v)),
+        z.number().int().positive().max(999)
+    ),
 };
 
 /**

@@ -130,6 +130,11 @@ export async function POST(req: NextRequest) {
         const widthCm = isDevice ? toFloatOrNull(body.widthCm) : null;
         const heightCm = isDevice ? toFloatOrNull(body.heightCm) : null;
 
+        // Cartons physiques : au moins 1, jamais 0 — la liste de colisage
+        // annoncerait sinon un nombre de colis faux en douane.
+        const rawPackages = Math.trunc(Number(body.packageCount));
+        const packageCount = Number.isFinite(rawPackages) && rawPackages > 0 ? rawPackages : 1;
+
         // Paiement (nouveau — Phase 2.8)
         const totalAmount = toFloatOrNull(body.totalAmount);
         const rawStatus = String(body.paymentStatus ?? "UNPAID").toUpperCase();
@@ -162,6 +167,7 @@ export async function POST(req: NextRequest) {
                 lengthCm,
                 widthCm,
                 heightCm,
+                packageCount,
                 receiverAddress: body.receiverAddress || null,
                 receiverCity: body.receiverCity || null,
                 receiverPoBox: body.receiverPoBox || null,

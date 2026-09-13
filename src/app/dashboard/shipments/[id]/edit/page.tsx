@@ -37,6 +37,7 @@ export default async function EditShipmentPage({
             lengthCm: true,
             widthCm: true,
             heightCm: true,
+            packageCount: true,
             receiverAddress: true,
             receiverCity: true,
             receiverPoBox: true,

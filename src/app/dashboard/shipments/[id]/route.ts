@@ -118,6 +118,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         }
     }
 
+    if ("packageCount" in body) {
+        const n = Math.trunc(Number(body.packageCount));
+        data.packageCount = Number.isFinite(n) && n > 0 ? n : 1;
+    }
     if ("receiverAddress" in body) data.receiverAddress = body.receiverAddress ? String(body.receiverAddress) : null;
     if ("receiverCity" in body) data.receiverCity = body.receiverCity ? String(body.receiverCity) : null;
     if ("receiverPoBox" in body) data.receiverPoBox = body.receiverPoBox ? String(body.receiverPoBox) : null;

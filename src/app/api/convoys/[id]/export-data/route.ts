@@ -34,8 +34,28 @@ export async function GET(
         return NextResponse.json({ ok: false, error: "Convoi introuvable" }, { status: 404 });
     }
 
+    // En-tête officielle de la liste de colisage : jamais codée en dur,
+    // toujours lue depuis le profil d'entreprise actif.
+    const company = await prisma.companyProfile.findFirst({ where: { active: true } });
+
     return NextResponse.json({
         ok: true,
+        company: company
+            ? {
+                  legalName: company.legalName,
+                  displayName: company.displayName,
+                  address: company.address,
+                  city: company.city,
+                  province: company.province,
+                  postalCode: company.postalCode,
+                  country: company.country,
+                  email: company.email,
+                  phone: company.phone,
+                  neq: company.neq,
+                  gstNumber: company.gstNumber,
+                  qstNumber: company.qstNumber,
+              }
+            : null,
         convoy: {
             id: convoy.id,
             date: convoy.date,
@@ -50,6 +70,12 @@ export async function GET(
             weightKg: s.weightKg,
             itemKind: s.itemKind,
             deviceType: s.deviceType,
+            packageCount: s.packageCount,
+            lengthCm: s.lengthCm,
+            widthCm: s.widthCm,
+            heightCm: s.heightCm,
+            receiverAddress: s.receiverAddress,
+            receiverPoBox: s.receiverPoBox,
             paymentStatus: s.paymentStatus,
             amountPaid: s.amountPaid,
             pickupLastName: s.pickupLastName,

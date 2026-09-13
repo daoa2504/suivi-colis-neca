@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ExportPdfButtons from "./ExportPdfButtons";
+import PackingListButton from "./PackingListButton";
 
 type Convoy = {
     id: string;
@@ -140,7 +141,7 @@ export default function ConvoysManager({
                         <th className="text-left p-3">Date</th>
                         <th className="text-left p-3">Direction</th>
                         <th className="text-left p-3">Colis</th>
-                        <th className="text-left p-3">Export PDF</th>
+                        <th className="text-left p-3">Documents</th>
                         <th className="text-left p-3">Actions</th>
                     </tr>
                     </thead>
@@ -162,11 +163,18 @@ export default function ConvoysManager({
                             <td className="p-3">{c.totalShipments}</td>
                             <td className="p-3">
                                 {c.totalShipments > 0 ? (
-                                    <ExportPdfButtons
-                                        convoyId={c.id}
-                                        convoyDate={c.date}
-                                        direction={c.direction}
-                                    />
+                                    <div className="space-y-2">
+                                        <ExportPdfButtons
+                                            convoyId={c.id}
+                                            convoyDate={c.date}
+                                            direction={c.direction}
+                                        />
+                                        <PackingListButton
+                                            convoyId={c.id}
+                                            convoyDate={c.date}
+                                            direction={c.direction}
+                                        />
+                                    </div>
                                 ) : (
                                     <span className="text-xs text-gray-400">—</span>
                                 )}

@@ -48,6 +48,12 @@ model Shipment {
   widthCm            Float?
   heightCm           Float?
 
+  // Nombre de cartons physiques que représente cet envoi.
+  // Un client peut remettre plusieurs cartons sous un même numéro de suivi :
+  // c'est ce compte, et non le nombre d'envois, qui fait foi sur la liste
+  // de colisage présentée en douane.
+  packageCount       Int            @default(1)
+
   notes              String?
   status             ShipmentStatus @default(CREATED)
   statusHistory      Json?

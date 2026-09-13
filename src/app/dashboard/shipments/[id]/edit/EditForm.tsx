@@ -17,6 +17,7 @@ type Shipment = {
     lengthCm?: number | null;
     widthCm?: number | null;
     heightCm?: number | null;
+    packageCount?: number | null;
     notes?: string | null;
     receiverAddress?: string | null;
     receiverCity?: string | null;
@@ -74,6 +75,7 @@ export default function EditForm({
         lengthCm: shipment.lengthCm?.toString() || "",
         widthCm: shipment.widthCm?.toString() || "",
         heightCm: shipment.heightCm?.toString() || "",
+        packageCount: shipment.packageCount?.toString() || "1",
     });
 
     // Référence stable : ContentKindSection appelle onChange dans un effet.
@@ -168,6 +170,7 @@ export default function EditForm({
             lengthCm: numOrNull(content.lengthCm),
             widthCm: numOrNull(content.widthCm),
             heightCm: numOrNull(content.heightCm),
+            packageCount: numOrNull(content.packageCount) ?? 1,
             notes: notes || null,
             receiverAddress: receiverAddress || null,
             receiverCity: effectiveCity || null,

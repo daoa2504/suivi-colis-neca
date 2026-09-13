@@ -21,6 +21,7 @@ export type ContentValue = {
     lengthCm: string;
     widthCm: string;
     heightCm: string;
+    packageCount: string;
 };
 
 const EMPTY: ContentValue = {
@@ -30,6 +31,7 @@ const EMPTY: ContentValue = {
     lengthCm: "",
     widthCm: "",
     heightCm: "",
+    packageCount: "1",
 };
 
 /** Un type connu va dans le <select> ; tout le reste bascule sur « Autre ». */
@@ -62,6 +64,7 @@ export default function ContentKindSection({
     const [lengthCm, setLengthCm] = useState(start.lengthCm);
     const [widthCm, setWidthCm] = useState(start.widthCm);
     const [heightCm, setHeightCm] = useState(start.heightCm);
+    const [packageCount, setPackageCount] = useState(start.packageCount || "1");
 
     const isDevice = kind === "DEVICE";
     const isOther = selectedType === DEVICE_TYPE_OTHER;
@@ -81,6 +84,7 @@ export default function ContentKindSection({
         setLengthCm("");
         setWidthCm("");
         setHeightCm("");
+        setPackageCount("1");
     }, [resetSignal]);
 
     // Remontée au parent contrôlé. Un colis n'emporte ni type ni dimensions.
@@ -92,11 +96,12 @@ export default function ContentKindSection({
             lengthCm: isDevice ? lengthCm : "",
             widthCm: isDevice ? widthCm : "",
             heightCm: isDevice ? heightCm : "",
+            packageCount,
         });
         // onChange est volontairement hors dépendances : les parents passent
         // souvent une fonction recréée à chaque rendu.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [kind, deviceType, weightKg, lengthCm, widthCm, heightCm, isDevice]);
+    }, [kind, deviceType, weightKg, lengthCm, widthCm, heightCm, packageCount, isDevice]);
 
     return (
         <div className="rounded-lg border border-neutral-200 p-4 space-y-4">
@@ -123,6 +128,30 @@ export default function ContentKindSection({
                 </div>
 
                 <input type="hidden" name="itemKind" value={kind} />
+            </div>
+
+            <div>
+                <label
+                    htmlFor="packageCount"
+                    className="label block mb-1 text-sm font-medium text-neutral-700"
+                >
+                    Nombre de cartons <span className="text-red-600">*</span>
+                </label>
+                <input
+                    id="packageCount"
+                    name="packageCount"
+                    required
+                    type="number"
+                    step="1"
+                    min="1"
+                    value={packageCount}
+                    onChange={(e) => setPackageCount(e.target.value)}
+                    className="input border p-2 w-full rounded"
+                />
+                <p className="mt-1 text-xs text-neutral-500">
+                    Colis physiques remis par le client. C'est ce compte qui figure sur la liste
+                    de colisage présentée en douane.
+                </p>
             </div>
 
             {isDevice ? (

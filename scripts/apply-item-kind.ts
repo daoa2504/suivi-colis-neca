@@ -31,7 +31,8 @@ const STATEMENTS = [
          ADD COLUMN IF NOT EXISTS "deviceType" TEXT,
          ADD COLUMN IF NOT EXISTS "lengthCm"   DOUBLE PRECISION,
          ADD COLUMN IF NOT EXISTS "widthCm"    DOUBLE PRECISION,
-         ADD COLUMN IF NOT EXISTS "heightCm"   DOUBLE PRECISION`,
+         ADD COLUMN IF NOT EXISTS "heightCm"   DOUBLE PRECISION,
+         ADD COLUMN IF NOT EXISTS "packageCount" INTEGER NOT NULL DEFAULT 1`,
 ];
 
 async function columns(): Promise<string[]> {
@@ -40,7 +41,7 @@ async function columns(): Promise<string[]> {
            FROM information_schema.columns
           WHERE table_schema = 'public'
             AND table_name = 'Shipment'
-            AND column_name IN ('itemKind','deviceType','lengthCm','widthCm','heightCm')
+            AND column_name IN ('itemKind','deviceType','lengthCm','widthCm','heightCm','packageCount')
           ORDER BY column_name`
     );
     return rows.map((r) => r.column_name);
