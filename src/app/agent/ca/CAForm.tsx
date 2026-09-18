@@ -226,6 +226,15 @@ export default function CAForm() {
             lengthCm: numOrNull(fd.get("lengthCm")),
             widthCm: numOrNull(fd.get("widthCm")),
             heightCm: numOrNull(fd.get("heightCm")),
+            packageCount: numOrNull(fd.get("packageCount")) ?? 1,
+            // Paiement : ces champs viennent de <PaymentSection />. Ce formulaire
+            // construit son payload à la main, il faut donc les lire explicitement
+            // — sans quoi le montant saisi par l'agent est perdu et aucune facture
+            // n'est générée, donc aucun reçu joint au courriel.
+            totalAmount: numOrNull(fd.get("totalAmount")),
+            amountPaid: numOrNull(fd.get("amountPaid")),
+            paymentStatus: String(fd.get("paymentStatus") || "UNPAID"),
+            currency: String(fd.get("currency") || "CAD"),
             receiverAddress: (fd.get("receiverAddress") as string) || null,
             receiverCity: (fd.get("receiverCity") as string) || null,
             receiverPoBox: (fd.get("receiverPoBox") as string) || null,
