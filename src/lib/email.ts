@@ -32,6 +32,10 @@ export interface EmailAttachment {
     filename: string;
     content: Buffer | string;   // Buffer binaire, ou string base64
     contentType?: string;
+    /** Rend la pièce jointe « inline » : référençable dans le HTML par cid:<id>.
+     *  Sert aux images de gabarit, qui s'affichent alors sans requête réseau
+     *  et sans dépendre du bon vouloir du client de messagerie. */
+    inlineContentId?: string;
 }
 
 export async function sendEmailSafe(args: {
@@ -64,6 +68,7 @@ export async function sendEmailSafe(args: {
             filename: a.filename,
             content: Buffer.isBuffer(a.content) ? a.content : a.content,
             ...(a.contentType ? { content_type: a.contentType } : {}),
+            ...(a.inlineContentId ? { inlineContentId: a.inlineContentId } : {}),
         }));
     }
 

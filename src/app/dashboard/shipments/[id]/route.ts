@@ -1,5 +1,7 @@
 // src/app/dashboard/shipments/[id]/route.ts
-import { logoMarkUrl } from "@/lib/branding";
+import { EMAIL_LOGO_SRC } from "@/lib/branding";
+import { withEmailLogo } from "@/lib/emailLogo";
+import { createInvoiceForShipment } from "@/lib/invoice";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -123,6 +125,33 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         const n = Math.trunc(Number(body.packageCount));
         data.packageCount = Number.isFinite(n) && n > 0 ? n : 1;
     }
+
+    // Paiement. Le montant total est la source de verite de la facture :
+    // le renseigner ici permet de rattraper un envoi cree sans montant.
+    if ("totalAmount" in body || "paymentStatus" in body) {
+        const num = (v: unknown) => {
+            if (v === "" || v === undefined || v === null) return null;
+            const n = Number(String(v).replace(",", "."));
+            return Number.isFinite(n) ? n : null;
+        };
+
+        const total = num(body.totalAmount);
+        const rawStatus = String(body.paymentStatus ?? "UNPAID").toUpperCase();
+        const status: "PAID" | "PARTIAL" | "UNPAID" =
+            rawStatus === "PAID" || rawStatus === "PARTIAL" ? rawStatus : "UNPAID";
+
+        let paid = num(body.amountPaid);
+        // Meme regle de coherence qu'a la creation : PAID solde tout, UNPAID rien.
+        if (status === "PAID") paid = total;
+        if (status === "UNPAID") paid = 0;
+
+        data.totalAmount = total;
+        data.amountPaid = paid;
+        data.paymentStatus = status;
+        if ("currency" in body) {
+            data.currency = String(body.currency ?? "CAD").toUpperCase() === "XOF" ? "XOF" : "CAD";
+        }
+    }
     if ("receiverAddress" in body) data.receiverAddress = body.receiverAddress ? String(body.receiverAddress) : null;
     if ("receiverCity" in body) data.receiverCity = body.receiverCity ? String(body.receiverCity) : null;
     if ("receiverPoBox" in body) data.receiverPoBox = body.receiverPoBox ? String(body.receiverPoBox) : null;
@@ -171,6 +200,19 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         },
     });
 
+    // Facture : si un montant vient d'être renseigné et qu'aucune facture
+    // n'existe, on la crée maintenant. C'est ce qui permet de rattraper les
+    // envois enregistrés sans montant — la fonction est idempotente, elle
+    // rend la facture existante sans la modifier le cas échéant.
+    if (data.totalAmount != null && data.totalAmount > 0) {
+        try {
+            await createInvoiceForShipment(id, { userId: session.user?.id ?? null });
+        } catch (e) {
+            console.warn(`[shipments] Génération facture échouée pour ${updated.trackingId}:`, e);
+            // Best-effort : la modification reste enregistrée
+        }
+    }
+
     // ✅ REVALIDATION
     revalidatePath("/dashboard/shipments");
     revalidatePath(`/dashboard/shipments/${id}/edit`);
@@ -211,7 +253,7 @@ Numéro ID : ${updated.trackingId}
   <table role="presentation" style="border-collapse: collapse; border-spacing: 0; margin-bottom: 30px; width: 100%;">
     <tr>
       <td style="padding: 0;">
-        <img src="${logoMarkUrl()}" alt="NIMAPLEX" width="60" height="60" style="display: block; border-radius: 8px;" />
+        <img src="${EMAIL_LOGO_SRC}" alt="NIMAPLEX" width="60" height="60" style="display: block; border-radius: 8px;" />
       </td>
       <td style="padding-left: 12px; line-height: 1.3;">
         <div style="font-weight: 700; color: #8B0000; font-size: 18px; letter-spacing: 0.5px;">NIMAPLEX<span style="font-size: 11px; font-weight: 500; letter-spacing: 0; color: #8B0000;">.INC</span></div>
@@ -297,7 +339,7 @@ Numéro ID : ${updated.trackingId}
 
 
         const resp = await sendWithRetry(
-            { from: FROM_SAFE, to, subject, text, html },
+            { from: FROM_SAFE, to, subject, text, html, attachments: withEmailLogo() },
             3
         );
         emailResp = { ok: resp.ok, id: resp.id, error: resp.error };

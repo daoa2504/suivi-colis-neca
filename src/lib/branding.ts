@@ -18,6 +18,15 @@ export const LOGO_MARK = "/img.png";
 /** Verrouillage complet — en-têtes de documents (facture, liste de colisage). */
 export const LOGO_FULL = "/logo-full.png";
 
+/** Identifiant de la pièce jointe inline portant le logo dans les courriels. */
+export const EMAIL_LOGO_CID = "nimaplex-logo";
+
+/** À mettre dans le src de la balise img des gabarits de courriel.
+ *  Déclaré ici, et non dans emailLogo.ts, parce que les gabarits sont aussi
+ *  importés par des composants client : emailLogo.ts lit le disque et ne peut
+ *  pas être embarqué dans le bundle navigateur. */
+export const EMAIL_LOGO_SRC = `cid:${EMAIL_LOGO_CID}`;
+
 /** Base publique du site, pour les courriels qui exigent une URL absolue. */
 export function siteBaseUrl(): string {
     const raw = process.env.NEXT_PUBLIC_BASE_URL || "https://nimaplex.com";

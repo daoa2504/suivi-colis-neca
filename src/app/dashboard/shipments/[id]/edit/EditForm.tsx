@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import * as React from "react";
 import ContentKindSection, { type ContentValue } from "@/components/ContentKindSection";
+import PaymentSection, { type PaymentValue } from "@/components/PaymentSection";
 import { formatApiError } from "@/lib/apiError";
 
 type Shipment = {
@@ -19,6 +20,10 @@ type Shipment = {
     widthCm?: number | null;
     heightCm?: number | null;
     packageCount?: number | null;
+    totalAmount?: number | null;
+    amountPaid?: number | null;
+    paymentStatus?: "PAID" | "PARTIAL" | "UNPAID" | null;
+    currency?: "CAD" | "XOF" | null;
     notes?: string | null;
     receiverAddress?: string | null;
     receiverCity?: string | null;
@@ -81,6 +86,15 @@ export default function EditForm({
 
     // Référence stable : ContentKindSection appelle onChange dans un effet.
     const onContentChange = useCallback((v: ContentValue) => setContent(v), []);
+
+    // Paiement : c'est ce bloc qui alimente la facture, donc le reçu.
+    const [payment, setPayment] = useState<PaymentValue>({
+        totalAmount: shipment.totalAmount?.toString() ?? "",
+        currency: shipment.currency === "XOF" ? "XOF" : "CAD",
+        paymentStatus: shipment.paymentStatus ?? "UNPAID",
+        amountPaid: shipment.amountPaid?.toString() ?? "",
+    });
+    const onPaymentChange = useCallback((v: PaymentValue) => setPayment(v), []);
 
     const [receiverAddress, setReceiverAddress] = useState(shipment.receiverAddress || "");
     const [receiverPoBox, setReceiverPoBox] = useState(shipment.receiverPoBox || "");
@@ -172,6 +186,10 @@ export default function EditForm({
             widthCm: numOrNull(content.widthCm),
             heightCm: numOrNull(content.heightCm),
             packageCount: numOrNull(content.packageCount) ?? 1,
+            totalAmount: numOrNull(payment.totalAmount),
+            amountPaid: numOrNull(payment.amountPaid),
+            paymentStatus: payment.paymentStatus,
+            currency: payment.currency,
             notes: notes || null,
             receiverAddress: receiverAddress || null,
             receiverCity: effectiveCity || null,
@@ -480,6 +498,10 @@ export default function EditForm({
                     </div>
                 </>
             )}
+
+            {/* Paiement — commun aux deux sens. Renseigner un montant ici
+                génère la facture si elle n'existait pas encore. */}
+            <PaymentSection initial={payment} onChange={onPaymentChange} />
 
             {/* Notes */}
             <div>

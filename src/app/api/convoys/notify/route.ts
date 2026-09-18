@@ -1,4 +1,5 @@
 // src/app/api/convoys/notify/route.ts
+import { withEmailLogo } from "@/lib/emailLogo";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
@@ -243,6 +244,7 @@ export async function POST(req: NextRequest) {
                     subject,
                     text,
                     html,
+                    attachments: withEmailLogo(),
                 });
                 results.push(resp.ok ? { email, ok: true, id: resp.id } : { email, ok: false, error: resp.error });
             } catch (e: any) {

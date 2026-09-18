@@ -1,6 +1,6 @@
 // src/lib/emailTemplates.ts
 
-import { logoMarkUrl } from "@/lib/branding";
+import { EMAIL_LOGO_SRC } from "@/lib/branding";
 
 export type ConvoyStatus = "EN_ROUTE" | "IN_CUSTOMS" | "OUT_FOR_DELIVERY";
 export type Direction = "NE_TO_CA" | "CA_TO_NE";
@@ -138,7 +138,7 @@ ${customMessage || ""}
   <table role="presentation" style="border-collapse: collapse; border-spacing: 0; margin-bottom: 30px; width: 100%;">
     <tr>
       <td style="padding: 0;">
-        <img src="${logoMarkUrl()}" alt="NIMAPLEX" width="60" height="60" style="display: block; border-radius: 8px;" />
+        <img src="${EMAIL_LOGO_SRC}" alt="NIMAPLEX" width="60" height="60" style="display: block; border-radius: 8px;" />
       </td>
       <td style="padding-left: 12px; line-height: 1.3;">
         <div style="font-weight: 700; color: #8B0000; font-size: 18px; letter-spacing: 0.5px;">NIMAPLEX<span style="font-size: 11px; font-weight: 500; letter-spacing: 0; color: #8B0000;">.INC</span></div>
@@ -227,7 +227,7 @@ ${customMessage || ""}
   <table role="presentation" style="border-collapse: collapse; border-spacing: 0; margin-bottom: 30px; width: 100%;">
     <tr>
       <td style="padding: 0;">
-        <img src="${logoMarkUrl()}" alt="NIMAPLEX" width="60" height="60" style="display: block; border-radius: 8px;" />
+        <img src="${EMAIL_LOGO_SRC}" alt="NIMAPLEX" width="60" height="60" style="display: block; border-radius: 8px;" />
       </td>
       <td style="padding-left: 12px; line-height: 1.3;">
         <div style="font-weight: 700; color: #8B0000; font-size: 18px; letter-spacing: 0.5px;">NIMAPLEX<span style="font-size: 11px; font-weight: 500; letter-spacing: 0; color: #8B0000;">.INC</span></div>
@@ -364,7 +364,7 @@ ${customMessage || ""}
   <table role="presentation" style="border-collapse: collapse; border-spacing: 0; margin-bottom: 30px; width: 100%;">
     <tr>
       <td style="padding: 0;">
-        <img src="${logoMarkUrl()}" alt="NIMAPLEX" width="60" height="60" style="display: block; border-radius: 8px;" />
+        <img src="${EMAIL_LOGO_SRC}" alt="NIMAPLEX" width="60" height="60" style="display: block; border-radius: 8px;" />
       </td>
       <td style="padding-left: 12px; line-height: 1.3;">
         <div style="font-weight: 700; color: #8B0000; font-size: 18px; letter-spacing: 0.5px;">NIMAPLEX<span style="font-size: 11px; font-weight: 500; letter-spacing: 0; color: #8B0000;">.INC</span></div>

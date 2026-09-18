@@ -13,15 +13,33 @@
 // Les champs sont soumis via FormData avec les noms suivants :
 //   totalAmount, currency, paymentStatus, amountPaid
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 
 type PaymentStatus = "PAID" | "PARTIAL" | "UNPAID";
 
-export default function PaymentSection() {
-    const [totalAmount, setTotalAmount] = useState("");
-    const [currency, setCurrency] = useState<"CAD" | "XOF">("CAD");
-    const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("UNPAID");
-    const [amountPaid, setAmountPaid] = useState("");
+export type PaymentValue = {
+    totalAmount: string;
+    currency: "CAD" | "XOF";
+    paymentStatus: PaymentStatus;
+    /** Montant effectivement reçu, déjà cohérent avec le statut. */
+    amountPaid: string;
+};
+
+export default function PaymentSection({
+    initial,
+    onChange,
+}: {
+    /** Valeurs de départ, pour le formulaire de modification. */
+    initial?: Partial<PaymentValue>;
+    /** Appelé à chaque changement, pour un parent qui construit son payload. */
+    onChange?: (value: PaymentValue) => void;
+} = {}) {
+    const [totalAmount, setTotalAmount] = useState(initial?.totalAmount ?? "");
+    const [currency, setCurrency] = useState<"CAD" | "XOF">(initial?.currency ?? "CAD");
+    const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(
+        initial?.paymentStatus ?? "UNPAID"
+    );
+    const [amountPaid, setAmountPaid] = useState(initial?.amountPaid ?? "");
 
     // Restant à payer (calcul auto)
     const remaining = useMemo(() => {
@@ -41,6 +59,15 @@ export default function PaymentSection() {
         if (paymentStatus === "UNPAID") return "0";
         return amountPaid;
     }, [paymentStatus, totalAmount, amountPaid]);
+
+    // Remontée au parent contrôlé (formulaire de modification). Les formulaires
+    // de création, eux, lisent les <input> par FormData et n'en ont pas besoin.
+    useEffect(() => {
+        onChange?.({ totalAmount, currency, paymentStatus, amountPaid: effectiveAmountPaid });
+        // onChange hors dépendances : les parents passent souvent une fonction
+        // recréée à chaque rendu.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [totalAmount, currency, paymentStatus, effectiveAmountPaid]);
 
     const symbol = currency === "CAD" ? "$" : "FCFA";
     const fmt = (n: number) =>

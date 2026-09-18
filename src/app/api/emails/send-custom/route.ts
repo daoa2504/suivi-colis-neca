@@ -1,5 +1,6 @@
 // src/app/api/emails/send-custom/route.ts
-import { logoMarkUrl } from "@/lib/branding";
+import { EMAIL_LOGO_SRC } from "@/lib/branding";
+import { withEmailLogo } from "@/lib/emailLogo";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
@@ -111,7 +112,7 @@ export async function POST(req: NextRequest) {
   <table role="presentation" style="border-collapse: collapse; border-spacing: 0; margin-bottom: 30px; width: 100%;">
     <tr>
       <td style="padding: 0;">
-        <img src="${logoMarkUrl()}" alt="NIMAPLEX" width="60" height="60" style="display: block; border-radius: 8px;" />
+        <img src="${EMAIL_LOGO_SRC}" alt="NIMAPLEX" width="60" height="60" style="display: block; border-radius: 8px;" />
       </td>
       <td style="padding-left: 12px; line-height: 1.3;">
         <div style="font-weight: 700; color: #8B0000; font-size: 18px; letter-spacing: 0.5px;">NIMAPLEX<span style="font-size: 11px; font-weight: 500; letter-spacing: 0; color: #8B0000;">.INC</span></div>
@@ -154,6 +155,7 @@ ${personalizedMessage}
                     to: client.receiverEmail,
                     subject,
                     html,
+                    attachments: withEmailLogo(),
                 });
                 if (resp.ok) {
                     successCount++;
