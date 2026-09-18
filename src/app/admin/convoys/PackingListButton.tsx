@@ -17,7 +17,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { describeContent, formatDimensions } from "@/lib/itemKind";
-import { LOGO_FULL, LOGO_MARK } from "@/lib/branding";
+import { LOGO_BANNER, LOGO_MARK } from "@/lib/branding";
 
 type Company = {
     legalName: string;
@@ -85,8 +85,8 @@ function routeLabel(direction: string) {
  */
 async function loadLogo(): Promise<{ uri: string; full: boolean } | null> {
     for (const [path, full] of [
+        [LOGO_BANNER, true],
         [LOGO_MARK, false],
-        [LOGO_FULL, true],
     ] as const) {
         try {
             const res = await fetch(path);
@@ -176,22 +176,32 @@ export default function PackingListButton({
             let y = MARGIN;
 
             const logo = await loadLogo();
-            const logoSize = logo?.full ? 62 : 54;
+            // La bande porte déjà la raison sociale : on ne la réécrit pas.
+            const isBanner = logo?.full === true;
+            const bannerW = 190;
+            const bannerH = bannerW * (422 / 1200); // ratio du fichier source
             let textX = MARGIN;
+            let headerBottom = y + 8;
+
             if (logo) {
                 try {
-                    doc.addImage(logo.uri, "PNG", MARGIN, y - 6, logoSize, logoSize, undefined, "FAST");
-                    textX = MARGIN + logoSize + 12;
+                    if (isBanner) {
+                        doc.addImage(logo.uri, "PNG", MARGIN, y - 6, bannerW, bannerH, undefined, "FAST");
+                        headerBottom = y - 6 + bannerH;
+                    } else {
+                        doc.addImage(logo.uri, "PNG", MARGIN, y - 6, 54, 54, undefined, "FAST");
+                        textX = MARGIN + 66;
+                        doc.setFont("helvetica", "bold");
+                        doc.setFontSize(22);
+                        doc.setTextColor(...BRAND);
+                        doc.text(company?.displayName || "NIMAPLEX", textX, y + 8);
+                        headerBottom = y + 48;
+                    }
                 } catch {
                     // addImage peut échouer sur un format inattendu : on garde
                     // l'en-tête typographique seul plutôt que de perdre le document
                 }
             }
-
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(22);
-            doc.setTextColor(...BRAND);
-            doc.text(company?.displayName || "NIMAPLEX", textX, y + 8);
 
             doc.setFont("helvetica", "normal");
             doc.setFontSize(8);
@@ -211,7 +221,7 @@ export default function PackingListButton({
                     .join(" · ") || null,
             ].filter(Boolean) as string[];
 
-            let ly = y + 22;
+            let ly = headerBottom + 10;
             const identityX = textX;
             for (const line of identity) {
                 doc.text(line, identityX, ly);
@@ -229,7 +239,7 @@ export default function PackingListButton({
             doc.setFontSize(8);
             doc.text(documentNumber(), pageW - MARGIN, y + 28, { align: "right" });
 
-            y = Math.max(ly, y + (logo ? logoSize - 4 : 40)) + 6;
+            y = Math.max(ly, headerBottom) + 6;
 
             doc.setDrawColor(...BRAND);
             doc.setLineWidth(1.5);

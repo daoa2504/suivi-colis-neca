@@ -15,8 +15,9 @@
 /** Symbole seul, carré — petites surfaces. */
 export const LOGO_MARK = "/img.png";
 
-/** Verrouillage complet — en-têtes de documents (facture, liste de colisage). */
-export const LOGO_FULL = "/logo-full.png";
+/** Verrouillage horizontal — en-têtes de courriels et de documents.
+ *  C'est la déclinaison qui tient dans une bande large sans écraser le texte. */
+export const LOGO_BANNER = "/logo-banner.png";
 
 /** Identifiant de la pièce jointe inline portant le logo dans les courriels. */
 export const EMAIL_LOGO_CID = "nimaplex-logo";
@@ -42,7 +43,3 @@ export function logoMarkUrl(): string {
     return `${siteBaseUrl()}${LOGO_MARK}`;
 }
 
-/** URL absolue du verrouillage complet. */
-export function logoFullUrl(): string {
-    return `${siteBaseUrl()}${LOGO_FULL}`;
-}

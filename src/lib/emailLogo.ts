@@ -32,15 +32,15 @@ export function emailLogoAttachment(): EmailAttachment | null {
     if (cached !== undefined) return cached;
 
     try {
-        const file = path.join(process.cwd(), "public", "img.png");
+        const file = path.join(process.cwd(), "public", "logo-banner.png");
         cached = {
-            filename: "nimaplex.png",
+            filename: "groupe-nimaplex.png",
             content: fs.readFileSync(file),
             contentType: "image/png",
             inlineContentId: EMAIL_LOGO_CID,
         };
     } catch {
-        console.warn("[emailLogo] public/img.png introuvable — courriels sans logo");
+        console.warn("[emailLogo] public/logo-banner.png introuvable — courriels sans logo");
         cached = null;
     }
 

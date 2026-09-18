@@ -32,8 +32,8 @@ const C = {
 };
 
 // --- Logo (cache module-level) -----------------------------------------------
-// Le symbole seul, pas le verrouillage complet : la raison sociale est déjà
-// écrite en toutes lettres à côté, et le verrouillage la répéterait.
+// Le verrouillage horizontal : il porte déjà la raison sociale et la
+// signature, on ne les réécrit donc pas à côté.
 type Logo = { uri: string; file: string } | null;
 
 let LOGO: Logo | undefined;
@@ -41,7 +41,7 @@ let LOGO: Logo | undefined;
 function getLogo(): Logo {
     if (LOGO !== undefined) return LOGO;
 
-    for (const file of ["img.png", "logo-full.png"]) {
+    for (const file of ["logo-banner.png", "img.png"]) {
         try {
             const buf = fs.readFileSync(path.join(process.cwd(), "public", file));
             LOGO = { uri: `data:image/png;base64,${buf.toString("base64")}`, file };
@@ -163,30 +163,32 @@ export function renderInvoicePdf(
     // ---- HEADER --------------------------------------------------------------
     let y = 18;
 
-    // Logo (à gauche) : le symbole, à une taille qui tient la comparaison
-    // avec la raison sociale posée à côté.
+    // Logo horizontal en tête de colonne gauche. Le ratio du fichier est
+    // conservé pour ne pas déformer la marque.
     const logo = getLogo();
-    const logoSize = 20;
+    const isBanner = logo?.file === "logo-banner.png";
+    const bannerW = 68;
+    const bannerH = bannerW * (422 / 1200); // ratio du fichier source
+    let brandX = marginX;
+
     if (logo) {
         try {
-            doc.addImage(logo.uri, "PNG", marginX, y, logoSize, logoSize, undefined, "FAST");
+            if (isBanner) {
+                doc.addImage(logo.uri, "PNG", marginX, y, bannerW, bannerH, undefined, "FAST");
+            } else {
+                // Repli symbole : la raison sociale reprend sa place à côté
+                doc.addImage(logo.uri, "PNG", marginX, y, 20, 20, undefined, "FAST");
+                brandX = marginX + 25;
+                doc.setFont("helvetica", "bold");
+                doc.setTextColor(C.ink[0], C.ink[1], C.ink[2]);
+                doc.setFontSize(21);
+                doc.text(invoice.companyName, brandX, y + 8);
+                doc.setFont("helvetica", "normal");
+            }
         } catch (e) {
             console.warn("[invoice-pdf] addImage failed:", e);
         }
     }
-
-    // Raison sociale en grand, puis adresse, à côté du logo
-    const brandX = marginX + (logo ? logoSize + 5 : 0);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(C.ink[0], C.ink[1], C.ink[2]);
-    doc.setFontSize(21);
-    doc.text(invoice.companyName, brandX, y + 8);
-    // .INC en exposant
-    const nameW = doc.getTextWidth(invoice.companyName);
-    doc.setFontSize(9);
-    doc.setTextColor(C.accent[0], C.accent[1], C.accent[2]);
-    doc.text(".INC", brandX + nameW + 0.8, y + 4);
-    doc.setFont("helvetica", "normal");
 
     // Adresse & coordonnées entreprise
     doc.setFont("helvetica", "normal");
@@ -205,7 +207,7 @@ export function renderInvoicePdf(
     }
     if (invoice.companyEmail) addrLines.push(invoice.companyEmail);
 
-    doc.text(addrLines, brandX, y + 13);
+    doc.text(addrLines, brandX, isBanner ? y + bannerH + 4 : y + 13);
 
     // Meta facture (à droite)
     const rightX = pageW - marginX;
