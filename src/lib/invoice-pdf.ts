@@ -168,7 +168,17 @@ export function renderInvoicePdf(
     const logo = getLogo();
     const isBanner = logo?.file === "logo-banner.png";
     const bannerW = 68;
-    const bannerH = bannerW * (422 / 1200); // ratio du fichier source
+    // Ratio lu dans l'image, pas figé : régénérer le logo ne doit pas
+    // l'étirer silencieusement.
+    let bannerH = bannerW * 0.38;
+    if (logo && isBanner) {
+        try {
+            const p = doc.getImageProperties(logo.uri);
+            if (p?.width && p?.height) bannerH = (bannerW * p.height) / p.width;
+        } catch {
+            // getImageProperties peut échouer : on garde l'approximation
+        }
+    }
     let brandX = marginX;
 
     if (logo) {
