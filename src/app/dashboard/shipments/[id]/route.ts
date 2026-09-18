@@ -2,6 +2,9 @@
 import { EMAIL_LOGO_SRC } from "@/lib/branding";
 import { withEmailLogo } from "@/lib/emailLogo";
 import { createInvoiceForShipment } from "@/lib/invoice";
+import { contentLineSchema } from "@/lib/validators";
+import { summarizeKind } from "@/lib/itemKind";
+import { z } from "zod";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -13,6 +16,25 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // Utils
+/** Ne garde de chaque ligne que les champs qui décrivent sa propre nature. */
+function normalizeLines(lines: z.infer<typeof contentLineSchema>[]) {
+    return lines.map((line) => {
+        const isDevice = line.itemKind === "DEVICE";
+        return {
+            itemKind: line.itemKind,
+            label: isDevice
+                ? line.deviceType || "Appareil"
+                : (line.label || "").trim() || "Effets personnels",
+            quantity: line.quantity,
+            weightKg: line.weightKg ?? null,
+            deviceType: isDevice ? line.deviceType || null : null,
+            lengthCm: isDevice ? line.lengthCm ?? null : null,
+            widthCm: isDevice ? line.widthCm ?? null : null,
+            heightCm: isDevice ? line.heightCm ?? null : null,
+        };
+    });
+}
+
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
@@ -87,38 +109,33 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if ("receiverPhone" in body) data.receiverPhone = body.receiverPhone ? String(body.receiverPhone) : null;
     if ("weightKg" in body) data.weightKg = body.weightKg !== "" && body.weightKg !== undefined ? Number(body.weightKg) : null;
 
-    // Nature du contenu. Repasser un appareil en colis efface type et dimensions,
-    // pour ne pas garder de données qui ne décrivent plus l'envoi.
-    if ("itemKind" in body) {
-        const isDevice = String(body.itemKind ?? "").toUpperCase() === "DEVICE";
-        data.itemKind = isDevice ? "DEVICE" : "PARCEL";
-        if (!isDevice) {
-            data.deviceType = null;
-            data.lengthCm = null;
-            data.widthCm = null;
-            data.heightCm = null;
-        } else {
-            const num = (v: unknown) =>
-                v === "" || v === undefined || v === null ? null : Number(v);
-            if ("deviceType" in body) data.deviceType = body.deviceType ? String(body.deviceType) : null;
-            if ("lengthCm" in body) data.lengthCm = num(body.lengthCm);
-            if ("widthCm" in body) data.widthCm = num(body.widthCm);
-            if ("heightCm" in body) data.heightCm = num(body.heightCm);
+    // Lignes de contenu. Elles sont remplacées en bloc : l'agent voit la liste
+    // complète à l'écran, c'est elle qui fait foi.
+    let newLines: ReturnType<typeof normalizeLines> | null = null;
+    if ("items" in body) {
+        const parsedLines = z.array(contentLineSchema).min(1).safeParse(body.items);
+        if (!parsedLines.success) {
+            return NextResponse.json(
+                { ok: false, error: parsedLines.error.flatten() },
+                { status: 400 }
+            );
         }
 
-        // Un colis doit garder un poids : on refuse de le vider par une modification.
-        if (!isDevice && data.weightKg == null) {
-            return NextResponse.json(
-                { ok: false, error: "Poids obligatoire pour un colis" },
-                { status: 400 }
-            );
-        }
-        if (isDevice && !data.deviceType) {
-            return NextResponse.json(
-                { ok: false, error: "Type d'appareil requis" },
-                { status: 400 }
-            );
-        }
+        newLines = normalizeLines(parsedLines.data);
+
+        // Résumé au niveau de l'envoi, recalculé depuis les lignes.
+        data.itemKind = summarizeKind(newLines);
+        const firstDevice = newLines.find((l) => l.itemKind === "DEVICE");
+        const single = data.itemKind === "DEVICE";
+        data.deviceType = single ? firstDevice?.deviceType ?? null : null;
+        data.lengthCm = single ? firstDevice?.lengthCm ?? null : null;
+        data.widthCm = single ? firstDevice?.widthCm ?? null : null;
+        data.heightCm = single ? firstDevice?.heightCm ?? null : null;
+
+        const weighed = newLines.filter((l) => l.weightKg != null);
+        data.weightKg = weighed.length
+            ? weighed.reduce((acc, l) => acc + (l.weightKg ?? 0) * l.quantity, 0)
+            : null;
     }
 
     if ("packageCount" in body) {
@@ -179,6 +196,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     if (Object.keys(data).length === 0) {
         return NextResponse.json({ ok: false, error: "Aucun champ modifiable reçu" }, { status: 400 });
+    }
+
+    // Remplacement des lignes dans la même écriture que l'envoi : on ne veut
+    // pas d'un état où l'ancien contenu a disparu sans que le nouveau existe.
+    if (newLines) {
+        data.items = { deleteMany: {}, create: newLines };
     }
 
     // ✅ UPDATE

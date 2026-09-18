@@ -459,7 +459,9 @@ export default async function ShipmentsPage({
                                 </Link>
                             </td>
                             <td data-col="contenu" className="p-3">
-                                {s.itemKind === "DEVICE" ? (
+                                {s.itemKind === "PARCEL" ? (
+                                    <span className="text-xs text-neutral-500">📦 Colis</span>
+                                ) : (
                                     <span
                                         className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-xs font-medium"
                                         title={
@@ -467,10 +469,10 @@ export default async function ShipmentsPage({
                                             undefined
                                         }
                                     >
-                                        🔌 {s.deviceType || "Appareil"}
+                                        {s.itemKind === "MIXED"
+                                            ? "📦🔌 Colis + appareil"
+                                            : `🔌 ${s.deviceType || "Appareil"}`}
                                     </span>
-                                ) : (
-                                    <span className="text-xs text-neutral-500">📦 Colis</span>
                                 )}
                             </td>
                             <td data-col="poids" className="p-3">{s.weightKg ?? "—"}</td>

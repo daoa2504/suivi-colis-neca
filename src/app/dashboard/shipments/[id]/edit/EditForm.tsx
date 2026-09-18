@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import * as React from "react";
-import ContentKindSection, { type ContentValue } from "@/components/ContentKindSection";
+import ContentLinesSection, { fromApiItems, toApiItems, type ContentValue } from "@/components/ContentLinesSection";
 import PaymentSection, { type PaymentValue } from "@/components/PaymentSection";
 import { formatApiError } from "@/lib/apiError";
 
@@ -14,12 +14,17 @@ type Shipment = {
     receiverEmail: string;
     receiverPhone?: string | null;
     weightKg?: number | null;
-    itemKind?: "PARCEL" | "DEVICE" | null;
-    deviceType?: string | null;
-    lengthCm?: number | null;
-    widthCm?: number | null;
-    heightCm?: number | null;
     packageCount?: number | null;
+    items?: {
+        itemKind?: string | null;
+        label?: string | null;
+        quantity?: number | null;
+        weightKg?: number | null;
+        deviceType?: string | null;
+        lengthCm?: number | null;
+        widthCm?: number | null;
+        heightCm?: number | null;
+    }[];
     totalAmount?: number | null;
     amountPaid?: number | null;
     paymentStatus?: "PAID" | "PARTIAL" | "UNPAID" | null;
@@ -73,18 +78,13 @@ export default function EditForm({
     const [receiverEmail, setReceiverEmail] = useState(shipment.receiverEmail || "");
     const [phone, setPhone] = useState(shipment.receiverPhone || "");
 
-    // Nature du contenu : gérée par ContentKindSection, qui remonte ses valeurs ici.
+    // Contenu : une ou plusieurs lignes, colis ou appareil.
     const [content, setContent] = useState<ContentValue>({
-        itemKind: shipment.itemKind === "DEVICE" ? "DEVICE" : "PARCEL",
-        deviceType: shipment.deviceType || "",
-        weightKg: shipment.weightKg?.toString() || "",
-        lengthCm: shipment.lengthCm?.toString() || "",
-        widthCm: shipment.widthCm?.toString() || "",
-        heightCm: shipment.heightCm?.toString() || "",
+        lines: fromApiItems(shipment.items ?? []),
         packageCount: shipment.packageCount?.toString() || "1",
     });
 
-    // Référence stable : ContentKindSection appelle onChange dans un effet.
+    // Référence stable : ContentLinesSection appelle onChange dans un effet.
     const onContentChange = useCallback((v: ContentValue) => setContent(v), []);
 
     // Paiement : c'est ce bloc qui alimente la facture, donc le reçu.
@@ -179,12 +179,7 @@ export default function EditForm({
             receiverName: receiverName.trim(),
             receiverEmail: receiverEmail.trim(),
             receiverPhone: phone || null,
-            weightKg: numOrNull(content.weightKg),
-            itemKind: content.itemKind,
-            deviceType: content.itemKind === "DEVICE" ? content.deviceType || null : null,
-            lengthCm: numOrNull(content.lengthCm),
-            widthCm: numOrNull(content.widthCm),
-            heightCm: numOrNull(content.heightCm),
+            items: toApiItems(content.lines),
             packageCount: numOrNull(content.packageCount) ?? 1,
             totalAmount: numOrNull(payment.totalAmount),
             amountPaid: numOrNull(payment.amountPaid),
@@ -308,7 +303,7 @@ export default function EditForm({
                             </div>
                         </div>
 
-                        <ContentKindSection initial={content} onChange={onContentChange} />
+                        <ContentLinesSection initial={content} onChange={onContentChange} />
 
                         <div>
                             <label className="label block mb-1 text-sm font-medium text-neutral-700">Adresse</label>
@@ -441,7 +436,7 @@ export default function EditForm({
                         </div>
                     </div>
 
-                    <ContentKindSection initial={content} onChange={onContentChange} />
+                    <ContentLinesSection initial={content} onChange={onContentChange} />
 
                     {/* Adresse au Canada */}
                     <div className="space-y-4">

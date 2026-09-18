@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import PaymentSection from "@/components/PaymentSection";
-import ContentKindSection from "@/components/ContentKindSection";
+import ContentLinesSection, { emptyLine, toApiItems, type ContentValue } from "@/components/ContentLinesSection";
 import { formatApiError } from "@/lib/apiError";
 
 // Champ numérique facultatif d'un FormData → nombre ou null
@@ -38,6 +38,7 @@ export default function CAForm() {
     // Incrémenté après un envoi réussi : form.reset() ne vide pas l'état React
     // de la section « Nature du contenu ».
     const [contentResetSignal, setContentResetSignal] = useState(0);
+    const [content, setContent] = useState<ContentValue>({ lines: [emptyLine()], packageCount: "1" });
 
     // États pour le récupérateur au Niger
     const [pickupLastName, setPickupLastName] = useState('');
@@ -220,13 +221,8 @@ export default function CAForm() {
             receiverName: String(fd.get("receiverName") || "").trim(),
             receiverEmail: String(fd.get("receiverEmail") || "").trim(),
             receiverPhone: (fd.get("receiverPhone") as string) || null,
-            weightKg: numOrNull(fd.get("weightKg")),
-            itemKind: String(fd.get("itemKind") || "PARCEL"),
-            deviceType: String(fd.get("deviceType") || "").trim() || null,
-            lengthCm: numOrNull(fd.get("lengthCm")),
-            widthCm: numOrNull(fd.get("widthCm")),
-            heightCm: numOrNull(fd.get("heightCm")),
-            packageCount: numOrNull(fd.get("packageCount")) ?? 1,
+            items: toApiItems(content.lines),
+            packageCount: Number(content.packageCount) || 1,
             // Paiement : ces champs viennent de <PaymentSection />. Ce formulaire
             // construit son payload à la main, il faut donc les lire explicitement
             // — sans quoi le montant saisi par l'agent est perdu et aucune facture
@@ -422,7 +418,7 @@ export default function CAForm() {
                 </div>
 
                 {/* Nature du contenu : colis ou appareil */}
-                <ContentKindSection resetSignal={contentResetSignal} />
+                <ContentLinesSection resetSignal={contentResetSignal} onChange={setContent} />
 
                 <div>
                     <label htmlFor="receiverAddress" className="label block mb-1 text-sm font-medium text-neutral-700">

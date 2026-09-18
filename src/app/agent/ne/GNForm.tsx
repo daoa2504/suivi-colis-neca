@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { useState, useEffect, useRef } from 'react';
 import PaymentSection from '@/components/PaymentSection';
-import ContentKindSection from '@/components/ContentKindSection';
+import ContentLinesSection, { emptyLine, toApiItems, type ContentValue } from '@/components/ContentLinesSection';
 import { formatApiError } from '@/lib/apiError';
 
 export default function GNForm() {
@@ -31,6 +31,7 @@ export default function GNForm() {
     // Incrémenté après un envoi réussi : form.reset() ne vide pas l'état React
     // de la section « Nature du contenu ».
     const [contentResetSignal, setContentResetSignal] = useState(0);
+    const [content, setContent] = useState<ContentValue>({ lines: [emptyLine()], packageCount: "1" });
 
     // États pour les convois disponibles
     const [availableConvoys, setAvailableConvoys] = useState<
@@ -209,6 +210,10 @@ export default function GNForm() {
             const fd = new FormData(e.currentTarget);
             const body: Record<string, any> = Object.fromEntries(fd.entries());
             body.convoyId = selectedConvoyId;
+            // Les lignes de contenu sont un tableau de longueur variable :
+            // elles ne passent pas par FormData, elles viennent de l'état.
+            body.items = toApiItems(content.lines);
+            body.packageCount = Number(content.packageCount) || 1;
 
             const res = await fetch('/api/shipments', {
                 method: 'POST',
@@ -508,7 +513,7 @@ export default function GNForm() {
             </div>
 
             {/* Nature du contenu : colis ou appareil */}
-            <ContentKindSection resetSignal={contentResetSignal} />
+            <ContentLinesSection resetSignal={contentResetSignal} onChange={setContent} />
 
             {/* Paiement */}
             <PaymentSection />

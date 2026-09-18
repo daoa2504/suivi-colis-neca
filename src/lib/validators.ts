@@ -10,47 +10,63 @@ const optionalPositive = z.preprocess(
     z.number().positive().optional()
 );
 
+/**
+ * Une ligne de contenu : soit un colis, soit un appareil.
+ * Un envoi en porte une ou plusieurs, ce qui permet à un même client de
+ * confier un carton ET une télévision sous un seul numéro de suivi.
+ */
+export const contentLineSchema = z
+    .object({
+        itemKind: z.enum(["PARCEL", "DEVICE"]).default("PARCEL"),
+        label: z.string().trim().max(200).optional(),
+        quantity: z.preprocess(
+            (v) => (v === "" || v === null || v === undefined ? 1 : Number(v)),
+            z.number().int().positive().max(9999)
+        ),
+        weightKg: optionalPositive,
+        deviceType: z.string().trim().min(1).nullish(),
+        lengthCm: optionalPositive,
+        widthCm: optionalPositive,
+        heightCm: optionalPositive,
+    })
+    .superRefine((line, ctx) => {
+        if (line.itemKind === "DEVICE") {
+            // Appareil : le type fait foi. Poids et dimensions sont souvent
+            // inconnus à la prise en charge, ils restent facultatifs.
+            if (!line.deviceType) {
+                ctx.addIssue({
+                    path: ["deviceType"],
+                    code: z.ZodIssueCode.custom,
+                    message: "Type d'appareil requis",
+                });
+            }
+            return;
+        }
+        // Colis : la description et le poids servent au tarif et à la douane.
+        if (!line.label) {
+            ctx.addIssue({
+                path: ["label"],
+                code: z.ZodIssueCode.custom,
+                message: "Description requise pour un colis",
+            });
+        }
+        if (line.weightKg == null) {
+            ctx.addIssue({
+                path: ["weightKg"],
+                code: z.ZodIssueCode.custom,
+                message: "Poids obligatoire pour un colis",
+            });
+        }
+    });
+
 // Champs décrivant le contenu de l'envoi, communs aux deux sens
 const contentFields = {
-    itemKind: z.enum(["PARCEL", "DEVICE"]).default("PARCEL"),
-    deviceType: z.string().trim().min(1).nullish(),
-    weightKg: optionalPositive,
-    lengthCm: optionalPositive,
-    widthCm: optionalPositive,
-    heightCm: optionalPositive,
+    items: z.array(contentLineSchema).min(1, "Au moins une ligne de contenu"),
     packageCount: z.preprocess(
         (v) => (v === "" || v === null || v === undefined ? 1 : Number(v)),
         z.number().int().positive().max(999)
     ),
 };
-
-/**
- * Colis → le poids est obligatoire (il sert au calcul du tarif).
- * Appareil → c'est le type qui est obligatoire ; poids et dimensions sont
- * souvent inconnus à la prise en charge et restent donc facultatifs.
- */
-function refineContent(
-    data: { itemKind?: "PARCEL" | "DEVICE"; deviceType?: string | null; weightKg?: number },
-    ctx: z.RefinementCtx
-) {
-    if (data.itemKind === "DEVICE") {
-        if (!data.deviceType) {
-            ctx.addIssue({
-                path: ["deviceType"],
-                code: z.ZodIssueCode.custom,
-                message: "Type d'appareil requis",
-            });
-        }
-        return;
-    }
-    if (data.weightKg == null) {
-        ctx.addIssue({
-            path: ["weightKg"],
-            code: z.ZodIssueCode.custom,
-            message: "Poids obligatoire pour un colis",
-        });
-    }
-}
 
 // Formulaire Agent GN : enregistre un colis + date de convoi (obligatoire)
 const shipmentBase = z.object({
@@ -68,7 +84,7 @@ const shipmentBase = z.object({
     convoyDate: z.union([z.string(), z.date()]).optional(), // legacy, remplacé par convoyId
 });
 
-export const createShipmentByGN = shipmentBase.superRefine(refineContent);
+export const createShipmentByGN = shipmentBase;
 
 // Formulaire Agent CA : identique à GN + infos du récupérateur au Niger (obligatoires)
 export const createShipmentByCA = shipmentBase
@@ -79,8 +95,7 @@ export const createShipmentByCA = shipmentBase
         pickupFirstName: z.string().min(1, "Prénoms du récupérateur requis"),
         pickupQuartier: z.string().nullish(),
         pickupPhone: z.string().min(1, "Téléphone du récupérateur requis"),
-    })
-    .superRefine(refineContent);
+    });
 
 // src/lib/validators.ts
 

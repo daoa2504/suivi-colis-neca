@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import type { Direction } from "@prisma/client";
 import { sendEmailSafe, FROM, type EmailAttachment } from "@/lib/email";
 import { createShipmentByCA, createShipmentByGN } from "@/lib/validators";
+import { summarizeKind } from "@/lib/itemKind";
 import { createInvoiceForShipment, getInvoiceByShipment } from "@/lib/invoice";
 import { renderInvoicePdf } from "@/lib/invoice-pdf";
 
@@ -119,18 +120,41 @@ export async function POST(req: NextRequest) {
         console.log("  - Destination:", destinationCountry);
         console.log("  - Route:", routeDisplay);
 
-        const weightKg = toFloatOrNull(body.weightKg);
+        // Lignes de contenu : un envoi peut porter des colis ET des appareils.
+        // Chaque ligne ne garde que les champs qui décrivent sa propre nature,
+        // pour ne pas laisser de données orphelines en base.
+        const lines = parsed.data.items.map((line) => {
+            const isDevice = line.itemKind === "DEVICE";
+            return {
+                itemKind: line.itemKind,
+                label: isDevice
+                    ? line.deviceType || "Appareil"
+                    : (line.label || "").trim() || "Effets personnels",
+                quantity: line.quantity,
+                weightKg: line.weightKg ?? null,
+                deviceType: isDevice ? line.deviceType || null : null,
+                lengthCm: isDevice ? line.lengthCm ?? null : null,
+                widthCm: isDevice ? line.widthCm ?? null : null,
+                heightCm: isDevice ? line.heightCm ?? null : null,
+            };
+        });
 
-        // Nature du contenu : colis ou appareil.
-        // Pour un colis, le type d'appareil et les dimensions sont ignorés même
-        // si le client les a envoyés — pas de données orphelines en base.
-        const itemKind: "PARCEL" | "DEVICE" =
-            String(body.itemKind ?? "PARCEL").toUpperCase() === "DEVICE" ? "DEVICE" : "PARCEL";
-        const isDevice = itemKind === "DEVICE";
-        const deviceType = isDevice ? String(body.deviceType ?? "").trim() || null : null;
-        const lengthCm = isDevice ? toFloatOrNull(body.lengthCm) : null;
-        const widthCm = isDevice ? toFloatOrNull(body.widthCm) : null;
-        const heightCm = isDevice ? toFloatOrNull(body.heightCm) : null;
+        // Résumé au niveau de l'envoi, pour les listes et les filtres.
+        const itemKind = summarizeKind(lines);
+        // Un envoi mixte n'a pas un type d'appareil unique : on ne le renseigne
+        // que s'il n'y a qu'un seul appareil et rien d'autre.
+        const firstDevice = lines.find((l) => l.itemKind === "DEVICE");
+        const deviceType = itemKind === "DEVICE" ? firstDevice?.deviceType ?? null : null;
+        const lengthCm = itemKind === "DEVICE" ? firstDevice?.lengthCm ?? null : null;
+        const widthCm = itemKind === "DEVICE" ? firstDevice?.widthCm ?? null : null;
+        const heightCm = itemKind === "DEVICE" ? firstDevice?.heightCm ?? null : null;
+
+        // Poids de l'envoi : somme des lignes pesées. Null si aucune ne l'est
+        // (cas d'un envoi ne portant que des appareils non pesés).
+        const weighed = lines.filter((l) => l.weightKg != null);
+        const weightKg = weighed.length
+            ? weighed.reduce((acc, l) => acc + (l.weightKg ?? 0) * l.quantity, 0)
+            : null;
 
         // Cartons physiques : au moins 1, jamais 0 — la liste de colisage
         // annoncerait sinon un nombre de colis faux en douane.
@@ -187,6 +211,9 @@ export async function POST(req: NextRequest) {
                 amountPaid: amountPaid ?? null,
                 paymentStatus,
                 currency: currency as any,
+                // Les lignes naissent avec l'envoi : pas d'état intermédiaire
+                // où un envoi existerait sans son contenu.
+                items: { create: lines },
             },
         });
 

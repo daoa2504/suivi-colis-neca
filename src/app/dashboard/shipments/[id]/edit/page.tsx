@@ -38,6 +38,7 @@ export default async function EditShipmentPage({
             widthCm: true,
             heightCm: true,
             packageCount: true,
+            items: { orderBy: { createdAt: "asc" } },
             totalAmount: true,
             amountPaid: true,
             paymentStatus: true,

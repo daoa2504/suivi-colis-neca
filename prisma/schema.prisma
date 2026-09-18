@@ -94,6 +94,9 @@ model Shipment {
   callbacks         CallbackRequest[]
 }
 
+// Une ligne de contenu d'un envoi. Un même client peut confier un colis
+// ET un appareil sous un seul numéro de suivi : chaque nature vit ici,
+// pas au niveau de l'envoi.
 model ShipmentItem {
   id         String   @id @default(cuid())
   shipmentId Int
@@ -101,6 +104,15 @@ model ShipmentItem {
   label      String
   quantity   Int      @default(1)
   weightKg   Float?
+
+  // Nature de cette ligne. PARCEL → le poids compte ; DEVICE → deviceType
+  // est renseigné et les dimensions peuvent l'être.
+  itemKind   ItemKind @default(PARCEL)
+  deviceType String?
+  lengthCm   Float?
+  widthCm    Float?
+  heightCm   Float?
+
   createdAt  DateTime @default(now())
 }
 
@@ -211,6 +223,9 @@ enum Direction {
 enum ItemKind {
   PARCEL // Colis ordinaire — poids obligatoire
   DEVICE // Appareil — type obligatoire, poids et dimensions facultatifs
+  MIXED  // Envoi portant à la fois des colis et des appareils.
+  //        Résumé calculé au niveau de Shipment uniquement : une ligne
+  //        de contenu est toujours PARCEL ou DEVICE, jamais MIXED.
 }
 
 enum PaymentStatus {
