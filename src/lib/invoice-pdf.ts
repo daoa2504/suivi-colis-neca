@@ -108,12 +108,62 @@ function regimeLabel(regime: string): string {
     }
 }
 
+function countryLabel(c: string | null | undefined): string {
+    return c === "CA" ? "Canada" : c === "NE" ? "Niger" : (c ?? "?");
+}
+
 function routeLabel(origin?: string | null, destination?: string | null): string {
-    const label = (c: string | null | undefined) =>
-        c === "CA" ? "Canada" : c === "NE" ? "Niger" : (c ?? "?");
-    // jsPDF helvetica utilise WinAnsi qui ne contient PAS les flèches Unicode.
-    // On utilise ">" qui rend correctement dans tous les viewers PDF.
-    return `${label(origin)} > ${label(destination)}`;
+    // Les polices intégrées de jsPDF utilisent WinAnsi, qui ne contient pas la
+    // flèche Unicode. Partout où la mise en page le permet on dessine une vraie
+    // flèche (drawRoute) ; ce libellé textuel sert de repli, et « vers » y est
+    // plus lisible qu'un « > » d'informaticien.
+    return `${countryLabel(origin)} vers ${countryLabel(destination)}`;
+}
+
+/**
+ * Trajet « Niger → Canada » avec une vraie flèche, tracée en vectoriel.
+ * Aucune police Unicode à embarquer, et le trait reste net à l'impression.
+ * Rend la largeur totale occupée.
+ */
+function drawRoute(
+    doc: jsPDF,
+    x: number,
+    y: number,
+    origin: string | null | undefined,
+    destination: string | null | undefined,
+    fontSize: number,
+    color: readonly [number, number, number]
+): number {
+    const from = countryLabel(origin);
+    const to = countryLabel(destination);
+
+    doc.setFontSize(fontSize);
+    doc.setTextColor(color[0], color[1], color[2]);
+    doc.text(from, x, y);
+
+    const fromW = doc.getTextWidth(from);
+    const gap = fontSize * 0.14;          // respiration de part et d'autre
+    const shaft = fontSize * 0.42;        // longueur du trait
+    const head = fontSize * 0.16;         // demi-hauteur de la pointe
+    const ax = x + fromW + gap;
+    // Hauteur optique : un peu au-dessus de la ligne de base
+    const ay = y - fontSize * 0.11;
+
+    doc.setDrawColor(color[0], color[1], color[2]);
+    doc.setFillColor(color[0], color[1], color[2]);
+    doc.setLineWidth(fontSize * 0.035);
+    doc.line(ax, ay, ax + shaft, ay);
+    doc.triangle(
+        ax + shaft + head * 1.2, ay,
+        ax + shaft - head * 0.2, ay - head,
+        ax + shaft - head * 0.2, ay + head,
+        "F"
+    );
+
+    const arrowW = shaft + head * 1.2;
+    doc.text(to, ax + arrowW + gap, y);
+
+    return fromW + gap + arrowW + gap + doc.getTextWidth(to);
 }
 
 /** Nettoie un texte pour le rendu PDF (helvetica WinAnsi).
@@ -317,10 +367,15 @@ export function renderInvoicePdf(
         doc.text(invoice.shipmentTrackingId ?? "—", rightColX, y + 5);
 
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        doc.setTextColor(C.muted[0], C.muted[1], C.muted[2]);
-        const route = routeLabel(invoice.shipment?.originCountry, invoice.shipment?.destinationCountry);
-        doc.text(route, rightColX, y + 10);
+        drawRoute(
+            doc,
+            rightColX,
+            y + 11,
+            invoice.shipment?.originCountry,
+            invoice.shipment?.destinationCountry,
+            11,
+            C.ink
+        );
     } else {
         const route = routeLabel(invoice.shipment?.originCountry, invoice.shipment?.destinationCountry);
         doc.setFont("helvetica", "bold");

@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
         const currency: "CAD" | "XOF" = rawCurrency === "XOF" ? "XOF" : "CAD";
         // Supplément de ville, figé maintenant : il fait partie de ce que le
         // client doit, au même titre que le prix convenu.
-        const resolved = await resolveSurcharge(convoy.id, body.receiverCity, currency);
+        const resolved = await resolveSurcharge(convoy.id, body.receiverCity, currency, weightKg);
         const surchargeAmount = resolved?.amount ?? null;
         const due = amountDue(totalAmount, surchargeAmount);
 

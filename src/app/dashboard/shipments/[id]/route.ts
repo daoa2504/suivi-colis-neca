@@ -170,7 +170,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
             "convoyId" in body && body.convoyId ? String(body.convoyId) : before.convoyId;
         const city = "receiverCity" in body ? body.receiverCity : before.receiverCity;
 
-        const resolved = await resolveSurcharge(convoyId, city, currency);
+        // Le poids peut venir d'etre recalcule depuis les lignes de contenu
+        // dans cette meme requete ; sinon on garde celui deja en base.
+        const weight = "weightKg" in data ? data.weightKg : before.weightKg;
+        const resolved = await resolveSurcharge(convoyId, city, currency, weight);
         data.surchargeAmount = resolved?.amount ?? null;
 
         const due = amountDue(total, data.surchargeAmount);

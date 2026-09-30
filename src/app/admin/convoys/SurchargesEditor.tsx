@@ -122,7 +122,7 @@ export default function SurchargesEditor({ convoyId }: { convoyId: string }) {
             {open && (
                 <div className="mt-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 space-y-3">
                     <p className="text-[11px] text-neutral-500 leading-snug">
-                        Ajouté en ligne distincte sur la facture des clients de cette ville.
+                        Tarif <strong>au kilo</strong>, ajouté en ligne distincte sur la facture des clients de cette ville — 3 $/kg sur 2 kg donne 6 $.
                         S'applique aux factures générées ensuite ; celles déjà émises ne
                         changent pas.
                     </p>
@@ -140,7 +140,7 @@ export default function SurchargesEditor({ convoyId }: { convoyId: string }) {
                                 >
                                     <span>
                                         <strong>{r.city}</strong> — {r.amount.toFixed(2)}{" "}
-                                        {r.currency === "XOF" ? "F CFA" : "$"}
+                                        / kg
                                     </span>
                                     <button
                                         type="button"
@@ -189,7 +189,7 @@ export default function SurchargesEditor({ convoyId }: { convoyId: string }) {
 
                         <div>
                             <label className="block text-[10px] font-medium text-neutral-600 mb-0.5">
-                                Montant ($ CAD)
+                                Tarif ($ CAD / kg)
                             </label>
                             <input
                                 type="number"

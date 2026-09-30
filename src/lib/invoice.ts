@@ -19,6 +19,16 @@ import { logAudit } from "@/lib/audit";
 
 const INVOICE_PREFIX = "NIMA";
 
+/** « 2 kg », « 1,5 kg » — sans décimale inutile. */
+function fmtWeight(kg: number): string {
+    return `${kg.toLocaleString("fr-CA", { maximumFractionDigits: 2 })} kg`;
+}
+
+/** « 3,00 $ » — pour montrer le tarif au kilo dans le détail de ligne. */
+function fmtAmount(v: number): string {
+    return `${v.toLocaleString("fr-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $`;
+}
+
 // ============================================================================
 // Numérotation
 // ============================================================================
@@ -105,7 +115,8 @@ export async function createInvoiceForShipment(
             ? await resolveSurcharge(
                   shipment.convoyId,
                   shipment.receiverCity,
-                  shipment.currency ?? "CAD"
+                  shipment.currency ?? "CAD",
+                  shipment.weightKg
               )
             : null;
     const total = round2(baseAmount + surchargeAmount);
@@ -156,8 +167,10 @@ export async function createInvoiceForShipment(
     const surchargeLabel =
         surcharge?.label ||
         (surcharge ? `Frais de livraison — ${surcharge.city}` : "Frais de livraison");
+    // On montre le calcul plutôt que le seul résultat : le client doit pouvoir
+    // vérifier « 3,00 $/kg × 2 kg » sans nous appeler.
     const surchargeDetail = surcharge
-        ? `Supplément ${surcharge.city} · convoi du ${convoyDateLabel}`
+        ? `${fmtAmount(surcharge.rate)}/kg × ${fmtWeight(surcharge.weightKg)} · convoi du ${convoyDateLabel}`
         : `Supplément · convoi du ${convoyDateLabel}`;
 
     const surchargeBeforeTax = hasSurcharge
@@ -169,6 +182,8 @@ export async function createInvoiceForShipment(
     const detailedDescription = [
         `Envoi ${shipment.trackingId}`,
         routeLabel,
+        // Le poids justifie le tarif : il a sa place sur la facture.
+        shipment.weightKg != null ? fmtWeight(shipment.weightKg) : null,
         isDevice ? shipment.deviceType || "Appareil" : null,
         isDevice ? dims : null,
     ]
@@ -302,6 +317,7 @@ export async function refreshShipmentSurcharge(shipmentId: number) {
             amountPaid: true,
             surchargeAmount: true,
             paymentStatus: true,
+            weightKg: true,
         },
     });
     if (!shipment) return null;
@@ -309,7 +325,8 @@ export async function refreshShipmentSurcharge(shipmentId: number) {
     const resolved = await resolveSurcharge(
         shipment.convoyId,
         shipment.receiverCity,
-        shipment.currency ?? "CAD"
+        shipment.currency ?? "CAD",
+        shipment.weightKg
     );
     const fresh = resolved?.amount ?? null;
 

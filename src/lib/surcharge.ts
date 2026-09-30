@@ -21,20 +21,32 @@ function normalizeCity(s: string): string {
 }
 
 export type ResolvedSurcharge = {
+    /** Montant total du supplément : tarif × poids. */
     amount: number;
+    /** Tarif au kilo tel que configuré sur le convoi. */
+    rate: number;
+    /** Poids retenu pour le calcul. */
+    weightKg: number;
     city: string;
     label: string | null;
 } | null;
 
 /**
  * Supplément applicable à un envoi, ou null.
+ *
+ * Le montant configuré est un TARIF AU KILO : 3 $/kg sur un envoi de 2 kg
+ * donne 6 $. Un envoi sans poids connu ne peut donc pas être majoré — le
+ * cas se présente pour un appareil non pesé, et il vaut mieux ne rien
+ * facturer qu'inventer un poids.
+ *
  * Un supplément libellé dans une autre devise que l'envoi est ignoré plutôt
  * qu'additionné à tort.
  */
 export async function resolveSurcharge(
     convoyId: string | null | undefined,
     receiverCity: string | null | undefined,
-    currency: string
+    currency: string,
+    weightKg: number | null | undefined
 ): Promise<ResolvedSurcharge> {
     if (!convoyId || !receiverCity?.trim()) return null;
 
@@ -51,10 +63,23 @@ export async function resolveSurcharge(
         return null;
     }
 
-    const amount = Number(match.amount);
-    if (!Number.isFinite(amount) || amount <= 0) return null;
+    const rate = Number(match.amount);
+    if (!Number.isFinite(rate) || rate <= 0) return null;
 
-    return { amount, city: match.city, label: match.label };
+    if (weightKg == null || !Number.isFinite(weightKg) || weightKg <= 0) {
+        console.warn(
+            `[surcharge] ${match.city} ignoré : poids inconnu, tarif au kilo inapplicable`
+        );
+        return null;
+    }
+
+    return {
+        amount: round2(rate * weightKg),
+        rate,
+        weightKg,
+        city: match.city,
+        label: match.label,
+    };
 }
 
 /** Montant réellement dû par le client : prix convenu + supplément. */
