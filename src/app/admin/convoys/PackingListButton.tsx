@@ -73,8 +73,50 @@ function fmtDate(d: string | Date) {
     return `${y}-${m}-${day}`;
 }
 
-function routeLabel(direction: string) {
-    return direction === "CA_TO_NE" ? "Canada → Niger" : "Niger → Canada";
+function routeEnds(direction: string): [string, string] {
+    return direction === "CA_TO_NE" ? ["Canada", "Niger"] : ["Niger", "Canada"];
+}
+
+/**
+ * Trajet avec une vraie flèche, tracée en vectoriel.
+ * Les polices intégrées de jsPDF utilisent WinAnsi : « → » n'y existe pas et
+ * sortait en « !' ». Un trait et une pointe triangulaire règlent la question
+ * sans embarquer de police Unicode.
+ */
+function drawRoute(
+    doc: jsPDF,
+    x: number,
+    baseline: number,
+    direction: string,
+    fontSize: number,
+    color: [number, number, number]
+) {
+    const [from, to] = routeEnds(direction);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(fontSize);
+    doc.setTextColor(...color);
+    doc.text(from, x, baseline);
+
+    const fromW = doc.getTextWidth(from);
+    const gap = fontSize * 0.16;
+    const shaft = fontSize * 0.5;
+    const head = fontSize * 0.18;
+    const ax = x + fromW + gap;
+    const ay = baseline - fontSize * 0.11;
+
+    doc.setDrawColor(...color);
+    doc.setFillColor(...color);
+    doc.setLineWidth(fontSize * 0.04);
+    doc.line(ax, ay, ax + shaft, ay);
+    doc.triangle(
+        ax + shaft + head * 1.2, ay,
+        ax + shaft - head * 0.2, ay - head,
+        ax + shaft - head * 0.2, ay + head,
+        "F"
+    );
+
+    doc.text(to, ax + shaft + head * 1.2 + gap, baseline);
 }
 
 /**
@@ -276,7 +318,9 @@ export default function PackingListButton({
                     ],
                     [
                         "Trajet\nRoute",
-                        routeLabel(direction),
+                        // Laissé vide : le trajet est tracé dans didDrawCell,
+                        // avec une vraie flèche.
+                        "",
                         "Poids brut total\nTotal gross weight",
                         `${totalWeight.toFixed(2)} kg`,
                     ],
@@ -288,6 +332,16 @@ export default function PackingListButton({
                     ],
                 ],
                 margin: { left: MARGIN, right: MARGIN },
+                didDrawCell: (hook: any) => {
+                    // Cellule « Trajet » : deuxième ligne, deuxième colonne
+                    if (hook.section !== "body") return;
+                    if (hook.row.index !== 1 || hook.column.index !== 1) return;
+
+                    const fs = hook.cell.styles.fontSize ?? 8;
+                    const padLeft = hook.cell.styles.cellPadding?.left ?? 5;
+                    const baseline = hook.cell.y + hook.cell.height / 2 + fs * 0.35;
+                    drawRoute(doc, hook.cell.x + padLeft, baseline, direction, fs, INK);
+                },
             });
             y = (doc as any).lastAutoTable.finalY + 14;
 

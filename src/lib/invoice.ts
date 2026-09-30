@@ -179,9 +179,11 @@ export async function createInvoiceForShipment(
     const baseBeforeTax = round2(amountBeforeTax - surchargeBeforeTax);
 
     const dims = formatDimensions(shipment.lengthCm, shipment.widthCm, shipment.heightCm);
+    // Le trajet ne figure PAS ici : il est dessiné à part dans le PDF, avec une
+    // vraie flèche. L'inclure dans ce texte le condamnerait au « > » de repli,
+    // puisque les polices intégrées de jsPDF ne portent pas la flèche Unicode.
     const detailedDescription = [
         `Envoi ${shipment.trackingId}`,
-        routeLabel,
         // Le poids justifie le tarif : il a sa place sur la facture.
         shipment.weightKg != null ? fmtWeight(shipment.weightKg) : null,
         isDevice ? shipment.deviceType || "Appareil" : null,

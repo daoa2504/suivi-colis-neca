@@ -410,7 +410,12 @@ export function renderInvoicePdf(
             head: [["Description", "Montant"]],
             body: invoice.items.map((it, i) => [
                 {
-                    content: pdfSafe(it.description) + (it.detailedDescription ? "\n" + pdfSafe(it.detailedDescription) : ""),
+                    // La ligne vide finale de la première ligne réserve la place
+                    // du trajet, dessiné ensuite avec une vraie flèche.
+                    content:
+                        pdfSafe(it.description) +
+                        (it.detailedDescription ? "\n" + pdfSafe(it.detailedDescription) : "") +
+                        (i === 0 ? "\n " : ""),
                     styles: { fontStyle: "normal" },
                 },
                 {
@@ -441,6 +446,35 @@ export function renderInvoicePdf(
                 1: { cellWidth: contentW * 0.28, halign: "right" },
             },
             theme: "plain",
+            // Le trajet est tracé, pas écrit : la flèche Unicode n'existe pas
+            // dans les polices intégrées. On le pose sur la ligne vide réservée
+            // en fin de contenu de la première ligne.
+            didDrawCell: (data: any) => {
+                if (data.section !== "body" || data.column.index !== 0) return;
+                if (data.row.index !== 0) return;
+
+                const lines: string[] = Array.isArray(data.cell.text)
+                    ? data.cell.text
+                    : [String(data.cell.text ?? "")];
+                const fs: number = data.cell.styles.fontSize ?? 9;
+                const lineH = fs * 1.15 * 0.3528; // pt → mm
+                const padTop = data.cell.styles.cellPadding?.top ?? 0;
+                const padLeft = data.cell.styles.cellPadding?.left ?? 0;
+
+                // Ligne de base de la dernière ligne (celle laissée vide)
+                const baseline = data.cell.y + padTop + lineH * (lines.length - 0.25);
+
+                doc.setFont("helvetica", "normal");
+                drawRoute(
+                    doc,
+                    data.cell.x + padLeft,
+                    baseline,
+                    invoice.shipment?.originCountry,
+                    invoice.shipment?.destinationCountry,
+                    fs,
+                    C.muted
+                );
+            },
         });
     } else {
         // Version accounting : Description + HT + TPS + TVQ + Total
