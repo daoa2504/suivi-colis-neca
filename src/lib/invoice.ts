@@ -13,7 +13,7 @@
 import { Prisma, PaymentStatus, InvoiceStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatDimensions } from "@/lib/itemKind";
-import { resolveSurcharge, round2 } from "@/lib/surcharge";
+import { resolveSurcharge, round2, amountDue } from "@/lib/surcharge";
 import { determineAndCalculate, type TaxContext } from "@/lib/tax";
 import { logAudit } from "@/lib/audit";
 
@@ -280,6 +280,58 @@ export async function createInvoiceForShipment(
  *  Idempotent : si le statut est déjà correct, ne fait rien.
  */
 /**
+ * Recale le supplément figé sur un envoi à partir de la grille de son convoi.
+ *
+ * Utile pour les colis enregistrés avant la configuration du supplément :
+ * leur instantané est nul et le resterait sans cela.
+ *
+ * Si l'envoi était marqué payé en totalité mais que le montant encaissé ne
+ * couvre plus le total dû, il repasse en paiement partiel. On ne remonte pas
+ * amountPaid : cela reviendrait à affirmer un encaissement qui n'a pas eu
+ * lieu. Mieux vaut rendre les 3 $ manquants visibles à l'agent.
+ */
+export async function refreshShipmentSurcharge(shipmentId: number) {
+    const shipment = await prisma.shipment.findUnique({
+        where: { id: shipmentId },
+        select: {
+            id: true,
+            convoyId: true,
+            receiverCity: true,
+            currency: true,
+            totalAmount: true,
+            amountPaid: true,
+            surchargeAmount: true,
+            paymentStatus: true,
+        },
+    });
+    if (!shipment) return null;
+
+    const resolved = await resolveSurcharge(
+        shipment.convoyId,
+        shipment.receiverCity,
+        shipment.currency ?? "CAD"
+    );
+    const fresh = resolved?.amount ?? null;
+
+    if (fresh === shipment.surchargeAmount) return shipment.surchargeAmount;
+
+    const due = amountDue(shipment.totalAmount, fresh);
+    const paid = shipment.amountPaid ?? 0;
+    const downgrade =
+        shipment.paymentStatus === "PAID" && due != null && paid + 0.001 < due;
+
+    await prisma.shipment.update({
+        where: { id: shipmentId },
+        data: {
+            surchargeAmount: fresh,
+            ...(downgrade ? { paymentStatus: "PARTIAL" as const } : {}),
+        },
+    });
+
+    return fresh;
+}
+
+/**
  * Régénère la facture d'un envoi à partir de son état courant, puis la rend.
  *
  * ⚠️ Une facture est normalement un instantané comptable : on ne la réécrit
@@ -296,6 +348,12 @@ export async function refreshInvoiceForShipment(
     shipmentId: number,
     options: CreateInvoiceOptions = {}
 ) {
+    // Rafraîchir d'abord l'instantané de supplément porté par l'envoi.
+    // Sans ça, régénérer une facture pour un colis enregistré AVANT la
+    // configuration du supplément relirait un instantané nul et rendrait le
+    // bouton d'envoi inopérant — ce qui est précisément son cas d'usage.
+    await refreshShipmentSurcharge(shipmentId);
+
     const existing = await prisma.invoice.findUnique({
         where: { shipmentId },
         select: { id: true, number: true, fiscalYear: true, sequence: true, createdById: true },
