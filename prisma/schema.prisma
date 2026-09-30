@@ -188,13 +188,33 @@ model ShipmentEvent {
 }
 
 model Convoy {
-  id        String     @id @default(cuid())
-  date      DateTime
-  direction Direction  @default(NE_TO_CA)
-  shipments Shipment[]
-  expenses  Expense[]
+  id         String            @id @default(cuid())
+  date       DateTime
+  direction  Direction         @default(NE_TO_CA)
+  shipments  Shipment[]
+  expenses   Expense[]
+  surcharges ConvoySurcharge[]
 
   @@unique([date, direction])
+}
+
+// Supplément facturé aux clients d'une ville donnée, pour un convoi donné.
+// Exemple : livraison vers Québec, 3 $ ajoutés à la facture des seuls
+// clients de Québec. Le montant se règle convoi par convoi parce qu'il
+// suit des coûts de transport qui bougent d'un départ à l'autre.
+model ConvoySurcharge {
+  id        String   @id @default(cuid())
+  convoyId  String
+  convoy    Convoy   @relation(fields: [convoyId], references: [id], onDelete: Cascade)
+  city      String // Comparée à Shipment.receiverCity, sans tenir compte de la casse
+  amount    Decimal  @db.Decimal(12, 2)
+  currency  Currency @default(CAD)
+  label     String? // Libellé de la ligne de facture ; défaut « Frais de livraison — <ville> »
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([convoyId, city])
+  @@index([convoyId])
 }
 
 enum Role {

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ExportPdfButtons from "./ExportPdfButtons";
 import PackingListButton from "./PackingListButton";
+import SurchargesEditor from "./SurchargesEditor";
 
 type Convoy = {
     id: string;
@@ -174,6 +175,7 @@ export default function ConvoysManager({
                                             convoyDate={c.date}
                                             direction={c.direction}
                                         />
+                                        <SurchargesEditor convoyId={c.id} />
                                     </div>
                                 ) : (
                                     <span className="text-xs text-gray-400">—</span>

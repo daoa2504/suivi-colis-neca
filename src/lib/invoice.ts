@@ -51,6 +51,45 @@ export async function nextInvoiceNumber(
 // Création d'une facture à partir d'un envoi
 // ============================================================================
 
+/** Arrondi comptable au cent, pour que les lignes somment exactement. */
+function round2(n: number): number {
+    return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+/**
+ * Supplément de ville applicable à un envoi, ou null.
+ *
+ * La comparaison ignore casse et espaces : côté CA→NE la ville est un champ
+ * libre, « quebec » et « Québec » doivent tomber sur la même règle. Un
+ * supplément libellé dans une autre devise que la facture est ignoré plutôt
+ * qu'additionné à tort.
+ */
+async function findConvoySurcharge(
+    convoyId: string | null,
+    receiverCity: string | null,
+    currency: string
+) {
+    if (!convoyId || !receiverCity?.trim()) return null;
+
+    const normalize = (s: string) =>
+        s.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+    const rows = await prisma.convoySurcharge.findMany({ where: { convoyId } });
+    const target = normalize(receiverCity);
+    const match = rows.find((r) => normalize(r.city) === target);
+
+    if (!match) return null;
+    if (match.currency !== currency) {
+        console.warn(
+            `[invoice] Supplément ${match.city} en ${match.currency} ignoré : facture en ${currency}`
+        );
+        return null;
+    }
+    if (Number(match.amount) <= 0) return null;
+
+    return match;
+}
+
 export interface CreateInvoiceOptions {
     /** ID de l'utilisateur qui déclenche la création (audit). */
     userId?: string | null;
@@ -82,11 +121,22 @@ export async function createInvoiceForShipment(
 
     // Total à facturer : totalAmount en priorité (Phase 2.8+),
     // fallback amountPaid pour les colis créés avant Phase 2.8.
-    const total = (shipment.totalAmount ?? shipment.amountPaid);
-    if (total === null || total === undefined || total <= 0) {
+    const baseAmount = (shipment.totalAmount ?? shipment.amountPaid);
+    if (baseAmount === null || baseAmount === undefined || baseAmount <= 0) {
         console.log(`[invoice] shipment ${shipment.trackingId}: aucun montant, pas de facture`);
         return null;
     }
+
+    // Supplément de ville configuré sur le convoi (livraison vers Québec, etc.).
+    // Comparaison insensible à la casse et aux espaces : la ville est saisie à
+    // la main côté CA→NE.
+    const surcharge = await findConvoySurcharge(
+        shipment.convoyId,
+        shipment.receiverCity,
+        shipment.currency ?? "CAD"
+    );
+    const surchargeAmount = surcharge ? Number(surcharge.amount) : 0;
+    const total = baseAmount + surchargeAmount;
 
     // Charger le profil entreprise actif (source de snapshot)
     const company = await prisma.companyProfile.findFirst({ where: { active: true } });
@@ -116,6 +166,22 @@ export async function createInvoiceForShipment(
     const description = isDevice
         ? "Service de transport d'appareil"
         : "Service de transport de colis";
+    // Le total HT calculé porte sur base + supplément : on le répartit entre
+    // les deux lignes au prorata, pour que leur somme retombe exactement sur
+    // amountBeforeTax quel que soit le régime fiscal.
+    const amountBeforeTax = Number(calculation.amountBeforeTax);
+    const surchargeBeforeTax = surcharge
+        ? round2((amountBeforeTax * surchargeAmount) / total)
+        : 0;
+    const baseBeforeTax = round2(amountBeforeTax - surchargeBeforeTax);
+
+    const convoyDateLabel = shipment.convoyId
+        ? (await prisma.convoy.findUnique({
+              where: { id: shipment.convoyId },
+              select: { date: true },
+          }))?.date.toISOString().slice(0, 10) ?? "—"
+        : "—";
+
     const dims = formatDimensions(shipment.lengthCm, shipment.widthCm, shipment.heightCm);
     const detailedDescription = [
         `Envoi ${shipment.trackingId}`,
@@ -175,9 +241,22 @@ export async function createInvoiceForShipment(
                         description,
                         detailedDescription,
                         quantity: new Prisma.Decimal(1),
-                        unitPrice: new Prisma.Decimal(calculation.amountBeforeTax),
-                        amountBeforeTax: new Prisma.Decimal(calculation.amountBeforeTax),
+                        unitPrice: new Prisma.Decimal(baseBeforeTax),
+                        amountBeforeTax: new Prisma.Decimal(baseBeforeTax),
                     },
+                    ...(surcharge
+                        ? [
+                              {
+                                  description:
+                                      surcharge.label ||
+                                      `Frais de livraison — ${surcharge.city}`,
+                                  detailedDescription: `Supplément ${surcharge.city} · convoi du ${convoyDateLabel}`,
+                                  quantity: new Prisma.Decimal(1),
+                                  unitPrice: new Prisma.Decimal(surchargeBeforeTax),
+                                  amountBeforeTax: new Prisma.Decimal(surchargeBeforeTax),
+                              },
+                          ]
+                        : []),
                 ],
             },
 
