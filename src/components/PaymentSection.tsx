@@ -28,11 +28,16 @@ export type PaymentValue = {
 export default function PaymentSection({
     initial,
     onChange,
+    surcharge,
 }: {
     /** Valeurs de départ, pour le formulaire de modification. */
     initial?: Partial<PaymentValue>;
     /** Appelé à chaque changement, pour un parent qui construit son payload. */
     onChange?: (value: PaymentValue) => void;
+    /** Supplément de ville déjà appliqué à cet envoi, en lecture seule.
+     *  Affiché pour que l'agent voie le montant réellement dû, qui n'est pas
+     *  celui qu'il a saisi. */
+    surcharge?: { amount: number; city?: string | null } | null;
 } = {}) {
     const [totalAmount, setTotalAmount] = useState(initial?.totalAmount ?? "");
     const [currency, setCurrency] = useState<"CAD" | "XOF">(initial?.currency ?? "CAD");
@@ -83,6 +88,23 @@ export default function PaymentSection({
                     Ces informations génèrent la facture automatiquement.
                 </span>
             </div>
+
+            {surcharge && surcharge.amount > 0 && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                    <strong>
+                        Supplément {surcharge.city ? `${surcharge.city} ` : ""}:{" "}
+                        {surcharge.amount.toFixed(2)} {symbol}
+                    </strong>{" "}
+                    — ajouté automatiquement à la facture. Montant réellement dû :{" "}
+                    <strong>
+                        {(
+                            (parseFloat(totalAmount.replace(",", ".")) || 0) + surcharge.amount
+                        ).toFixed(2)}{" "}
+                        {symbol}
+                    </strong>
+                    .
+                </div>
+            )}
 
             {/* Total + Devise */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">

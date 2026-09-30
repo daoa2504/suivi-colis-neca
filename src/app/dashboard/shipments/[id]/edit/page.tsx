@@ -40,6 +40,7 @@ export default async function EditShipmentPage({
             packageCount: true,
             items: { orderBy: { createdAt: "asc" } },
             totalAmount: true,
+            surchargeAmount: true,
             amountPaid: true,
             paymentStatus: true,
             currency: true,

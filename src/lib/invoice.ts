@@ -13,6 +13,7 @@
 import { Prisma, PaymentStatus, InvoiceStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatDimensions } from "@/lib/itemKind";
+import { resolveSurcharge, round2 } from "@/lib/surcharge";
 import { determineAndCalculate, type TaxContext } from "@/lib/tax";
 import { logAudit } from "@/lib/audit";
 
@@ -51,50 +52,18 @@ export async function nextInvoiceNumber(
 // Création d'une facture à partir d'un envoi
 // ============================================================================
 
-/** Arrondi comptable au cent, pour que les lignes somment exactement. */
-function round2(n: number): number {
-    return Math.round((n + Number.EPSILON) * 100) / 100;
-}
-
-/**
- * Supplément de ville applicable à un envoi, ou null.
- *
- * La comparaison ignore casse et espaces : côté CA→NE la ville est un champ
- * libre, « quebec » et « Québec » doivent tomber sur la même règle. Un
- * supplément libellé dans une autre devise que la facture est ignoré plutôt
- * qu'additionné à tort.
- */
-async function findConvoySurcharge(
-    convoyId: string | null,
-    receiverCity: string | null,
-    currency: string
-) {
-    if (!convoyId || !receiverCity?.trim()) return null;
-
-    const normalize = (s: string) =>
-        s.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-
-    const rows = await prisma.convoySurcharge.findMany({ where: { convoyId } });
-    const target = normalize(receiverCity);
-    const match = rows.find((r) => normalize(r.city) === target);
-
-    if (!match) return null;
-    if (match.currency !== currency) {
-        console.warn(
-            `[invoice] Supplément ${match.city} en ${match.currency} ignoré : facture en ${currency}`
-        );
-        return null;
-    }
-    if (Number(match.amount) <= 0) return null;
-
-    return match;
-}
+/* findConvoySurcharge a été remplacé par resolveSurcharge (src/lib/surcharge.ts),
+   partagé avec la création et la modification d.envoi. */
 
 export interface CreateInvoiceOptions {
     /** ID de l'utilisateur qui déclenche la création (audit). */
     userId?: string | null;
     /** Force la génération même si le paiement est UNPAID (par défaut : oui). */
     skipIfNoPayment?: boolean;
+    /** Reprend un numéro existant au lieu d'en tirer un nouveau.
+     *  Réservé à la régénération : évite de consommer un numéro de séquence
+     *  et de laisser un trou dans la numérotation comptable. */
+    reuseNumber?: { number: string; fiscalYear: number; sequence: number };
 }
 
 /** Crée la facture liée à un envoi.
@@ -127,16 +96,19 @@ export async function createInvoiceForShipment(
         return null;
     }
 
-    // Supplément de ville configuré sur le convoi (livraison vers Québec, etc.).
-    // Comparaison insensible à la casse et aux espaces : la ville est saisie à
-    // la main côté CA→NE.
-    const surcharge = await findConvoySurcharge(
-        shipment.convoyId,
-        shipment.receiverCity,
-        shipment.currency ?? "CAD"
-    );
-    const surchargeAmount = surcharge ? Number(surcharge.amount) : 0;
-    const total = baseAmount + surchargeAmount;
+    // Supplément de ville : on lit l'instantané figé sur l'envoi, pas la grille
+    // du convoi. La facture doit refléter ce que l'agent a vu et encaissé, même
+    // si un admin a retouché la grille depuis.
+    const surchargeAmount = shipment.surchargeAmount ?? 0;
+    const surcharge =
+        surchargeAmount > 0
+            ? await resolveSurcharge(
+                  shipment.convoyId,
+                  shipment.receiverCity,
+                  shipment.currency ?? "CAD"
+              )
+            : null;
+    const total = round2(baseAmount + surchargeAmount);
 
     // Charger le profil entreprise actif (source de snapshot)
     const company = await prisma.companyProfile.findFirst({ where: { active: true } });
@@ -157,8 +129,16 @@ export async function createInvoiceForShipment(
     // Statut initial basé sur le paiement actuel
     const initialStatus = mapPaymentStatusToInvoiceStatus(shipment.paymentStatus);
 
-    const fiscalYear = new Date().getUTCFullYear();
-    const { number, sequence } = await nextInvoiceNumber(fiscalYear);
+    const { number, sequence, fiscalYear } =
+        options.reuseNumber ?? (await nextInvoiceNumber(new Date().getUTCFullYear()));
+
+    // Date du convoi, pour le détail de la ligne de supplément
+    const convoyDateLabel = shipment.convoyId
+        ? (await prisma.convoy.findUnique({
+              where: { id: shipment.convoyId },
+              select: { date: true },
+          }))?.date.toISOString().slice(0, 10) ?? "—"
+        : "—";
 
     // Description ligne : « Service de transport · CA → NE »
     const routeLabel = describeRoute(shipment.originCountry, shipment.destinationCountry);
@@ -170,17 +150,20 @@ export async function createInvoiceForShipment(
     // les deux lignes au prorata, pour que leur somme retombe exactement sur
     // amountBeforeTax quel que soit le régime fiscal.
     const amountBeforeTax = Number(calculation.amountBeforeTax);
-    const surchargeBeforeTax = surcharge
+    // Le montant figé fait foi : la ligne apparaît dès qu'il est non nul, même
+    // si la grille du convoi a changé et que le libellé n'est plus résolvable.
+    const hasSurcharge = surchargeAmount > 0;
+    const surchargeLabel =
+        surcharge?.label ||
+        (surcharge ? `Frais de livraison — ${surcharge.city}` : "Frais de livraison");
+    const surchargeDetail = surcharge
+        ? `Supplément ${surcharge.city} · convoi du ${convoyDateLabel}`
+        : `Supplément · convoi du ${convoyDateLabel}`;
+
+    const surchargeBeforeTax = hasSurcharge
         ? round2((amountBeforeTax * surchargeAmount) / total)
         : 0;
     const baseBeforeTax = round2(amountBeforeTax - surchargeBeforeTax);
-
-    const convoyDateLabel = shipment.convoyId
-        ? (await prisma.convoy.findUnique({
-              where: { id: shipment.convoyId },
-              select: { date: true },
-          }))?.date.toISOString().slice(0, 10) ?? "—"
-        : "—";
 
     const dims = formatDimensions(shipment.lengthCm, shipment.widthCm, shipment.heightCm);
     const detailedDescription = [
@@ -244,13 +227,11 @@ export async function createInvoiceForShipment(
                         unitPrice: new Prisma.Decimal(baseBeforeTax),
                         amountBeforeTax: new Prisma.Decimal(baseBeforeTax),
                     },
-                    ...(surcharge
+                    ...(hasSurcharge
                         ? [
                               {
-                                  description:
-                                      surcharge.label ||
-                                      `Frais de livraison — ${surcharge.city}`,
-                                  detailedDescription: `Supplément ${surcharge.city} · convoi du ${convoyDateLabel}`,
+                                  description: surchargeLabel,
+                                  detailedDescription: surchargeDetail,
                                   quantity: new Prisma.Decimal(1),
                                   unitPrice: new Prisma.Decimal(surchargeBeforeTax),
                                   amountBeforeTax: new Prisma.Decimal(surchargeBeforeTax),
@@ -298,6 +279,59 @@ export async function createInvoiceForShipment(
 /** Met à jour le statut de la facture liée à un envoi selon son paymentStatus.
  *  Idempotent : si le statut est déjà correct, ne fait rien.
  */
+/**
+ * Régénère la facture d'un envoi à partir de son état courant, puis la rend.
+ *
+ * ⚠️ Une facture est normalement un instantané comptable : on ne la réécrit
+ * pas, on émet une note de crédit et une nouvelle facture. Cette fonction
+ * existe parce qu'un supplément de ville peut être configuré après coup, et
+ * qu'il faut alors pouvoir envoyer au client un document juste. Elle garde
+ * le même numéro, remplace lignes et taxes, et laisse une trace dans
+ * AuditLog. À n'utiliser que tant que la facture n'a pas été transmise à un
+ * tiers comptable.
+ *
+ * S'il n'existe pas encore de facture, elle est simplement créée.
+ */
+export async function refreshInvoiceForShipment(
+    shipmentId: number,
+    options: CreateInvoiceOptions = {}
+) {
+    const existing = await prisma.invoice.findUnique({
+        where: { shipmentId },
+        select: { id: true, number: true, fiscalYear: true, sequence: true, createdById: true },
+    });
+
+    if (!existing) {
+        return createInvoiceForShipment(shipmentId, options);
+    }
+
+    // On supprime puis recrée sous le même numéro : createInvoiceForShipment
+    // refait tout le calcul (supplément, régime fiscal, snapshots) au lieu
+    // d'en dupliquer la logique ici.
+    await prisma.invoice.delete({ where: { id: existing.id } });
+
+    const rebuilt = await createInvoiceForShipment(shipmentId, {
+        ...options,
+        reuseNumber: {
+            number: existing.number,
+            fiscalYear: existing.fiscalYear,
+            sequence: existing.sequence,
+        },
+    });
+
+    await logAudit({
+        entityType: "Invoice",
+        entityId: rebuilt?.id ?? existing.id,
+        action: "REGENERATE",
+        userId: options.userId ?? existing.createdById ?? null,
+        reason: `Facture ${existing.number} régénérée depuis l.état courant de l.envoi`,
+    }).catch(() => {
+        // La traçabilité ne doit pas faire échouer la régénération
+    });
+
+    return rebuilt;
+}
+
 export async function updateInvoiceStatusFromPayment(
     shipmentId: number,
     options: { userId?: string | null } = {}

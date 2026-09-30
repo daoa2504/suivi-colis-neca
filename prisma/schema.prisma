@@ -74,6 +74,12 @@ model Shipment {
   // Paiement
   paymentStatus     PaymentStatus   @default(UNPAID)
   totalAmount       Float?                              // Prix convenu avec le client (source de facture)
+
+  // Supplément de ville figé au moment de l'enregistrement, recopié depuis
+  // ConvoySurcharge. Stocké séparément de totalAmount, qui reste le prix
+  // convenu : sans ça, réenregistrer un colis l'ajouterait une seconde fois.
+  // Montant réellement dû = totalAmount + surchargeAmount.
+  surchargeAmount   Float?
   amountPaid        Float?                              // Cumul reçu (jusqu'à totalAmount)
   currency          Currency        @default(CAD)
 

@@ -9,6 +9,7 @@ import type { Direction } from "@prisma/client";
 import { sendEmailSafe, FROM, type EmailAttachment } from "@/lib/email";
 import { createShipmentByCA, createShipmentByGN } from "@/lib/validators";
 import { summarizeKind } from "@/lib/itemKind";
+import { resolveSurcharge, amountDue } from "@/lib/surcharge";
 import { createInvoiceForShipment, getInvoiceByShipment } from "@/lib/invoice";
 import { renderInvoicePdf } from "@/lib/invoice-pdf";
 
@@ -168,9 +169,15 @@ export async function POST(req: NextRequest) {
             rawStatus === "PAID" || rawStatus === "PARTIAL" ? rawStatus : "UNPAID";
         const rawCurrency = String(body.currency ?? "CAD").toUpperCase();
         const currency: "CAD" | "XOF" = rawCurrency === "XOF" ? "XOF" : "CAD";
+        // Supplément de ville, figé maintenant : il fait partie de ce que le
+        // client doit, au même titre que le prix convenu.
+        const resolved = await resolveSurcharge(convoy.id, body.receiverCity, currency);
+        const surchargeAmount = resolved?.amount ?? null;
+        const due = amountDue(totalAmount, surchargeAmount);
+
         let amountPaid = toFloatOrNull(body.amountPaid);
-        // Cohérence : PAID → totalité, UNPAID → 0
-        if (paymentStatus === "PAID") amountPaid = totalAmount;
+        // Cohérence : PAID → totalité due (supplément compris), UNPAID → 0
+        if (paymentStatus === "PAID") amountPaid = due;
         if (paymentStatus === "UNPAID") amountPaid = 0;
 
         // 2) 🎯 GÉNÉRER LE TRACKING ID AVANT DE CRÉER LE SHIPMENT
@@ -208,6 +215,7 @@ export async function POST(req: NextRequest) {
                 destinationCountry,
                 status: isNeToCA ? "RECEIVED_IN_NIGER" : "RECEIVED_IN_CANADA",
                 totalAmount: totalAmount ?? null,
+                surchargeAmount,
                 amountPaid: amountPaid ?? null,
                 paymentStatus,
                 currency: currency as any,

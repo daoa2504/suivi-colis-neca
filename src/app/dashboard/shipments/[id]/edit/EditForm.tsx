@@ -26,6 +26,7 @@ type Shipment = {
         heightCm?: number | null;
     }[];
     totalAmount?: number | null;
+    surchargeAmount?: number | null;
     amountPaid?: number | null;
     paymentStatus?: "PAID" | "PARTIAL" | "UNPAID" | null;
     currency?: "CAD" | "XOF" | null;
@@ -496,7 +497,15 @@ export default function EditForm({
 
             {/* Paiement — commun aux deux sens. Renseigner un montant ici
                 génère la facture si elle n'existait pas encore. */}
-            <PaymentSection initial={payment} onChange={onPaymentChange} />
+            <PaymentSection
+                initial={payment}
+                onChange={onPaymentChange}
+                surcharge={
+                    shipment.surchargeAmount
+                        ? { amount: shipment.surchargeAmount, city: shipment.receiverCity }
+                        : null
+                }
+            />
 
             {/* Notes */}
             <div>

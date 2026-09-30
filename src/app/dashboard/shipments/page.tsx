@@ -9,6 +9,7 @@ import type { Prisma, ShipmentStatus, PaymentStatus } from "@prisma/client";
 import NotifyDeliveredButton from "./NotifyDeliveredButton";
 import DeleteShipmentButton from "./DeleteShipmentButton";
 import InvoiceDownloadButton from "./InvoiceDownloadButton";
+import SendInvoiceButton from "./SendInvoiceButton";
 import ConvoyFilter from "./ConvoyFilter";
 import CityFilter from "./CityFilter";
 import ColumnsFilter from "./ColumnsFilter";
@@ -499,6 +500,11 @@ export default async function ShipmentsPage({
                                             canAccessAccounting={role === "ADMIN" || role === "AGENT_CA"}
                                         />
                                     )}
+                                    <SendInvoiceButton
+                                        shipmentId={s.id}
+                                        trackingId={s.trackingId}
+                                        hasEmail={Boolean(s.receiverEmail?.trim())}
+                                    />
                                     {canNotify(s) && (
                                         <NotifyDeliveredButton
                                             shipmentId={s.id}

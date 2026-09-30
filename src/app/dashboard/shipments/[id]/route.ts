@@ -4,6 +4,7 @@ import { withEmailLogo } from "@/lib/emailLogo";
 import { createInvoiceForShipment } from "@/lib/invoice";
 import { contentLineSchema } from "@/lib/validators";
 import { summarizeKind } from "@/lib/itemKind";
+import { resolveSurcharge, amountDue } from "@/lib/surcharge";
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -81,6 +82,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
             receiverPoBox: true,
             notes: true,
             originCountry: true, // ✅ OBLIGATOIRE POUR LES PERMISSIONS
+            currency: true, // Devise de référence pour le supplément de ville
+            convoyId: true, // Convoi courant, si la modification n'en change pas
         },
     });
 
@@ -157,9 +160,25 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         const status: "PAID" | "PARTIAL" | "UNPAID" =
             rawStatus === "PAID" || rawStatus === "PARTIAL" ? rawStatus : "UNPAID";
 
+        // Supplement de ville : recalcule depuis la grille du convoi, car la
+        // ville ou le convoi ont pu changer dans cette meme modification.
+        const currency =
+            "currency" in body
+                ? (String(body.currency ?? "CAD").toUpperCase() === "XOF" ? "XOF" : "CAD")
+                : before.currency ?? "CAD";
+        const convoyId =
+            "convoyId" in body && body.convoyId ? String(body.convoyId) : before.convoyId;
+        const city = "receiverCity" in body ? body.receiverCity : before.receiverCity;
+
+        const resolved = await resolveSurcharge(convoyId, city, currency);
+        data.surchargeAmount = resolved?.amount ?? null;
+
+        const due = amountDue(total, data.surchargeAmount);
+
         let paid = num(body.amountPaid);
-        // Meme regle de coherence qu'a la creation : PAID solde tout, UNPAID rien.
-        if (status === "PAID") paid = total;
+        // Meme regle de coherence qu'a la creation : PAID solde le total du
+        // (supplement compris), UNPAID rien.
+        if (status === "PAID") paid = due;
         if (status === "UNPAID") paid = 0;
 
         data.totalAmount = total;
