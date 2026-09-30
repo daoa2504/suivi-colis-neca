@@ -121,6 +121,30 @@ function routeLabel(origin?: string | null, destination?: string | null): string
  *  (flèche → et similaires) par des équivalents ASCII. Utile pour les
  *  textes venant de la base (detailedDescription) créés avant ce fix.
  */
+/**
+ * Répartit un montant global entre des lignes, au prorata de poids donnés.
+ * La dernière ligne absorbe le reste d'arrondi : la somme des parts retombe
+ * donc toujours exactement sur le montant de départ.
+ */
+function prorate(totalValue: number, weights: number[]): number[] {
+    if (weights.length === 0) return [];
+
+    const sum = weights.reduce((a, b) => a + b, 0);
+    const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+
+    // Poids tous nuls : tout sur la première ligne, plutôt qu'une division
+    // par zéro ou des montants faux répartis partout.
+    if (sum <= 0) return weights.map((_, i) => (i === 0 ? r2(totalValue) : 0));
+
+    let running = 0;
+    return weights.map((w, i) => {
+        if (i === weights.length - 1) return r2(totalValue - running);
+        const share = r2((totalValue * w) / sum);
+        running += share;
+        return share;
+    });
+}
+
 function pdfSafe(text: string | null | undefined): string {
     if (!text) return "";
     return text
@@ -217,7 +241,10 @@ export function renderInvoicePdf(
     }
     if (invoice.companyEmail) addrLines.push(invoice.companyEmail);
 
-    doc.text(addrLines, brandX, isBanner ? y + bannerH + 4 : y + 13);
+    const addrTop = isBanner ? y + bannerH + 5 : y + 13;
+    doc.text(addrLines, brandX, addrTop);
+    // Bas réel du bloc gauche : 8 pt d'interligne par défaut ≈ 3,5 mm
+    const leftBottom = addrTop + addrLines.length * 3.5;
 
     // Meta facture (à droite)
     const rightX = pageW - marginX;
@@ -242,8 +269,13 @@ export function renderInvoicePdf(
     const badgeBg = variant === "client" ? C.accentBg : C.warnBg;
     drawBadge(doc, rightX, y + 17, badgeText, badgeColor, badgeBg);
 
-    // Séparateur bas header
-    y += 30;
+    // Séparateur bas header, placé sous le plus bas des deux blocs.
+    // Une hauteur fixe suffisait tant que le logo faisait 15 mm ; la bande
+    // horizontale pousse le bloc adresse plus bas et le faisait déborder sur
+    // « Facturé à ».
+    const rightBottom = y + 24; // badge de statut inclus
+    y = Math.max(leftBottom, rightBottom) + 6;
+
     doc.setDrawColor(C.rule[0], C.rule[1], C.rule[2]);
     doc.setLineWidth(0.2);
     doc.line(marginX, y, pageW - marginX, y);
@@ -307,6 +339,13 @@ export function renderInvoicePdf(
 
     y += 22;
 
+    // Les montants au niveau facture (total TTC, chaque taxe) sont répartis
+    // entre les lignes au prorata de leur HT. Tant qu'il n'y avait qu'une
+    // ligne, les afficher tels quels était juste ; avec un supplément de
+    // ville, la même valeur se répétait sur chaque ligne.
+    const lineWeights = invoice.items.map((it) => Number(it.amountBeforeTax));
+    const lineTotals = prorate(Number(invoice.totalIncludingTax), lineWeights);
+
     // ---- TABLE ITEMS ---------------------------------------------------------
     if (variant === "client") {
         // Version client : Description + Montant TTC
@@ -314,17 +353,20 @@ export function renderInvoicePdf(
             startY: y,
             margin: { left: marginX, right: marginX },
             head: [["Description", "Montant"]],
-            body: invoice.items.map((it) => [
+            body: invoice.items.map((it, i) => [
                 {
                     content: pdfSafe(it.description) + (it.detailedDescription ? "\n" + pdfSafe(it.detailedDescription) : ""),
                     styles: { fontStyle: "normal" },
                 },
-                { content: formatMoney(invoice.totalIncludingTax.toString(), invoice.currency), styles: { halign: "right" } },
+                {
+                    content: formatMoney(lineTotals[i], invoice.currency),
+                    styles: { halign: "right" },
+                },
             ]),
             styles: {
                 font: "helvetica",
                 fontSize: 9,
-                cellPadding: { top: 3.5, right: 3, bottom: 3.5, left: 0 },
+                cellPadding: { top: 5, right: 3, bottom: 5, left: 0 },
                 textColor: C.ink as any,
                 fillColor: C.paper as any,
                 lineColor: C.rule as any,
@@ -357,8 +399,13 @@ export function renderInvoicePdf(
         if (hasQst) head.push("TVQ");
         head.push("Total");
 
+        // Taxes réparties ligne à ligne, comme le total : sinon chaque ligne
+        // afficherait la taxe de la facture entière.
+        const gstPerLine = prorate(Number(taxRow["GST"] ?? 0), lineWeights);
+        const qstPerLine = prorate(Number(taxRow["QST"] ?? 0), lineWeights);
+
         const body: any[] = [];
-        for (const it of invoice.items) {
+        invoice.items.forEach((it, i) => {
             const row: any[] = [
                 {
                     content: pdfSafe(it.description) + (it.detailedDescription ? "\n" + pdfSafe(it.detailedDescription) : ""),
@@ -366,11 +413,11 @@ export function renderInvoicePdf(
                 },
                 { content: formatMoneyRaw(it.amountBeforeTax.toString()), styles: { halign: "right" } },
             ];
-            if (hasGst) row.push({ content: formatMoneyRaw(taxRow["GST"] ?? "0"), styles: { halign: "right" } });
-            if (hasQst) row.push({ content: formatMoneyRaw(taxRow["QST"] ?? "0"), styles: { halign: "right" } });
-            row.push({ content: formatMoneyRaw(invoice.totalIncludingTax.toString()), styles: { halign: "right" } });
+            if (hasGst) row.push({ content: formatMoneyRaw(gstPerLine[i] ?? 0), styles: { halign: "right" } });
+            if (hasQst) row.push({ content: formatMoneyRaw(qstPerLine[i] ?? 0), styles: { halign: "right" } });
+            row.push({ content: formatMoneyRaw(lineTotals[i] ?? 0), styles: { halign: "right" } });
             body.push(row);
-        }
+        });
 
         const totalCols = 2 + (hasGst ? 1 : 0) + (hasQst ? 1 : 0) + 1;
         const descW = contentW * 0.44;
@@ -390,7 +437,7 @@ export function renderInvoicePdf(
             styles: {
                 font: "helvetica",
                 fontSize: 9,
-                cellPadding: { top: 3.5, right: 3, bottom: 3.5, left: 0 },
+                cellPadding: { top: 5, right: 3, bottom: 5, left: 0 },
                 textColor: C.ink as any,
                 fillColor: C.paper as any,
                 lineColor: C.rule as any,
