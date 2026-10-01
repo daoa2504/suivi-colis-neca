@@ -181,16 +181,93 @@ export default function PackingListButton({
     convoyDate: string;
     direction: "NE_TO_CA" | "CA_TO_NE";
 }) {
-    const [loading, setLoading] = useState<null | "pdf" | "xlsx">(null);
+    const [loading, setLoading] = useState<null | "pdf" | "xlsx" | "load">(null);
+    const [open, setOpen] = useState(false);
+    const [data, setData] = useState<PackingData | null>(null);
+
+    // Sélection : on retient ce qui est EXCLU, pour que tout soit coché par
+    // défaut et qu'un envoi ajouté entre-temps le soit aussi.
+    const [excludedShipments, setExcludedShipments] = useState<Set<number>>(new Set());
+    const [excludedItems, setExcludedItems] = useState<Set<string>>(new Set());
+    const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
     async function fetchData(): Promise<PackingData | null> {
         const res = await fetch(`/api/convoys/${convoyId}/export-data`);
-        const data = await res.json();
-        if (!data.ok) {
-            alert(`❌ ${data.error}`);
+        const payload = await res.json();
+        if (!payload.ok) {
+            alert(`❌ ${payload.error}`);
             return null;
         }
-        return data;
+        return payload;
+    }
+
+    async function openPicker() {
+        setOpen(true);
+        if (data) return;
+        setLoading("load");
+        try {
+            const fetched = await fetchData();
+            if (fetched) setData(fetched);
+            else setOpen(false);
+        } finally {
+            setLoading(null);
+        }
+    }
+
+    /**
+     * Applique la sélection : envois décochés retirés, articles décochés
+     * retirés, et poids de chaque envoi recalculé sur les seuls articles
+     * conservés — sinon le document annoncerait le poids d'un contenu qu'il
+     * ne décrit plus.
+     */
+    function applySelection(source: PackingData): PackingData {
+        const shipments = source.shipments
+            .filter((s) => !excludedShipments.has(s.id))
+            .map((s) => {
+                const items = s.items.filter((it) => !excludedItems.has(it.id));
+                if (items.length === s.items.length) return s;
+
+                const weighed = items.filter((it) => it.weightKg != null);
+                return {
+                    ...s,
+                    items,
+                    weightKg: weighed.length
+                        ? weighed.reduce((acc, it) => acc + (it.weightKg ?? 0) * it.quantity, 0)
+                        : null,
+                };
+            });
+
+        return { ...source, shipments };
+    }
+
+    function toggleShipment(id: number) {
+        setExcludedShipments((prev) => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+    }
+
+    function toggleItem(id: string) {
+        setExcludedItems((prev) => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+    }
+
+    function toggleExpand(id: number) {
+        setExpanded((prev) => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+    }
+
+    function setAll(exclude: boolean) {
+        if (!data) return;
+        setExcludedShipments(exclude ? new Set(data.shipments.map((s) => s.id)) : new Set());
+        setExcludedItems(new Set());
     }
 
     /** Numéro de document, stable pour un convoi donné : LC-AAAAMMJJ-SENS */
@@ -203,20 +280,24 @@ export default function PackingListButton({
     // ------------------------------------------------------------------ PDF
 
     async function exportPdf() {
+        if (!data) return;
         setLoading("pdf");
         try {
-            const data = await fetchData();
-            if (!data) return;
+            const selected = applySelection(data);
+            if (selected.shipments.length === 0) {
+                alert("Aucun envoi sélectionné.");
+                return;
+            }
 
             const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
             const pageW = doc.internal.pageSize.getWidth();
-            const company = data.company;
+            const company = selected.company;
 
-            const totalPackages = data.shipments.reduce(
+            const totalPackages = selected.shipments.reduce(
                 (acc, s) => acc + (s.packageCount ?? 1),
                 0
             );
-            const totalWeight = data.shipments.reduce((acc, s) => acc + (s.weightKg ?? 0), 0);
+            const totalWeight = selected.shipments.reduce((acc, s) => acc + (s.weightKg ?? 0), 0);
 
             // ---- En-tête : logo + identité de l'entreprise ----
             let y = MARGIN;
@@ -332,7 +413,7 @@ export default function PackingListButton({
                         "N° AWB / LTA\nAir waybill",
                         "", // rempli à la main sur le document imprimé
                         "Nombre d'envois\nConsignments",
-                        String(data.shipments.length),
+                        String(selected.shipments.length),
                     ],
                 ],
                 margin: { left: MARGIN, right: MARGIN },
@@ -368,7 +449,7 @@ export default function PackingListButton({
                 body: [
                     [
                         shipperBlock,
-                        `Envoi groupé — ${data.shipments.length} destinataires distincts.\nConsolidated shipment — see detail below.`,
+                        `Envoi groupé — ${selected.shipments.length} destinataires distincts.\nConsolidated shipment — see detail below.`,
                     ],
                 ],
                 columnStyles: { 0: { cellWidth: (pageW - MARGIN * 2) / 2 } },
@@ -378,7 +459,7 @@ export default function PackingListButton({
 
             // ---- Tableau principal, groupé par ville ----
             const byCity = new Map<string, Shipment[]>();
-            for (const s of data.shipments) {
+            for (const s of selected.shipments) {
                 const city = (s.receiverCity || "Sans ville").trim();
                 if (!byCity.has(city)) byCity.set(city, []);
                 byCity.get(city)!.push(s);
@@ -483,7 +564,7 @@ export default function PackingListButton({
                 body: [
                     [
                         "TOTAL GÉNÉRAL / GRAND TOTAL",
-                        `${data.shipments.length} envois`,
+                        `${selected.shipments.length} envois`,
                         `${totalPackages} cartons`,
                         `${totalWeight.toFixed(2)} kg`,
                     ],
@@ -551,17 +632,21 @@ export default function PackingListButton({
     // ---------------------------------------------------------------- Excel
 
     async function exportXlsx() {
+        if (!data) return;
         setLoading("xlsx");
         try {
-            const data = await fetchData();
-            if (!data) return;
+            const selected = applySelection(data);
+            if (selected.shipments.length === 0) {
+                alert("Aucun envoi sélectionné.");
+                return;
+            }
 
             // Une ligne par article : c'est ce format que reprend un courtier
             // en douane pour monter sa déclaration.
             const rows: Record<string, string | number>[] = [];
             let lineNo = 0;
 
-            for (const s of data.shipments) {
+            for (const s of selected.shipments) {
                 const base = {
                     "N° suivi": s.trackingId,
                     Destinataire: s.receiverName,
@@ -631,25 +716,191 @@ export default function PackingListButton({
         }
     }
 
+    // Compteurs de la sélection courante, pour que l'écran annonce ce qui
+    // partira réellement dans le document.
+    const preview = data ? applySelection(data) : null;
+    const keptPackages = preview?.shipments.reduce((a, s) => a + (s.packageCount ?? 1), 0) ?? 0;
+    const keptWeight = preview?.shipments.reduce((a, s) => a + (s.weightKg ?? 0), 0) ?? 0;
+
+    const byCity = new Map<string, Shipment[]>();
+    for (const s of data?.shipments ?? []) {
+        const city = (s.receiverCity || "Sans ville").trim();
+        if (!byCity.has(city)) byCity.set(city, []);
+        byCity.get(city)!.push(s);
+    }
+    const cities = Array.from(byCity.keys()).sort();
+
     return (
-        <div className="flex flex-wrap gap-2">
+        <>
             <button
-                onClick={exportPdf}
-                disabled={loading !== null}
-                title="Liste de colisage mise en page, pour la douane ou le transitaire"
-                className="px-3 py-1.5 rounded-md bg-[#8B0000] text-white text-xs font-medium hover:bg-[#6d0000] disabled:opacity-60 transition-colors"
+                onClick={openPicker}
+                className="px-3 py-1.5 rounded-md bg-[#8B0000] text-white text-xs font-medium hover:bg-[#6d0000] transition-colors"
+                title="Choisir les envois, puis générer la liste de colisage"
             >
-                {loading === "pdf" ? "Génération…" : "📄 Colisage PDF"}
+                📄 Liste de colisage
             </button>
-            <button
-                onClick={exportXlsx}
-                disabled={loading !== null}
-                title="Même contenu en tableur, une ligne par article"
-                className="px-3 py-1.5 rounded-md border border-[#8B0000] text-[#8B0000] text-xs font-medium hover:bg-red-50 disabled:opacity-60 transition-colors"
-            >
-                {loading === "xlsx" ? "Génération…" : "📊 Colisage Excel"}
-            </button>
-        </div>
+
+            {open && (
+                <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center p-4 overflow-y-auto">
+                    <div className="bg-white rounded-lg shadow-2xl w-full max-w-3xl my-8">
+                        {/* En-tête */}
+                        <div className="flex items-start justify-between gap-4 p-4 border-b">
+                            <div>
+                                <h2 className="font-bold text-lg">Liste de colisage</h2>
+                                <p className="text-xs text-neutral-500 mt-0.5">
+                                    Convoi du {fmtDate(convoyDate)} ·{" "}
+                                    {direction === "CA_TO_NE" ? "Canada → Niger" : "Niger → Canada"}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setOpen(false)}
+                                className="text-neutral-400 hover:text-neutral-700 text-xl leading-none"
+                                aria-label="Fermer"
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        {/* Corps */}
+                        <div className="p-4 max-h-[55vh] overflow-y-auto">
+                            {loading === "load" || !data ? (
+                                <p className="text-sm text-neutral-400 py-8 text-center">
+                                    Chargement des envois…
+                                </p>
+                            ) : (
+                                <>
+                                    <div className="flex items-center gap-3 mb-3 text-xs">
+                                        <button
+                                            onClick={() => setAll(false)}
+                                            className="text-blue-600 hover:underline"
+                                        >
+                                            Tout cocher
+                                        </button>
+                                        <span className="text-neutral-300">|</span>
+                                        <button
+                                            onClick={() => setAll(true)}
+                                            className="text-blue-600 hover:underline"
+                                        >
+                                            Tout décocher
+                                        </button>
+                                    </div>
+
+                                    {cities.map((city) => (
+                                        <div key={city} className="mb-4">
+                                            <h3 className="text-xs font-bold text-[#8B0000] uppercase tracking-wide mb-1.5">
+                                                {city}
+                                            </h3>
+                                            <ul className="space-y-1">
+                                                {byCity.get(city)!.map((s) => {
+                                                    const off = excludedShipments.has(s.id);
+                                                    const isOpen = expanded.has(s.id);
+                                                    return (
+                                                        <li
+                                                            key={s.id}
+                                                            className={`rounded border px-2 py-1.5 text-xs ${
+                                                                off
+                                                                    ? "border-neutral-200 bg-neutral-50 opacity-60"
+                                                                    : "border-neutral-200 bg-white"
+                                                            }`}
+                                                        >
+                                                            <div className="flex items-center gap-2">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={!off}
+                                                                    onChange={() => toggleShipment(s.id)}
+                                                                    className="shrink-0"
+                                                                />
+                                                                <span className="font-mono text-[11px]">
+                                                                    {s.trackingId}
+                                                                </span>
+                                                                <span className="flex-1 truncate">
+                                                                    {s.receiverName}
+                                                                </span>
+                                                                <span className="text-neutral-500 shrink-0">
+                                                                    {s.packageCount ?? 1} ct ·{" "}
+                                                                    {s.weightKg != null
+                                                                        ? `${s.weightKg} kg`
+                                                                        : "—"}
+                                                                </span>
+                                                                {s.items.length > 0 && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => toggleExpand(s.id)}
+                                                                        className="text-blue-600 hover:underline shrink-0"
+                                                                    >
+                                                                        {isOpen ? "▾" : "▸"} {s.items.length} art.
+                                                                    </button>
+                                                                )}
+                                                            </div>
+
+                                                            {isOpen && (
+                                                                <ul className="mt-1.5 ml-6 space-y-1 border-l border-neutral-200 pl-2">
+                                                                    {s.items.map((it) => (
+                                                                        <li
+                                                                            key={it.id}
+                                                                            className="flex items-center gap-2 text-[11px]"
+                                                                        >
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={!excludedItems.has(it.id)}
+                                                                                onChange={() => toggleItem(it.id)}
+                                                                                disabled={off}
+                                                                            />
+                                                                            <span className="flex-1 truncate">
+                                                                                {it.quantity > 1
+                                                                                    ? `${it.quantity} × `
+                                                                                    : ""}
+                                                                                {it.label}
+                                                                            </span>
+                                                                            <span className="text-neutral-400">
+                                                                                {it.weightKg != null
+                                                                                    ? `${it.weightKg} kg`
+                                                                                    : "—"}
+                                                                            </span>
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            )}
+                                                        </li>
+                                                    );
+                                                })}
+                                            </ul>
+                                        </div>
+                                    ))}
+                                </>
+                            )}
+                        </div>
+
+                        {/* Pied : récapitulatif de ce qui sera imprimé + actions */}
+                        <div className="border-t p-4 flex flex-wrap items-center justify-between gap-3">
+                            <p className="text-xs text-neutral-600">
+                                <strong>{preview?.shipments.length ?? 0}</strong> envoi
+                                {(preview?.shipments.length ?? 0) > 1 ? "s" : ""} ·{" "}
+                                <strong>{keptPackages}</strong> carton
+                                {keptPackages > 1 ? "s" : ""} ·{" "}
+                                <strong>{keptWeight.toFixed(2)} kg</strong>
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    onClick={exportXlsx}
+                                    disabled={loading !== null || !preview?.shipments.length}
+                                    className="px-3 py-1.5 rounded-md border border-[#8B0000] text-[#8B0000] text-xs font-medium hover:bg-red-50 disabled:opacity-40 transition-colors"
+                                >
+                                    {loading === "xlsx" ? "Génération…" : "📊 Excel"}
+                                </button>
+                                <button
+                                    onClick={exportPdf}
+                                    disabled={loading !== null || !preview?.shipments.length}
+                                    className="px-3 py-1.5 rounded-md bg-[#8B0000] text-white text-xs font-medium hover:bg-[#6d0000] disabled:opacity-40 transition-colors"
+                                >
+                                    {loading === "pdf" ? "Génération…" : "📄 Générer le PDF"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 }
 
