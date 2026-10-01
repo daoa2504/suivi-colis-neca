@@ -103,7 +103,11 @@ function drawRoute(
     const shaft = fontSize * 0.5;
     const head = fontSize * 0.18;
     const ax = x + fromW + gap;
-    const ay = baseline - fontSize * 0.11;
+    // Hauteur optique : à mi-hauteur des capitales, soit ~0,31 em au-dessus de
+    // la ligne de base. Ce document est en points, où 1 em = fontSize ; la
+    // facture est en millimètres et le même facteur y vaudrait trois fois
+    // moins. D'où une flèche qui traînait près de la ligne de base ici.
+    const ay = baseline - fontSize * 0.31;
 
     doc.setDrawColor(...color);
     doc.setFillColor(...color);
