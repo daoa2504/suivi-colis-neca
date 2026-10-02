@@ -35,19 +35,28 @@ export async function GET(req: NextRequest) {
         const convoys = await prisma.convoy.findMany({
             where,
             include: {
-                _count: {
-                    select: { shipments: true }
-                }
+                // Le statut des colis dit où en est le convoi : c'est lui que la
+                // notification fait avancer. Il évite de renvoyer deux fois la
+                // même étape sans s'en apercevoir.
+                shipments: { select: { status: true } },
             },
             orderBy: { date: "desc" },
         });
 
-        const formattedConvoys = convoys.map(c => ({
-            id: c.id,
-            date: c.date,
-            direction: c.direction,
-            totalShipments: c._count.shipments,
-        }));
+        const formattedConvoys = convoys.map(c => {
+            const statusCounts: Record<string, number> = {};
+            for (const s of c.shipments) {
+                statusCounts[s.status] = (statusCounts[s.status] ?? 0) + 1;
+            }
+
+            return {
+                id: c.id,
+                date: c.date,
+                direction: c.direction,
+                totalShipments: c.shipments.length,
+                statusCounts,
+            };
+        });
 
         return NextResponse.json({ ok: true, convoys: formattedConvoys });
     } catch (error: any) {

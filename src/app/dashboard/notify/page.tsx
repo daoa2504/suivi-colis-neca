@@ -1,6 +1,13 @@
 // src/app/(dashboard)/notify/page.tsx
 "use client";
 
+import {
+    convoyProgress,
+    templateState,
+    STAGES,
+    STAGE_LABEL,
+    TEMPLATE_STAGE,
+} from "@/lib/convoyStage";
 import { useEffect, useState } from "react";
 import EmailPreview from "@/components/EmailPreview";
 import type { ConvoyStatus, Direction } from "@/lib/emailTemplates";
@@ -18,9 +25,15 @@ export default function NotifyPage() {
 
     // Convois disponibles pour la direction sélectionnée
     const [availableConvoys, setAvailableConvoys] = useState<
-        { id: string; date: string }[]
+        { id: string; date: string; totalShipments: number; statusCounts: Record<string, number> }[]
     >([]);
     const [convoysLoading, setConvoysLoading] = useState(false);
+
+    // Où en est le convoi choisi, déduit du statut de ses colis — c'est ce que
+    // la notification fait avancer, donc la seule source fiable.
+    const selectedConvoy = availableConvoys.find((c) => c.date === formData.convoyDate);
+    const progress = selectedConvoy ? convoyProgress(selectedConvoy.statusCounts) : null;
+    const selectedState = progress ? templateState(progress, formData.template) : null;
 
     useEffect(() => {
         setConvoysLoading(true);
@@ -36,6 +49,8 @@ export default function NotifyPage() {
                         .map((c) => ({
                             id: c.id,
                             date: new Date(c.date).toISOString().slice(0, 10),
+                            totalShipments: c.totalShipments ?? 0,
+                            statusCounts: c.statusCounts ?? {},
                         }))
                         .sort((a, b) => (a.date < b.date ? 1 : -1));
                     setAvailableConvoys(list);
@@ -52,6 +67,16 @@ export default function NotifyPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Garde-fou : le cas que l'on cherche à éviter est le double envoi de la
+        // même étape, qui fait partir un second courriel aux mêmes clients.
+        if (selectedState?.state === "done") {
+            const ok = window.confirm(
+                `« ${STAGE_LABEL[TEMPLATE_STAGE[formData.template]]} » a déjà été notifié pour tous les colis de ce convoi.\n\n` +
+                    `Renvoyer maintenant enverra un second courriel aux mêmes clients. Continuer ?`
+            );
+            if (!ok) return;
+        }
 
         setIsLoading(true);
 
@@ -189,6 +214,47 @@ export default function NotifyPage() {
                                     )}
                                 </div>
 
+                                {/* État du convoi sélectionné */}
+                                {progress && (
+                                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                                            État actuel du convoi
+                                        </p>
+                                        <ol className="flex flex-wrap items-center gap-1.5">
+                                            {STAGES.filter((s) => s !== "DELIVERED").map((stage, i) => {
+                                                const count = progress.counts[stage];
+                                                const idx = STAGES.indexOf(stage);
+                                                const lowestIdx = STAGES.indexOf(progress.lowest);
+                                                const passed = idx < lowestIdx;
+                                                const current = count > 0;
+                                                return (
+                                                    <li key={stage} className="flex items-center gap-1.5">
+                                                        {i > 0 && <span className="text-gray-300">›</span>}
+                                                        <span
+                                                            className={`px-2 py-1 rounded text-xs font-medium ${
+                                                                current
+                                                                    ? "bg-blue-600 text-white"
+                                                                    : passed
+                                                                      ? "bg-blue-100 text-blue-700"
+                                                                      : "bg-white text-gray-400 border border-gray-200"
+                                                            }`}
+                                                        >
+                                                            {STAGE_LABEL[stage]}
+                                                            {count > 0 && ` · ${count}`}
+                                                        </span>
+                                                    </li>
+                                                );
+                                            })}
+                                        </ol>
+                                        {progress.mixed && (
+                                            <p className="text-xs text-amber-700 mt-2">
+                                                Les colis ne sont pas tous à la même étape — typique après un
+                                                envoi filtré par ville.
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+
                                 {/* Action / Statut */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -202,10 +268,44 @@ export default function NotifyPage() {
                                         }
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     >
-                                        <option value="EN_ROUTE">En route</option>
-                                        <option value="IN_CUSTOMS">À la douane</option>
-                                        <option value="OUT_FOR_DELIVERY">Prêt pour récupération</option>
+                                        {(
+                                            [
+                                                ["EN_ROUTE", "En route"],
+                                                ["IN_CUSTOMS", "À la douane"],
+                                                ["OUT_FOR_DELIVERY", "Prêt pour récupération"],
+                                            ] as const
+                                        ).map(([value, label]) => {
+                                            const st = progress ? templateState(progress, value) : null;
+                                            const suffix = !st
+                                                ? ""
+                                                : st.state === "done"
+                                                  ? " — déjà envoyé"
+                                                  : st.state === "partial"
+                                                    ? ` — déjà envoyé pour ${st.reached} colis`
+                                                    : st.state === "next"
+                                                      ? " — étape suivante"
+                                                      : "";
+                                            return (
+                                                <option key={value} value={value}>
+                                                    {label}
+                                                    {suffix}
+                                                </option>
+                                            );
+                                        })}
                                     </select>
+
+                                    {selectedState?.state === "done" && (
+                                        <p className="mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2">
+                                            Cette étape a déjà été notifiée pour tous les colis du convoi.
+                                            Renvoyer enverra un second courriel aux mêmes clients.
+                                        </p>
+                                    )}
+                                    {selectedState?.state === "ahead" && (
+                                        <p className="mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2">
+                                            Cette étape en saute une : le convoi est actuellement «{" "}
+                                            {STAGE_LABEL[progress!.lowest]} ».
+                                        </p>
+                                    )}
                                 </div>
 
                                 {/* ✅ AFFICHAGE CONDITIONNEL : Point de cueillette (seulement pour NE→CA) */}
