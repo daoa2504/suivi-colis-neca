@@ -2,7 +2,21 @@
 import { Resend } from "resend";
 
 export const FROM = process.env.EMAIL_FROM || "onboarding@resend.dev";
-const client = new Resend(process.env.RESEND_API_KEY || "");
+
+// Client créé à la demande, et non au chargement du module.
+//
+// Resend lève « Missing API key » dès la construction avec une clé vide. Fait
+// au niveau du module, cela faisait échouer tout environnement sans
+// RESEND_API_KEY — y compris la collecte des routes pendant `next build`, où
+// aucun courriel n'est pourtant envoyé. La garde de sendEmailSafe plus bas,
+// qui prévoit justement ce cas, n'était jamais atteinte.
+let client: Resend | null = null;
+
+function getClient(): Resend | null {
+    if (!process.env.RESEND_API_KEY) return null;
+    if (!client) client = new Resend(process.env.RESEND_API_KEY);
+    return client;
+}
 
 // ✅ Ajoutez ceci pour vérifier au démarrage
 console.log("📧 Email config loaded:");
@@ -84,7 +98,13 @@ export async function sendEmailSafe(args: {
     let attempt = 0;
     while (true) {
         try {
-            const res = await client.emails.send(payload as any);
+            const sender = getClient();
+            if (!sender) {
+                // Ne devrait pas arriver : la garde en tête de fonction a déjà
+                // traité l'absence de clé. Filet si elle disparaît en vol.
+                return { ok: false, error: "RESEND_API_KEY absente" };
+            }
+            const res = await sender.emails.send(payload as any);
 
             if ((res as any)?.error) {
                 console.error("❌ Resend error:", (res as any).error);
