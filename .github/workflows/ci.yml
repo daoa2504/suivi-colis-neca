@@ -1,0 +1,124 @@
+# Intégration continue — NIMAPLEX
+#
+# Objectif : qu'une erreur soit rattrapée AVANT d'atteindre Railway, qui
+# déploie automatiquement tout ce qui arrive sur `main`.
+
+name: CI
+
+# ─── Déclencheurs ────────────────────────────────────────────────────────────
+# `push` sur main : filet pour les commits poussés directement.
+# `pull_request` : la vraie valeur — savoir avant de fusionner.
+# `workflow_dispatch` : bouton « Run workflow » dans l'onglet Actions, pratique
+# pour rejouer un pipeline sans produire de commit vide.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# ─── Permissions ─────────────────────────────────────────────────────────────
+# Le GITHUB_TOKEN est injecté automatiquement. Par défaut il peut écrire ;
+# ici rien n'est publié, donc lecture seule. Principe du moindre privilège :
+# sur un dépôt public, une action tierce compromise ne pourra rien pousser.
+permissions:
+  contents: read
+
+# ─── Concurrence ─────────────────────────────────────────────────────────────
+# Deux commits coup sur coup sur la même branche : le premier pipeline est
+# annulé. On ne paie pas pour valider du code déjà remplacé.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # `next build` et `prisma generate` lisent cette variable, sans se connecter.
+  # Une URL factice suffit donc — et SURTOUT : jamais l'URL de production ici.
+  # Le dépôt est public, une PR venant d'un fork pourrait l'exfiltrer.
+  DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+  NEXTAUTH_SECRET: ci-placeholder-not-a-real-secret
+
+jobs:
+  # ── Étape 1 : vérifications rapides ────────────────────────────────────────
+  # Séparée du build parce qu'elle rend son verdict en ~30 s contre ~3 min.
+  # Un type faux ou un test rouge n'a pas besoin d'attendre la compilation.
+  quality:
+    name: Types et tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          # Met en cache ~/.npm d'après package-lock.json. Sans ça, `npm ci`
+          # retélécharge tout à chaque exécution.
+          cache: npm
+
+      # `npm ci` et non `npm install` : installe exactement le lock, échoue si
+      # package.json et package-lock.json divergent. C'est ce qu'on veut en CI.
+      - run: npm ci
+
+      # Le client Prisma est généré, pas versionné : sans lui, rien ne compile.
+      - run: npx prisma generate
+
+      - name: Vérification des types
+        run: npx tsc --noEmit
+
+      - name: Tests unitaires
+        run: npm test
+
+  # ── Étape 2 : compilation ──────────────────────────────────────────────────
+  # `needs: quality` : ne démarre que si l'étape précédente a réussi.
+  build:
+    name: Build Next.js
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Attrape ce que `tsc` ne voit pas : un module serveur importé depuis un
+      # composant client, par exemple — déjà arrivé sur ce projet avec un
+      # module lisant le disque, tiré dans le bundle navigateur.
+      - name: Build
+        run: npm run build
+
+  # ── Étape 3 : garde-fou migrations ─────────────────────────────────────────
+  # prisma/migrations/**/*.sql est gitignoré ici, et le schéma avance par des
+  # scripts lancés à la main. Rien n'empêche donc de déployer du code attendant
+  # une colonne absente de la base — c'est déjà passé près.
+  # Ce job n'échoue pas : il avertit, le jugement reste humain.
+  migrations:
+    name: Garde-fou migrations
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Deux commits au moins, pour pouvoir comparer avec la base.
+          fetch-depth: 0
+
+      - name: Le schéma a-t-il changé sans script d'application ?
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+          CHANGED=$(git diff --name-only "$BASE" "$HEAD")
+
+          if echo "$CHANGED" | grep -q '^prisma/schema.prisma$'; then
+            if echo "$CHANGED" | grep -q '^scripts/.*\.ts$'; then
+              echo "✅ Schéma modifié, et un script de scripts/ l'accompagne."
+            else
+              echo "::warning::prisma/schema.prisma est modifié sans script dans scripts/."
+              echo "Les fichiers de migration SQL sont gitignorés : le déploiement"
+              echo "n'appliquera rien. Vérifiez que la base cible est prête."
+            fi
+          else
+            echo "Aucun changement de schéma."
+          fi
