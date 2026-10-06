@@ -314,7 +314,7 @@ ${customMessage || ""}
             if (cityNormalized === "sherbrooke") {
                 console.log("✅ Condition SHERBROOKE activée");
                 pickupCityName = "Sherbrooke";
-                pickupAddress = "2500 Boulevard de l'Université, Sherbrooke, QC J1K 2R1";
+                pickupAddress = "4-1280 Rue de Kingston, Sherbrooke, QC - J1K 3S8";
                 pickupPhone = "+1 (367) 331-0402";
             } else if (cityNormalized === "québec" || cityNormalized === "quebec") {
                 console.log("✅ Condition QUÉBEC activée");
