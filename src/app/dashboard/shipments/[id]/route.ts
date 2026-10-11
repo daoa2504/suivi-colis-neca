@@ -1,7 +1,7 @@
 // src/app/dashboard/shipments/[id]/route.ts
 import { EMAIL_LOGO_SRC } from "@/lib/branding";
 import { withEmailLogo } from "@/lib/emailLogo";
-import { createInvoiceForShipment } from "@/lib/invoice";
+import { refreshInvoiceForShipment } from "@/lib/invoice";
 import { contentLineSchema } from "@/lib/validators";
 import { summarizeKind } from "@/lib/itemKind";
 import { resolveSurcharge, amountDue } from "@/lib/surcharge";
@@ -84,6 +84,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
             originCountry: true, // ✅ OBLIGATOIRE POUR LES PERMISSIONS
             currency: true, // Devise de référence pour le supplément de ville
             convoyId: true, // Convoi courant, si la modification n'en change pas
+            totalAmount: true, // Pour savoir s'il reste une facture à régénérer
         },
     });
 
@@ -245,15 +246,32 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         },
     });
 
-    // Facture : si un montant vient d'être renseigné et qu'aucune facture
-    // n'existe, on la crée maintenant. C'est ce qui permet de rattraper les
-    // envois enregistrés sans montant — la fonction est idempotente, elle
-    // rend la facture existante sans la modifier le cas échéant.
-    if (data.totalAmount != null && data.totalAmount > 0) {
+    // Facture : la regenerer, et non se contenter de la creer.
+    //
+    // createInvoiceForShipment est idempotente : elle rend la facture
+    // existante sans la toucher. Une modification du poids, du contenu ou du
+    // montant ne se voyait donc jamais sur le recu deja emis — il restait fige
+    // a sa creation. refreshInvoiceForShipment la reconstruit sous le meme
+    // numero, et la cree si elle n'existe pas encore.
+    //
+    // Le poids compte doublement ici : il figure sur la ligne de transport, et
+    // le supplement de ville est un tarif au kilo.
+    const AFFECTE_FACTURE = [
+        "totalAmount", "surchargeAmount", "amountPaid", "paymentStatus", "currency",
+        "weightKg", "itemKind", "deviceType", "lengthCm", "widthCm", "heightCm",
+        "items", "receiverName", "receiverEmail", "convoyId",
+    ];
+    const factureTouchee = AFFECTE_FACTURE.some((k) => k in data);
+
+    // On ne regenere que s'il reste un montant a facturer : sinon la
+    // reconstruction supprimerait la facture sans en recreer une.
+    const montantRestant = data.totalAmount !== undefined ? data.totalAmount : before.totalAmount;
+
+    if (factureTouchee && montantRestant != null && montantRestant > 0) {
         try {
-            await createInvoiceForShipment(id, { userId: session.user?.id ?? null });
+            await refreshInvoiceForShipment(id, { userId: session.user?.id ?? null });
         } catch (e) {
-            console.warn(`[shipments] Génération facture échouée pour ${updated.trackingId}:`, e);
+            console.warn(`[shipments] Régénération facture échouée pour ${updated.trackingId}:`, e);
             // Best-effort : la modification reste enregistrée
         }
     }
