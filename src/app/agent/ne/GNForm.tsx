@@ -6,6 +6,8 @@ import { useState, useEffect, useRef } from 'react';
 import PaymentSection from '@/components/PaymentSection';
 import ContentLinesSection, { emptyLine, toApiItems, type ContentValue } from '@/components/ContentLinesSection';
 import { formatApiError } from '@/lib/apiError';
+import PhotoPicker from '@/components/PhotoPicker';
+import { photoOutcomeMessage, uploadPreparedPhotos, type PreparedPhoto } from '@/lib/photoClient';
 
 export default function GNForm() {
     // ⚙️ CONFIGURATION - Modifiez ces valeurs selon vos besoins
@@ -32,6 +34,9 @@ export default function GNForm() {
     // de la section « Nature du contenu ».
     const [contentResetSignal, setContentResetSignal] = useState(0);
     const [content, setContent] = useState<ContentValue>({ lines: [emptyLine()], packageCount: "1" });
+    // Photos préparées pendant la saisie, envoyées une fois le colis créé :
+    // avant ça, il n'a pas encore d'identifiant auquel les rattacher.
+    const [photos, setPhotos] = useState<PreparedPhoto[]>([]);
 
     // États pour les convois disponibles
     const [availableConvoys, setAvailableConvoys] = useState<
@@ -229,7 +234,19 @@ export default function GNForm() {
                 );
             }
 
-            setMsg(`✅ Colis enregistré avec succès ! Tracking: ${data.trackingId}`);
+            // Le colis existe : ses photos peuvent partir. Un échec ici
+            // n'annule rien, il est signalé dans le même message.
+            const pending = photos.length;
+            const outcome =
+                pending > 0
+                    ? await uploadPreparedPhotos(Number(data.id), photos)
+                    : { sent: 0, failed: [] };
+
+            setMsg(
+                `✅ Colis enregistré avec succès ! Tracking: ${data.trackingId}` +
+                    photoOutcomeMessage(pending, outcome)
+            );
+            setPhotos([]);
             (e.target as HTMLFormElement).reset();
             setCity('');
             setOtherCity('');
@@ -514,6 +531,9 @@ export default function GNForm() {
 
             {/* Nature du contenu : colis ou appareil */}
             <ContentLinesSection resetSignal={contentResetSignal} onChange={setContent} />
+
+            {/* Photos — preuve de l'état du colis, prises carton en main */}
+            <PhotoPicker value={photos} onChange={setPhotos} />
 
             {/* Paiement */}
             <PaymentSection />

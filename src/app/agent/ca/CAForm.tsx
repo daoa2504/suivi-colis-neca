@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import PaymentSection from "@/components/PaymentSection";
 import ContentLinesSection, { emptyLine, toApiItems, type ContentValue } from "@/components/ContentLinesSection";
 import { formatApiError } from "@/lib/apiError";
+import PhotoPicker from "@/components/PhotoPicker";
+import { photoOutcomeMessage, uploadPreparedPhotos, type PreparedPhoto } from "@/lib/photoClient";
 
 // Champ numérique facultatif d'un FormData → nombre ou null
 function numOrNull(v: FormDataEntryValue | null): number | null {
@@ -38,6 +40,9 @@ export default function CAForm() {
     // Incrémenté après un envoi réussi : form.reset() ne vide pas l'état React
     // de la section « Nature du contenu ».
     const [contentResetSignal, setContentResetSignal] = useState(0);
+    // Photos préparées pendant la saisie, envoyées une fois le colis créé :
+    // avant ça, il n'a pas encore d'identifiant auquel les rattacher.
+    const [photos, setPhotos] = useState<PreparedPhoto[]>([]);
     const [content, setContent] = useState<ContentValue>({ lines: [emptyLine()], packageCount: "1" });
 
     // États pour le récupérateur au Niger
@@ -261,6 +266,14 @@ export default function CAForm() {
                 throw new Error(formatApiError((data as any).error, "Création échouée"));
             }
 
+            // Le colis existe : ses photos peuvent partir. Un échec ici
+            // n'annule rien, il est signalé dans le même message.
+            const pending = photos.length;
+            const outcome =
+                pending > 0
+                    ? await uploadPreparedPhotos(Number((data as any).id), photos)
+                    : { sent: 0, failed: [] };
+
             form.reset();
             setReceiverName('');
             setPickupLastName('');
@@ -268,7 +281,11 @@ export default function CAForm() {
             setSelectedConvoyId('');
             setSearchPhone('');
             setContentResetSignal((n) => n + 1);
-            setMsg(`✅ Colis enregistré. Tracking: ${(data as any).trackingId}`);
+            setPhotos([]);
+            setMsg(
+                `✅ Colis enregistré. Tracking: ${(data as any).trackingId}` +
+                    photoOutcomeMessage(pending, outcome)
+            );
             router.refresh();
         } catch (err: any) {
             setMsg(`❌ Erreur : ${err?.message || "inconnue"}`);
@@ -516,6 +533,9 @@ export default function CAForm() {
                     </div>
                 </div>
             </fieldset>
+
+            {/* Photos — preuve de l'état du colis, prises carton en main */}
+            <PhotoPicker value={photos} onChange={setPhotos} />
 
             {/* Paiement */}
             <PaymentSection />

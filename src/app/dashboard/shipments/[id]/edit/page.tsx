@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { notFound, redirect } from "next/navigation";
 import EditForm from "./EditForm";
+import ShipmentPhotos from "@/components/ShipmentPhotos";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic"; // optionnel
@@ -68,11 +69,19 @@ export default async function EditShipmentPage({
         (shipment.originCountry === "CA" ? "CA_TO_NE" : "NE_TO_CA");
 
     return (
-        <main className="container-page">
+        <main className="container-page space-y-6">
             <div className="card">
                 <h1 className="title">Modifier — {shipment!.trackingId}</h1>
                 <EditForm shipment={shipment!} direction={direction as "CA_TO_NE" | "NE_TO_CA"} />
             </div>
+
+            {/* Hors du formulaire : chaque photo part dès son ajout, sans
+                attendre « Enregistrer les modifications ». */}
+            <ShipmentPhotos
+                shipmentId={shipment!.id}
+                trackingId={shipment!.trackingId}
+                receiverName={shipment!.receiverName}
+            />
         </main>
     );
 }

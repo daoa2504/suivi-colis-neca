@@ -46,3 +46,6 @@ prisma/migrations/**/*.sql
 
 # Local script outputs (PDFs, exports générés localement)
 scripts/out/
+
+# Photos de colis stockées localement (volume Railway en production)
+.uploads/

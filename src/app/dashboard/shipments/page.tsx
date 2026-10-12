@@ -235,7 +235,7 @@ export default async function ShipmentsPage({
                         status: true,
                     },
                 },
-                _count: { select: { items: true } },
+                _count: { select: { items: true, photos: true } },
             },
         }),
         prisma.shipment.count({ where }),
@@ -417,7 +417,20 @@ export default async function ShipmentsPage({
                     <tbody>
                     {items.map((s) => (
                         <tr key={s.id} className="border-b hover:bg-gray-50">
-                            <td data-col="tracking" className="p-3 font-mono text-xs">{s.trackingId}</td>
+                            <td data-col="tracking" className="p-3 font-mono text-xs">
+                                {s.trackingId}
+                                {/* Preuve photo disponible : utile quand deux
+                                    cartons se ressemblent au dépôt. */}
+                                {s._count.photos > 0 && (
+                                    <Link
+                                        href={`/dashboard/shipments/${s.id}/edit#photos`}
+                                        title={`${s._count.photos} photo(s) de ce colis`}
+                                        className="ml-1.5 inline-block align-middle font-sans text-[11px] text-neutral-600 hover:text-black"
+                                    >
+                                        📷{s._count.photos}
+                                    </Link>
+                                )}
+                            </td>
                             <td data-col="convoy" className="p-3 text-xs">
                                 {s.convoy ? fmtDate(s.convoy.date) : "—"}
                             </td>

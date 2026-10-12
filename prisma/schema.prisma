@@ -25,6 +25,7 @@ model User {
   foodComplaintsHandled FoodComplaint[]  @relation("FoodComplaintHandledBy")
   foodRecallsCreated   FoodRecall[]      @relation("FoodRecallCreatedBy")
   notificationsSent    NotificationLog[]
+  shipmentPhotosTaken  ShipmentPhoto[]   @relation("ShipmentPhotoCreatedBy")
 }
 
 model Shipment {
@@ -98,6 +99,7 @@ model Shipment {
   invoice           Invoice?
   claims            ClaimRequest[]
   callbacks         CallbackRequest[]
+  photos            ShipmentPhoto[]
 }
 
 // Une ligne de contenu d'un envoi. Un même client peut confier un colis
@@ -120,6 +122,38 @@ model ShipmentItem {
   heightCm   Float?
 
   createdAt  DateTime @default(now())
+}
+
+// Photo d'un colis, prise à la réception et conservée comme preuve de son
+// état et de son contenu. Les colis se ressemblent : la photo est souvent le
+// seul moyen de rattacher un carton au bon client.
+//
+// Les fichiers eux-mêmes vivent sur le volume monté (UPLOADS_DIR), pas en
+// base : une base qui grossit de photos ralentit chaque sauvegarde.
+model ShipmentPhoto {
+  id         String   @id @default(cuid())
+  shipmentId Int
+  shipment   Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  // Chemins relatifs à la racine du stockage. La vignette évite d'envoyer
+  // une photo pleine résolution pour une case de 96 px : les agents sont
+  // souvent sur données mobiles, parfois au Niger.
+  storageKey String   @unique
+  thumbKey   String?
+
+  mimeType   String
+  byteSize   Int
+  width      Int?
+  height     Int?
+
+  // « carton 1/3 », « étiquette », « contenu avant fermeture »…
+  caption    String?
+
+  createdAt   DateTime @default(now())
+  createdById String?
+  createdBy   User?    @relation("ShipmentPhotoCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([shipmentId])
 }
 
 model Payment {
