@@ -423,8 +423,8 @@ export default async function ShipmentsPage({
                                     cartons se ressemblent au dépôt. */}
                                 {s._count.photos > 0 && (
                                     <Link
-                                        href={`/dashboard/shipments/${s.id}/edit#photos`}
-                                        title={`${s._count.photos} photo(s) de ce colis`}
+                                        href={`/dashboard/photos?q=${encodeURIComponent(s.trackingId)}`}
+                                        title={`Voir les ${s._count.photos} photo(s) de ce colis`}
                                         className="ml-1.5 inline-block align-middle font-sans text-[11px] text-neutral-600 hover:text-black"
                                     >
                                         📷{s._count.photos}
