@@ -112,25 +112,36 @@ export default async function PhotosGalleryPage({
         prisma.shipmentPhoto.count({ where: { shipment: where } }),
     ]);
 
-    // Listes des filtres, restreintes à ce qui a effectivement des photos :
-    // proposer une ville sans aucune preuve n'aide personne.
+    // Toutes les villes et tous les convois, et non seulement ceux qui ont
+    // déjà des photos. Une liste qui se réduit à mesure qu'on la consulte
+    // laisse croire que le reste n'existe pas ; ici, choisir une ville sans
+    // photo donne un résultat vide, ce qui est une réponse en soi.
     const [citiesRaw, convoysRaw] = await Promise.all([
         prisma.shipment.findMany({
-            where: { photos: { some: {} }, receiverCity: { not: null } },
+            where: { receiverCity: { not: null } },
             select: { receiverCity: true },
             distinct: ["receiverCity"],
         }),
         prisma.convoy.findMany({
-            where: { shipments: { some: { photos: { some: {} } } } },
             orderBy: { date: "desc" },
             select: { id: true, date: true, direction: true },
         }),
     ]);
 
-    const cities = citiesRaw
-        .map((c) => c.receiverCity!)
-        .filter(Boolean)
-        .sort((a, b) => a.localeCompare(b, "fr"));
+    // « Sherbrooke » et « sherbrooke » sont deux lignes distinctes en base,
+    // mais une seule ville dans une liste déroulante. Le filtre compare déjà
+    // sans tenir compte de la casse : garder la première graphie suffit.
+    const cities = Array.from(
+        citiesRaw
+            .map((c) => c.receiverCity!.trim())
+            .filter(Boolean)
+            .reduce((seen, name) => {
+                const key = name.toLocaleLowerCase("fr");
+                if (!seen.has(key)) seen.set(key, name);
+                return seen;
+            }, new Map<string, string>())
+            .values()
+    ).sort((a, b) => a.localeCompare(b, "fr"));
 
     // Mise à plat : le visualiseur navigue d'une photo à l'autre à travers
     // tout le résultat filtré, sans se soucier des regroupements.

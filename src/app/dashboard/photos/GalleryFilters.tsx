@@ -112,7 +112,7 @@ export default function GalleryFilters({ cities, convoys, current }: Props) {
                         <input
                             name="q"
                             defaultValue={current.q}
-                            placeholder="ex. Aïcha, NECA-128, « carton 2 »"
+                            placeholder="ex. Ali, NECA-128, « carton 2 »"
                             className="rounded-md border px-3 py-2 text-sm w-64"
                         />
                         <button
