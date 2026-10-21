@@ -116,7 +116,8 @@ describe("decidePricing", () => {
         });
         expect(d.totalAmount).toBe(10000);
         expect(d.currency).toBe("XOF");
-        expect(d.overridden).toBe(false);
+        // Le montant reçu est noté pour le journal, jamais suivi.
+        expect(d.discardedAmount).toBe(1);
     });
 
     it("impose la devise du sens, même si le client en annonce une autre", () => {
@@ -130,28 +131,32 @@ describe("decidePricing", () => {
         expect(d.totalAmount).toBe(40);
     });
 
-    it("suit la correction explicite de l'agent et la signale", () => {
-        const d = decidePricing({
+    it("n'accepte aucune correction, même demandée explicitement", () => {
+        // Le montant est verrouillé : seul l'administrateur fixe les prix,
+        // en réglant le tarif du convoi. Un appel forgé n'y change rien.
+        const forged = {
             direction: "NE_TO_CA",
             pricePerKg: 2500,
             lines,
-            submittedAmount: 8000,
+            submittedAmount: 1,
+            // Ancien drapeau de contournement : il n'existe plus dans le type,
+            // et surtout plus dans le comportement.
             priceOverridden: true,
-        });
-        expect(d.totalAmount).toBe(8000);
-        expect(d.quoted).toBe(10000);
-        expect(d.overridden).toBe(true);
+        } as Parameters<typeof decidePricing>[0];
+
+        const d = decidePricing(forged);
+        expect(d.totalAmount).toBe(10000);
+        expect(d.discardedAmount).toBe(1);
     });
 
-    it("ne signale rien si la correction retombe sur le tarif", () => {
+    it("ne signale rien quand le formulaire est d'accord avec le tarif", () => {
         const d = decidePricing({
             direction: "NE_TO_CA",
             pricePerKg: 2500,
             lines,
             submittedAmount: 10000,
-            priceOverridden: true,
         });
-        expect(d.overridden).toBe(false);
+        expect(d.discardedAmount).toBeNull();
     });
 
     it("laisse la main à l'agent quand le convoi n'a pas de tarif", () => {

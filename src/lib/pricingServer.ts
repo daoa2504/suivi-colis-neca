@@ -25,18 +25,23 @@ export type PricingDecision = {
     quoted: number | null;
     pricePerKg: number | null;
     weightKg: number | null;
-    /** Vrai quand le montant retenu s'écarte du tarif. */
-    overridden: boolean;
+    /**
+     * Montant que le client avait envoyé et que le tarif a écarté. Toujours
+     * null en fonctionnement normal : une valeur ici signale un formulaire
+     * desynchronisé, ou un appel forgé. Elle est journalisée, jamais suivie.
+     */
+    discardedAmount: number | null;
 };
 
 /**
  * Arrête le montant et la devise d'un envoi.
  *
- * - Convoi avec tarif et envoi pesé → le tarif fait foi.
- * - L'agent a explicitement corrigé le montant → sa valeur est retenue,
- *   et `overridden` le signale pour qu'on puisse le tracer.
+ * - Convoi avec tarif et envoi pesé → le tarif fait foi, sans exception.
+ *   Le montant envoyé par le formulaire est ignoré : seul l'administrateur
+ *   fixe les prix, en réglant le tarif du convoi.
  * - Pas de tarif, ou aucun poids (un appareil non pesé) → on retombe sur
- *   le montant saisi, comme avant cette fonctionnalité.
+ *   le montant saisi, comme avant cette fonctionnalité. Sans cette porte,
+ *   les convois déjà créés deviendraient inutilisables.
  */
 export function decidePricing(opts: {
     direction: Direction;
@@ -44,8 +49,6 @@ export function decidePricing(opts: {
     lines: WeighableLine[] | null | undefined;
     /** Ce que le formulaire a envoyé. */
     submittedAmount: number | null | undefined;
-    /** L'agent a cliqué « Corriger le montant ». */
-    priceOverridden?: boolean;
 }): PricingDecision {
     const currency = currencyForDirection(opts.direction);
     const weightKg = totalWeightKg(opts.lines);
@@ -64,19 +67,7 @@ export function decidePricing(opts: {
             quoted: null,
             pricePerKg: opts.pricePerKg ?? null,
             weightKg,
-            overridden: false,
-        };
-    }
-
-    // Correction assumée : on suit l'agent, mais on le note.
-    if (opts.priceOverridden && submitted != null && submitted >= 0) {
-        return {
-            totalAmount: submitted,
-            currency,
-            quoted: q.amount,
-            pricePerKg: q.pricePerKg,
-            weightKg,
-            overridden: submitted !== q.amount,
+            discardedAmount: null,
         };
     }
 
@@ -86,6 +77,6 @@ export function decidePricing(opts: {
         quoted: q.amount,
         pricePerKg: q.pricePerKg,
         weightKg,
-        overridden: false,
+        discardedAmount: submitted !== null && submitted !== q.amount ? submitted : null,
     };
 }

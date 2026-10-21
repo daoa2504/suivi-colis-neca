@@ -195,15 +195,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
                 pricePerKg: convoyForPricing.pricePerKg,
                 lines: newLines ?? [{ weightKg: weight, quantity: 1 }],
                 submittedAmount: total,
-                priceOverridden: body.priceOverridden === true,
             });
             if (pricing.quoted !== null) {
                 effectiveTotal = pricing.totalAmount;
                 currency = pricing.currency;
-                if (pricing.overridden) {
-                    console.log(
-                        `[tarif] colis ${id} : montant corrige a la main ` +
-                        `(${effectiveTotal} ${currency} au lieu de ${pricing.quoted})`
+                if (pricing.discardedAmount !== null) {
+                    console.warn(
+                        `[tarif] colis ${id} : montant recu ${pricing.discardedAmount} ignore ` +
+                        `au profit du tarif (${pricing.quoted} ${currency})`
                     );
                 }
             }

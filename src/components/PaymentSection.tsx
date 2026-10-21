@@ -63,9 +63,6 @@ export default function PaymentSection({
         initial?.paymentStatus ?? "UNPAID"
     );
     const [amountPaid, setAmountPaid] = useState(initial?.amountPaid ?? "");
-    /** Mis à true par « Corriger le montant » : une ligne de secours pour un
-     *  prix négocié, qui laisse le calcul automatique par défaut. */
-    const [manual, setManual] = useState(false);
 
     // La devise n'est plus un choix : elle découle du sens du convoi. Tant
     // qu'aucun convoi n'est sélectionné, on garde la valeur de départ.
@@ -78,8 +75,13 @@ export default function PaymentSection({
         [pricePerKg, weightKg, currency]
     );
 
-    /** Le montant vient du tarif, sauf si l'agent a demandé à le corriger. */
-    const automatic = Boolean(computed) && !manual;
+    /**
+     * Le montant vient du tarif du convoi, sans exception possible ici : les
+     * prix sont fixés par l'administrateur, convoi par convoi. Le champ libre
+     * ne réapparaît que faute de tarif ou de poids — sinon les convois sans
+     * tarif deviendraient inutilisables.
+     */
+    const automatic = Boolean(computed);
 
     // Recopie du montant calculé dans le champ, pour qu'il parte avec le
     // formulaire comme n'importe quelle saisie — y compris via FormData.
@@ -117,7 +119,7 @@ export default function PaymentSection({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [totalAmount, currency, paymentStatus, effectiveAmountPaid]);
 
-    const symbol = currency === "CAD" ? "$" : "FCFA";
+    const symbol = currencySymbol(currency);
     const fmt = (n: number) =>
         n.toLocaleString("fr-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -173,13 +175,11 @@ export default function PaymentSection({
                         <div className="text-xs text-neutral-600 mt-0.5">
                             {explainQuote(computed)}
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => setManual(true)}
-                            className="mt-1 text-xs text-neutral-500 hover:text-black underline"
-                        >
-                            Corriger le montant
-                        </button>
+                        <div className="text-xs text-neutral-500 mt-1">
+                            Calculé d&apos;après le tarif du convoi. Pour le changer,
+                            corrigez le poids — ou demandez à un administrateur de
+                            revoir le tarif.
+                        </div>
                     </div>
                 ) : (
                     <>
@@ -196,19 +196,7 @@ export default function PaymentSection({
                             onChange={(e) => setTotalAmount(e.target.value)}
                         />
                         <p className="mt-1 text-xs text-neutral-500">
-                            {manual && computed ? (
-                                <>
-                                    Montant corrigé à la main. Le tarif donnerait{" "}
-                                    {formatMoney(computed.amount, currency)}.{" "}
-                                    <button
-                                        type="button"
-                                        onClick={() => setManual(false)}
-                                        className="underline hover:text-black"
-                                    >
-                                        Revenir au calcul automatique
-                                    </button>
-                                </>
-                            ) : pricePerKg ? (
+                            {pricePerKg ? (
                                 "Saisissez le poids dans « Contenu de l'envoi » : le montant se calculera tout seul."
                             ) : (
                                 "Aucun tarif au kilo sur ce convoi — un administrateur peut en définir un dans Admin → Convois."

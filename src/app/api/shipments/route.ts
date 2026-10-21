@@ -171,15 +171,14 @@ export async function POST(req: NextRequest) {
             pricePerKg: convoy.pricePerKg,
             lines,
             submittedAmount: toFloatOrNull(body.totalAmount),
-            priceOverridden: body.priceOverridden === true,
         });
         const totalAmount = pricing.totalAmount;
         const currency = pricing.currency;
 
-        if (pricing.overridden) {
-            console.log(
-                `[tarif] montant corrigé à la main : ${totalAmount} ${currency}` +
-                ` au lieu de ${pricing.quoted} (${pricing.pricePerKg}/kg × ${pricing.weightKg} kg)`
+        if (pricing.discardedAmount !== null) {
+            console.warn(
+                `[tarif] montant reçu ${pricing.discardedAmount} ignoré au profit du tarif :` +
+                ` ${pricing.quoted} ${currency} (${pricing.pricePerKg}/kg × ${pricing.weightKg} kg)`
             );
         }
 
