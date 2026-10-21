@@ -41,3 +41,53 @@ export async function DELETE(
         return NextResponse.json({ ok: false, error: e?.message ?? "Server error" }, { status: 500 });
     }
 }
+
+// PATCH /api/convoys/[id] — ADMIN uniquement, modifie le tarif au kilo.
+//
+// Le tarif n'est pas rétroactif : les colis déjà enregistrés gardent le
+// montant figé à leur saisie. Le changer ici ne refacture personne, il
+// s'applique aux colis saisis ensuite. C'est voulu — un client à qui on a
+// annoncé un prix ne doit pas le voir bouger parce qu'un tarif a été
+// corrigé après coup.
+export async function PATCH(
+    req: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== "ADMIN") {
+        return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+    }
+
+    const { id } = await params;
+
+    try {
+        const body = await req.json().catch(() => ({} as any));
+        const raw = body?.pricePerKg;
+
+        let pricePerKg: number | null = null;
+        if (raw !== "" && raw !== null && raw !== undefined) {
+            const n = Number(String(raw).replace(",", "."));
+            if (!Number.isFinite(n) || n < 0) {
+                return NextResponse.json(
+                    { ok: false, error: "Tarif invalide" },
+                    { status: 400 }
+                );
+            }
+            // Un zéro saisi vaut « pas de tarif », pas « transport gratuit ».
+            pricePerKg = n > 0 ? n : null;
+        }
+
+        const convoy = await prisma.convoy.update({
+            where: { id },
+            data: { pricePerKg },
+            select: { id: true, date: true, direction: true, pricePerKg: true },
+        });
+
+        return NextResponse.json({ ok: true, convoy });
+    } catch (e: any) {
+        if (e?.code === "P2025") {
+            return NextResponse.json({ ok: false, error: "Convoi introuvable" }, { status: 404 });
+        }
+        return NextResponse.json({ ok: false, error: e?.message ?? "Server error" }, { status: 500 });
+    }
+}

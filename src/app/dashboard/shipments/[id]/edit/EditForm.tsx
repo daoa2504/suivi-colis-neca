@@ -6,6 +6,7 @@ import * as React from "react";
 import ContentLinesSection, { fromApiItems, toApiItems, type ContentValue } from "@/components/ContentLinesSection";
 import PaymentSection, { type PaymentValue } from "@/components/PaymentSection";
 import { formatApiError } from "@/lib/apiError";
+import { totalWeightKg } from "@/lib/pricing";
 
 type Shipment = {
     id: number;
@@ -39,7 +40,13 @@ type Shipment = {
     pickupQuartier?: string | null;
     pickupPhone?: string | null;
     convoyId?: string | null;
-    convoy?: { id: string; date: Date | string; direction: "CA_TO_NE" | "NE_TO_CA" } | null;
+    convoy?: {
+        id: string;
+        date: Date | string;
+        direction: "CA_TO_NE" | "NE_TO_CA";
+        /** Tarif au kilo du convoi, d'où se déduit le montant à payer. */
+        pricePerKg?: number | null;
+    } | null;
 };
 
 type Direction = "CA_TO_NE" | "NE_TO_CA";
@@ -500,6 +507,9 @@ export default function EditForm({
             <PaymentSection
                 initial={payment}
                 onChange={onPaymentChange}
+                direction={direction}
+                pricePerKg={shipment.convoy?.pricePerKg ?? null}
+                weightKg={totalWeightKg(content.lines)}
                 surcharge={
                     shipment.surchargeAmount
                         ? { amount: shipment.surchargeAmount, city: shipment.receiverCity }

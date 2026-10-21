@@ -8,6 +8,7 @@ import ContentLinesSection, { emptyLine, toApiItems, type ContentValue } from '@
 import { formatApiError } from '@/lib/apiError';
 import PhotoPicker from '@/components/PhotoPicker';
 import { photoOutcomeMessage, uploadPreparedPhotos, type PreparedPhoto } from '@/lib/photoClient';
+import { totalWeightKg } from "@/lib/pricing";
 
 export default function GNForm() {
     // ⚙️ CONFIGURATION - Modifiez ces valeurs selon vos besoins
@@ -40,7 +41,7 @@ export default function GNForm() {
 
     // États pour les convois disponibles
     const [availableConvoys, setAvailableConvoys] = useState<
-        { id: string; date: string }[]
+        { id: string; date: string; pricePerKg: number | null }[]
     >([]);
     const [selectedConvoyId, setSelectedConvoyId] = useState('');
     const [convoysLoading, setConvoysLoading] = useState(true);
@@ -56,6 +57,7 @@ export default function GNForm() {
                         .map((c) => ({
                             id: c.id,
                             date: new Date(c.date).toISOString().slice(0, 10),
+                            pricePerKg: typeof c.pricePerKg === "number" ? c.pricePerKg : null,
                         }))
                         .sort((a, b) => (a.date < b.date ? 1 : -1));
                     setAvailableConvoys(list);
@@ -198,6 +200,11 @@ export default function GNForm() {
                 break;
         }
     }
+
+    // Convoi choisi : son tarif au kilo pilote le montant a payer.
+    const selectedConvoy = availableConvoys.find((c) => c.id === selectedConvoyId);
+    // Poids total saisi dans la section contenu, meme formule que le serveur.
+    const weightKg = totalWeightKg(content.lines);
 
     // Soumission du formulaire
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -536,7 +543,11 @@ export default function GNForm() {
             <PhotoPicker value={photos} onChange={setPhotos} />
 
             {/* Paiement */}
-            <PaymentSection />
+            <PaymentSection
+                direction="NE_TO_CA"
+                pricePerKg={selectedConvoy?.pricePerKg ?? null}
+                weightKg={weightKg}
+            />
 
             {/* Notes */}
             <div>

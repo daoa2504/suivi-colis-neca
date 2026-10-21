@@ -14,6 +14,15 @@
 //   totalAmount, currency, paymentStatus, amountPaid
 
 import { useState, useMemo, useEffect } from "react";
+import {
+    currencyForDirection,
+    currencySymbol,
+    explainQuote,
+    formatMoney,
+    quote,
+    type Currency,
+    type Direction,
+} from "@/lib/pricing";
 
 type PaymentStatus = "PAID" | "PARTIAL" | "UNPAID";
 
@@ -29,6 +38,9 @@ export default function PaymentSection({
     initial,
     onChange,
     surcharge,
+    direction,
+    pricePerKg,
+    weightKg,
 }: {
     /** Valeurs de départ, pour le formulaire de modification. */
     initial?: Partial<PaymentValue>;
@@ -38,13 +50,44 @@ export default function PaymentSection({
      *  Affiché pour que l'agent voie le montant réellement dû, qui n'est pas
      *  celui qu'il a saisi. */
     surcharge?: { amount: number; city?: string | null } | null;
+    /** Sens du convoi choisi. Détermine la devise : l'expéditeur paie chez
+     *  lui, en FCFA depuis le Niger, en dollars depuis le Canada. */
+    direction?: Direction | null;
+    /** Tarif au kilo du convoi choisi, s'il en a un. */
+    pricePerKg?: number | null;
+    /** Poids total saisi dans la section « Contenu de l'envoi ». */
+    weightKg?: number | null;
 } = {}) {
     const [totalAmount, setTotalAmount] = useState(initial?.totalAmount ?? "");
-    const [currency, setCurrency] = useState<"CAD" | "XOF">(initial?.currency ?? "CAD");
     const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(
         initial?.paymentStatus ?? "UNPAID"
     );
     const [amountPaid, setAmountPaid] = useState(initial?.amountPaid ?? "");
+    /** Mis à true par « Corriger le montant » : une ligne de secours pour un
+     *  prix négocié, qui laisse le calcul automatique par défaut. */
+    const [manual, setManual] = useState(false);
+
+    // La devise n'est plus un choix : elle découle du sens du convoi. Tant
+    // qu'aucun convoi n'est sélectionné, on garde la valeur de départ.
+    const currency: Currency = direction
+        ? currencyForDirection(direction)
+        : ((initial?.currency ?? "CAD") as Currency);
+
+    const computed = useMemo(
+        () => quote(pricePerKg, weightKg ?? null, currency),
+        [pricePerKg, weightKg, currency]
+    );
+
+    /** Le montant vient du tarif, sauf si l'agent a demandé à le corriger. */
+    const automatic = Boolean(computed) && !manual;
+
+    // Recopie du montant calculé dans le champ, pour qu'il parte avec le
+    // formulaire comme n'importe quelle saisie — y compris via FormData.
+    useEffect(() => {
+        if (!automatic || !computed) return;
+        const next = String(computed.amount);
+        setTotalAmount((prev) => (prev === next ? prev : next));
+    }, [automatic, computed]);
 
     // Restant à payer (calcul auto)
     const remaining = useMemo(() => {
@@ -106,42 +149,77 @@ export default function PaymentSection({
                 </div>
             )}
 
-            {/* Total + Devise */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="md:col-span-2">
-                    <label htmlFor="totalAmount" className="block mb-1 text-sm font-medium text-neutral-700">
+            {/* Montant — calculé dès qu'un tarif et un poids sont connus */}
+            <div>
+                <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
+                    <label htmlFor="totalAmount" className="text-sm font-medium text-neutral-700">
                         Montant total à payer <span className="text-red-600">*</span>
                     </label>
-                    <input
-                        id="totalAmount"
-                        name="totalAmount"
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                        min="0"
-                        required
-                        placeholder="ex: 100.00"
-                        className="input border p-2 w-full rounded"
-                        value={totalAmount}
-                        onChange={(e) => setTotalAmount(e.target.value)}
-                    />
+                    <span className="text-xs text-neutral-500">
+                        Facturé en <strong>{currency === "XOF" ? "FCFA" : "CAD ($)"}</strong>
+                        {direction
+                            ? direction === "NE_TO_CA"
+                                ? " — convoi Niger → Canada"
+                                : " — convoi Canada → Niger"
+                            : ""}
+                    </span>
                 </div>
-                <div>
-                    <label htmlFor="currency" className="block mb-1 text-sm font-medium text-neutral-700">
-                        Devise <span className="text-red-600">*</span>
-                    </label>
-                    <select
-                        id="currency"
-                        name="currency"
-                        required
-                        value={currency}
-                        onChange={(e) => setCurrency(e.target.value as "CAD" | "XOF")}
-                        className="input border p-2 w-full rounded bg-white"
-                    >
-                        <option value="CAD">CAD ($)</option>
-                        <option value="XOF">FCFA</option>
-                    </select>
-                </div>
+
+                {automatic && computed ? (
+                    <div className="rounded border border-emerald-300 bg-white px-3 py-2">
+                        <div className="text-lg font-semibold text-emerald-900">
+                            {formatMoney(computed.amount, currency)}
+                        </div>
+                        <div className="text-xs text-neutral-600 mt-0.5">
+                            {explainQuote(computed)}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setManual(true)}
+                            className="mt-1 text-xs text-neutral-500 hover:text-black underline"
+                        >
+                            Corriger le montant
+                        </button>
+                    </div>
+                ) : (
+                    <>
+                        <input
+                            id="totalAmount"
+                            type="number"
+                            inputMode="decimal"
+                            step="0.01"
+                            min="0"
+                            required
+                            placeholder={currency === "XOF" ? "ex : 25000" : "ex : 100.00"}
+                            className="input border p-2 w-full rounded"
+                            value={totalAmount}
+                            onChange={(e) => setTotalAmount(e.target.value)}
+                        />
+                        <p className="mt-1 text-xs text-neutral-500">
+                            {manual && computed ? (
+                                <>
+                                    Montant corrigé à la main. Le tarif donnerait{" "}
+                                    {formatMoney(computed.amount, currency)}.{" "}
+                                    <button
+                                        type="button"
+                                        onClick={() => setManual(false)}
+                                        className="underline hover:text-black"
+                                    >
+                                        Revenir au calcul automatique
+                                    </button>
+                                </>
+                            ) : pricePerKg ? (
+                                "Saisissez le poids dans « Contenu de l'envoi » : le montant se calculera tout seul."
+                            ) : (
+                                "Aucun tarif au kilo sur ce convoi — un administrateur peut en définir un dans Admin → Convois."
+                            )}
+                        </p>
+                    </>
+                )}
+
+                {/* Toujours soumis, que le montant soit calculé ou saisi. */}
+                <input type="hidden" name="totalAmount" value={totalAmount} />
+                <input type="hidden" name="currency" value={currency} />
             </div>
 
             {/* Statut */}

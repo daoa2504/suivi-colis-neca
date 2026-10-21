@@ -53,6 +53,7 @@ export async function GET(req: NextRequest) {
                 id: c.id,
                 date: c.date,
                 direction: c.direction,
+                pricePerKg: c.pricePerKg,
                 totalShipments: c.shipments.length,
                 statusCounts,
             };

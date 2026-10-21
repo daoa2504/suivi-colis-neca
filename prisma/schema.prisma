@@ -231,6 +231,12 @@ model Convoy {
   id         String            @id @default(cuid())
   date       DateTime
   direction  Direction         @default(NE_TO_CA)
+
+  // Tarif au kilo appliqué aux colis de ce convoi, dans la devise du sens
+  // (Niger → Canada : FCFA ; Canada → Niger : CAD). Null tant que
+  // l'administrateur ne l'a pas fixé : les agents saisissent alors le prix
+  // à la main, comme avant.
+  pricePerKg Float?
   shipments  Shipment[]
   expenses   Expense[]
   surcharges ConvoySurcharge[]

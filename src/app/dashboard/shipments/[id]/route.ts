@@ -5,6 +5,7 @@ import { refreshInvoiceForShipment } from "@/lib/invoice";
 import { contentLineSchema } from "@/lib/validators";
 import { summarizeKind } from "@/lib/itemKind";
 import { resolveSurcharge, amountDue } from "@/lib/surcharge";
+import { decidePricing } from "@/lib/pricingServer";
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -161,12 +162,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         const status: "PAID" | "PARTIAL" | "UNPAID" =
             rawStatus === "PAID" || rawStatus === "PARTIAL" ? rawStatus : "UNPAID";
 
-        // Supplement de ville : recalcule depuis la grille du convoi, car la
-        // ville ou le convoi ont pu changer dans cette meme modification.
-        const currency =
-            "currency" in body
-                ? (String(body.currency ?? "CAD").toUpperCase() === "XOF" ? "XOF" : "CAD")
-                : before.currency ?? "CAD";
         const convoyId =
             "convoyId" in body && body.convoyId ? String(body.convoyId) : before.convoyId;
         const city = "receiverCity" in body ? body.receiverCity : before.receiverCity;
@@ -174,10 +169,52 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         // Le poids peut venir d'etre recalcule depuis les lignes de contenu
         // dans cette meme requete ; sinon on garde celui deja en base.
         const weight = "weightKg" in data ? data.weightKg : before.weightKg;
+
+        // Tarif au kilo du convoi. S'il existe, c'est lui qui fixe le montant
+        // et la devise — corriger un poids ici doit refaire le prix, sinon la
+        // facture et la balance diraient deux choses differentes.
+        const convoyForPricing = convoyId
+            ? await prisma.convoy.findUnique({
+                  where: { id: convoyId },
+                  select: { direction: true, pricePerKg: true },
+              })
+            : null;
+
+        let effectiveTotal = total;
+        // Sans tarif applicable, la devise reste celle deja enregistree : une
+        // facture ancienne ne doit pas changer d'unite sous les pieds du
+        // client parce qu'un tarif a ete ajoute depuis.
+        let currency: "CAD" | "XOF" =
+            "currency" in body
+                ? (String(body.currency ?? "CAD").toUpperCase() === "XOF" ? "XOF" : "CAD")
+                : (before.currency as "CAD" | "XOF") ?? "CAD";
+
+        if (convoyForPricing?.pricePerKg) {
+            const pricing = decidePricing({
+                direction: convoyForPricing.direction,
+                pricePerKg: convoyForPricing.pricePerKg,
+                lines: newLines ?? [{ weightKg: weight, quantity: 1 }],
+                submittedAmount: total,
+                priceOverridden: body.priceOverridden === true,
+            });
+            if (pricing.quoted !== null) {
+                effectiveTotal = pricing.totalAmount;
+                currency = pricing.currency;
+                if (pricing.overridden) {
+                    console.log(
+                        `[tarif] colis ${id} : montant corrige a la main ` +
+                        `(${effectiveTotal} ${currency} au lieu de ${pricing.quoted})`
+                    );
+                }
+            }
+        }
+
+        // Supplement de ville : recalcule depuis la grille du convoi, car la
+        // ville ou le convoi ont pu changer dans cette meme modification.
         const resolved = await resolveSurcharge(convoyId, city, currency, weight);
         data.surchargeAmount = resolved?.amount ?? null;
 
-        const due = amountDue(total, data.surchargeAmount);
+        const due = amountDue(effectiveTotal, data.surchargeAmount);
 
         let paid = num(body.amountPaid);
         // Meme regle de coherence qu'a la creation : PAID solde le total du
@@ -185,12 +222,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         if (status === "PAID") paid = due;
         if (status === "UNPAID") paid = 0;
 
-        data.totalAmount = total;
+        data.totalAmount = effectiveTotal;
         data.amountPaid = paid;
         data.paymentStatus = status;
-        if ("currency" in body) {
-            data.currency = String(body.currency ?? "CAD").toUpperCase() === "XOF" ? "XOF" : "CAD";
-        }
+        data.currency = currency;
     }
     if ("receiverAddress" in body) data.receiverAddress = body.receiverAddress ? String(body.receiverAddress) : null;
     if ("receiverCity" in body) data.receiverCity = body.receiverCity ? String(body.receiverCity) : null;

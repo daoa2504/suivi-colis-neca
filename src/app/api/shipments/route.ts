@@ -10,6 +10,7 @@ import { sendEmailSafe, FROM, type EmailAttachment } from "@/lib/email";
 import { createShipmentByCA, createShipmentByGN } from "@/lib/validators";
 import { summarizeKind } from "@/lib/itemKind";
 import { resolveSurcharge, amountDue } from "@/lib/surcharge";
+import { decidePricing } from "@/lib/pricingServer";
 import { createInvoiceForShipment, getInvoiceByShipment } from "@/lib/invoice";
 import { renderInvoicePdf } from "@/lib/invoice-pdf";
 
@@ -162,13 +163,29 @@ export async function POST(req: NextRequest) {
         const rawPackages = Math.trunc(Number(body.packageCount));
         const packageCount = Number.isFinite(rawPackages) && rawPackages > 0 ? rawPackages : 1;
 
-        // Paiement (nouveau — Phase 2.8)
-        const totalAmount = toFloatOrNull(body.totalAmount);
+        // Paiement. Le montant vient du tarif au kilo du convoi, et la devise
+        // du sens de celui-ci : ni l'un ni l'autre n'est repris du navigateur,
+        // qui pourrait annoncer n'importe quoi.
+        const pricing = decidePricing({
+            direction,
+            pricePerKg: convoy.pricePerKg,
+            lines,
+            submittedAmount: toFloatOrNull(body.totalAmount),
+            priceOverridden: body.priceOverridden === true,
+        });
+        const totalAmount = pricing.totalAmount;
+        const currency = pricing.currency;
+
+        if (pricing.overridden) {
+            console.log(
+                `[tarif] montant corrigé à la main : ${totalAmount} ${currency}` +
+                ` au lieu de ${pricing.quoted} (${pricing.pricePerKg}/kg × ${pricing.weightKg} kg)`
+            );
+        }
+
         const rawStatus = String(body.paymentStatus ?? "UNPAID").toUpperCase();
         const paymentStatus: "PAID" | "PARTIAL" | "UNPAID" =
             rawStatus === "PAID" || rawStatus === "PARTIAL" ? rawStatus : "UNPAID";
-        const rawCurrency = String(body.currency ?? "CAD").toUpperCase();
-        const currency: "CAD" | "XOF" = rawCurrency === "XOF" ? "XOF" : "CAD";
         // Supplément de ville, figé maintenant : il fait partie de ce que le
         // client doit, au même titre que le prix convenu.
         const resolved = await resolveSurcharge(convoy.id, body.receiverCity, currency, weightKg);

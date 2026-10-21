@@ -8,6 +8,7 @@
 
 "use client";
 
+import { currencyForDirection, currencySymbol, formatMoney } from "@/lib/pricing";
 import { useState } from "react";
 
 type Surcharge = {
@@ -25,7 +26,17 @@ const CITIES = [
     "Terrebonne", "Drummondville", "Saint-Jérôme", "Rimouski",
 ];
 
-export default function SurchargesEditor({ convoyId }: { convoyId: string }) {
+export default function SurchargesEditor({
+    convoyId,
+    direction,
+}: {
+    convoyId: string;
+    direction: "NE_TO_CA" | "CA_TO_NE";
+}) {
+    // Le supplément se facture dans la devise du convoi : une ligne en
+    // dollars sur une facture en FCFA ne s'additionne pas, et la facture
+    // l'ignorerait plutôt que de la convertir au hasard.
+    const currency = currencyForDirection(direction);
     const [open, setOpen] = useState(false);
     const [loaded, setLoaded] = useState(false);
     const [rows, setRows] = useState<Surcharge[]>([]);
@@ -68,7 +79,7 @@ export default function SurchargesEditor({ convoyId }: { convoyId: string }) {
             const res = await fetch(`/api/convoys/${convoyId}/surcharges`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ city: effectiveCity, amount, currency: "CAD" }),
+                body: JSON.stringify({ city: effectiveCity, amount, currency }),
             });
             const data = await res.json();
             if (!data.ok) {
@@ -139,8 +150,19 @@ export default function SurchargesEditor({ convoyId }: { convoyId: string }) {
                                     className="flex items-center justify-between gap-2 text-xs bg-white border border-neutral-200 rounded px-2 py-1"
                                 >
                                     <span>
-                                        <strong>{r.city}</strong> — {r.amount.toFixed(2)}{" "}
-                                        / kg
+                                        <strong>{r.city}</strong> —{" "}
+                                        {formatMoney(r.amount, r.currency)} / kg
+                                        {/* Un supplément dans une autre devise que le
+                                            convoi serait ignoré au moment de facturer.
+                                            Mieux vaut le dire ici que de laisser une
+                                            facture silencieusement incomplète. */}
+                                        {r.currency !== currency && (
+                                            <span className="ml-1 text-amber-700 font-medium">
+                                                ⚠ en {r.currency}, ce convoi facture en{" "}
+                                                {currency} — ce supplément sera ignoré,
+                                                supprimez-le et ressaisissez-le.
+                                            </span>
+                                        )}
                                     </span>
                                     <button
                                         type="button"
@@ -189,7 +211,7 @@ export default function SurchargesEditor({ convoyId }: { convoyId: string }) {
 
                         <div>
                             <label className="block text-[10px] font-medium text-neutral-600 mb-0.5">
-                                Tarif ($ CAD / kg)
+                                Tarif ({currencySymbol(currency)} / kg)
                             </label>
                             <input
                                 type="number"

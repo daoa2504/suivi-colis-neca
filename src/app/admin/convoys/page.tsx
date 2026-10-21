@@ -41,6 +41,7 @@ export default async function AdminConvoysPage({
         date: fmtDate(c.date),
         direction: c.direction as "NE_TO_CA" | "CA_TO_NE",
         totalShipments: c._count.shipments,
+        pricePerKg: c.pricePerKg,
     }));
 
     return (

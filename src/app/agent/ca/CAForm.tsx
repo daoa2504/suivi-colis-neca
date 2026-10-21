@@ -8,6 +8,7 @@ import ContentLinesSection, { emptyLine, toApiItems, type ContentValue } from "@
 import { formatApiError } from "@/lib/apiError";
 import PhotoPicker from "@/components/PhotoPicker";
 import { photoOutcomeMessage, uploadPreparedPhotos, type PreparedPhoto } from "@/lib/photoClient";
+import { totalWeightKg } from "@/lib/pricing";
 
 // Champ numérique facultatif d'un FormData → nombre ou null
 function numOrNull(v: FormDataEntryValue | null): number | null {
@@ -51,7 +52,7 @@ export default function CAForm() {
 
     // États pour les convois disponibles
     const [availableConvoys, setAvailableConvoys] = useState<
-        { id: string; date: string }[]
+        { id: string; date: string; pricePerKg: number | null }[]
     >([]);
     const [selectedConvoyId, setSelectedConvoyId] = useState('');
     const [convoysLoading, setConvoysLoading] = useState(true);
@@ -67,6 +68,7 @@ export default function CAForm() {
                         .map((c) => ({
                             id: c.id,
                             date: new Date(c.date).toISOString().slice(0, 10),
+                            pricePerKg: typeof c.pricePerKg === "number" ? c.pricePerKg : null,
                         }))
                         .sort((a, b) => (a.date < b.date ? 1 : -1));
                     setAvailableConvoys(list);
@@ -207,6 +209,11 @@ export default function CAForm() {
         }
     }
 
+    // Convoi choisi : son tarif au kilo pilote le montant à payer.
+    const selectedConvoy = availableConvoys.find((c) => c.id === selectedConvoyId);
+    // Poids total saisi dans la section contenu, même formule que le serveur.
+    const weightKg = totalWeightKg(content.lines);
+
     async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
         setMsg(null);
@@ -228,7 +235,7 @@ export default function CAForm() {
             receiverPhone: (fd.get("receiverPhone") as string) || null,
             items: toApiItems(content.lines),
             packageCount: Number(content.packageCount) || 1,
-            // Paiement : ces champs viennent de <PaymentSection />. Ce formulaire
+            // Paiement : ces champs viennent de PaymentSection. Ce formulaire
             // construit son payload à la main, il faut donc les lire explicitement
             // — sans quoi le montant saisi par l'agent est perdu et aucune facture
             // n'est générée, donc aucun reçu joint au courriel.
@@ -538,7 +545,11 @@ export default function CAForm() {
             <PhotoPicker value={photos} onChange={setPhotos} />
 
             {/* Paiement */}
-            <PaymentSection />
+            <PaymentSection
+                direction="CA_TO_NE"
+                pricePerKg={selectedConvoy?.pricePerKg ?? null}
+                weightKg={weightKg}
+            />
 
             {/* Notes */}
             <div>

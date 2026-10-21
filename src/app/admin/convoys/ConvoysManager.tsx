@@ -5,12 +5,19 @@ import { useRouter } from "next/navigation";
 import ExportPdfButtons from "./ExportPdfButtons";
 import PackingListButton from "./PackingListButton";
 import SurchargesEditor from "./SurchargesEditor";
+import {
+    currencyForDirection,
+    currencySymbol,
+    formatMoney,
+} from "@/lib/pricing";
 
 type Convoy = {
     id: string;
     date: string;
     direction: "NE_TO_CA" | "CA_TO_NE";
     totalShipments: number;
+    /** Tarif au kilo. Null = pas de tarif, l'agent saisit le prix à la main. */
+    pricePerKg: number | null;
 };
 
 export default function ConvoysManager({
@@ -25,8 +32,11 @@ export default function ConvoysManager({
     const router = useRouter();
     const [convoys, setConvoys] = useState<Convoy[]>(initialConvoys);
     const [date, setDate] = useState("");
+    const [pricePerKg, setPricePerKg] = useState("");
     // La direction est liée à l'onglet actif — plus de sélecteur dans le formulaire
     const direction = currentDirection;
+    // La devise découle du sens : l'expéditeur paie chez lui.
+    const currency = currencyForDirection(direction);
     const [loading, setLoading] = useState(false);
     const [msg, setMsg] = useState<string | null>(null);
 
@@ -39,7 +49,7 @@ export default function ConvoysManager({
             const res = await fetch("/api/convoys", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ date, direction }),
+                body: JSON.stringify({ date, direction, pricePerKg }),
             });
             const data = await res.json();
             if (!res.ok || !data.ok) {
@@ -55,12 +65,14 @@ export default function ConvoysManager({
                             date: new Date(data.convoy.date).toISOString().slice(0, 10),
                             direction: data.convoy.direction,
                             totalShipments: 0,
+                            pricePerKg: data.convoy.pricePerKg ?? null,
                         },
                         ...prev,
                     ].sort((a, b) => (a.date < b.date ? 1 : -1))
                 );
             }
             setDate("");
+            setPricePerKg("");
             setMsg("✅ Convoi créé");
             router.refresh();
         } catch (err: any) {
@@ -113,6 +125,24 @@ export default function ConvoysManager({
                             className="border p-2 rounded w-48"
                         />
                     </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">
+                            Tarif au kilo{" "}
+                            <span className="font-normal text-gray-500">
+                                ({currencySymbol(currency)})
+                            </span>
+                        </label>
+                        <input
+                            type="number"
+                            inputMode="decimal"
+                            step="any"
+                            min="0"
+                            value={pricePerKg}
+                            onChange={(e) => setPricePerKg(e.target.value)}
+                            placeholder={currency === "XOF" ? "ex : 2500" : "ex : 12.50"}
+                            className="border p-2 rounded w-48"
+                        />
+                    </div>
                     <button
                         disabled={loading || !date}
                         className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 disabled:opacity-60"
@@ -120,6 +150,12 @@ export default function ConvoysManager({
                         {loading ? "Création…" : `Créer le convoi (${dirLabel(direction)})`}
                     </button>
                 </form>
+                <p className="mt-3 text-xs text-gray-600">
+                    Le montant de chaque colis se calcule à partir de ce tarif et du
+                    poids saisi : les agents n&apos;ont plus de prix à entrer. Laissé
+                    vide, ils le saisissent à la main comme avant. Un tarif modifié
+                    ne refacture pas les colis déjà enregistrés.
+                </p>
                 {msg && (
                     <div
                         className={`mt-4 p-3 rounded text-sm ${
@@ -142,6 +178,7 @@ export default function ConvoysManager({
                         <th className="text-left p-3">Date</th>
                         <th className="text-left p-3">Direction</th>
                         <th className="text-left p-3">Colis</th>
+                        <th className="text-left p-3">Tarif / kg</th>
                         <th className="text-left p-3">Documents</th>
                         <th className="text-left p-3">Actions</th>
                     </tr>
@@ -163,6 +200,20 @@ export default function ConvoysManager({
                             </td>
                             <td className="p-3">{c.totalShipments}</td>
                             <td className="p-3">
+                                <PriceEditor
+                                    convoyId={c.id}
+                                    direction={c.direction}
+                                    initial={c.pricePerKg}
+                                    onSaved={(value) =>
+                                        setConvoys((prev) =>
+                                            prev.map((x) =>
+                                                x.id === c.id ? { ...x, pricePerKg: value } : x
+                                            )
+                                        )
+                                    }
+                                />
+                            </td>
+                            <td className="p-3">
                                 {c.totalShipments > 0 ? (
                                     <div className="space-y-2">
                                         <ExportPdfButtons
@@ -175,7 +226,7 @@ export default function ConvoysManager({
                                             convoyDate={c.date}
                                             direction={c.direction}
                                         />
-                                        <SurchargesEditor convoyId={c.id} />
+                                        <SurchargesEditor convoyId={c.id} direction={c.direction} />
                                     </div>
                                 ) : (
                                     <span className="text-xs text-gray-400">—</span>
@@ -195,7 +246,7 @@ export default function ConvoysManager({
                     ))}
                     {convoys.length === 0 && (
                         <tr>
-                            <td colSpan={5} className="p-6 text-center text-gray-500">
+                            <td colSpan={6} className="p-6 text-center text-gray-500">
                                 Aucun convoi. Créez-en un ci-dessus.
                             </td>
                         </tr>
@@ -203,6 +254,117 @@ export default function ConvoysManager({
                     </tbody>
                 </table>
             </section>
+        </div>
+    );
+}
+
+// --- Tarif au kilo, modifiable sur place -----------------------------------
+//
+// Un tarif se corrige souvent après coup — on apprend le coût réel du
+// transport une fois le convoi parti. Le faire sans quitter le tableau
+// évite un écran de plus pour un seul nombre.
+function PriceEditor({
+    convoyId,
+    direction,
+    initial,
+    onSaved,
+}: {
+    convoyId: string;
+    direction: "NE_TO_CA" | "CA_TO_NE";
+    initial: number | null;
+    onSaved: (value: number | null) => void;
+}) {
+    const currency = currencyForDirection(direction);
+    const [editing, setEditing] = useState(false);
+    const [value, setValue] = useState(initial === null ? "" : String(initial));
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    async function save() {
+        setSaving(true);
+        setError(null);
+        try {
+            const res = await fetch(`/api/convoys/${convoyId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ pricePerKg: value }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+                throw new Error(typeof data.error === "string" ? data.error : "Échec");
+            }
+            onSaved(data.convoy.pricePerKg ?? null);
+            setValue(data.convoy.pricePerKg === null ? "" : String(data.convoy.pricePerKg));
+            setEditing(false);
+        } catch (e: any) {
+            setError(e?.message || "Échec");
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    if (!editing) {
+        return (
+            <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="text-left group"
+                title="Modifier le tarif au kilo"
+            >
+                {initial === null ? (
+                    <span className="text-xs text-amber-700 group-hover:underline">
+                        À définir
+                    </span>
+                ) : (
+                    <span className="text-xs font-medium group-hover:underline">
+                        {formatMoney(initial, currency)}
+                    </span>
+                )}
+            </button>
+        );
+    }
+
+    return (
+        <div className="space-y-1">
+            <div className="flex items-center gap-1">
+                <input
+                    type="number"
+                    inputMode="decimal"
+                    step="any"
+                    min="0"
+                    autoFocus
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter") void save();
+                        if (e.key === "Escape") setEditing(false);
+                    }}
+                    className="border p-1 rounded w-24 text-xs"
+                    placeholder={currency === "XOF" ? "2500" : "12.50"}
+                />
+                <span className="text-[11px] text-gray-500">
+                    {currencySymbol(currency)}
+                </span>
+                <button
+                    type="button"
+                    onClick={() => void save()}
+                    disabled={saving}
+                    className="text-xs text-blue-600 hover:underline disabled:opacity-50"
+                >
+                    {saving ? "…" : "OK"}
+                </button>
+                <button
+                    type="button"
+                    onClick={() => {
+                        setValue(initial === null ? "" : String(initial));
+                        setEditing(false);
+                    }}
+                    className="text-xs text-gray-500 hover:underline"
+                >
+                    Annuler
+                </button>
+            </div>
+            {error && <p className="text-[11px] text-red-600">{error}</p>}
         </div>
     );
 }

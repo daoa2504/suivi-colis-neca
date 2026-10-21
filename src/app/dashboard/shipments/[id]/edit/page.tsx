@@ -56,7 +56,7 @@ export default async function EditShipmentPage({
             originCountry: true,
             convoyId: true,
             convoy: {
-                select: { id: true, date: true, direction: true },
+                select: { id: true, date: true, direction: true, pricePerKg: true },
             },
         },
     });

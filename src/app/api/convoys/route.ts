@@ -12,9 +12,21 @@ function startOfDayUTC(input: string | Date) {
     return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
 
+
+// Tarif au kilo, facultatif. Vide ou 0 = pas de tarif, l'agent saisit le
+// montant à la main comme avant.
+const pricePerKgField = z.preprocess(
+    (v) => {
+        if (v === "" || v === null || v === undefined) return null;
+        const n = Number(String(v).replace(",", "."));
+        return Number.isFinite(n) ? n : v;
+    },
+    z.number().min(0).max(10_000_000).nullable()
+);
 const createConvoySchema = z.object({
     date: z.union([z.string(), z.date()]),
     direction: z.enum(["NE_TO_CA", "CA_TO_NE"]),
+    pricePerKg: pricePerKgField.optional(),
 });
 
 // POST /api/convoys — ADMIN uniquement, crée un convoi à l'avance
@@ -49,12 +61,23 @@ export async function POST(req: NextRequest) {
         }
 
         const convoy = await prisma.convoy.create({
-            data: { date, direction: parsed.data.direction },
+            data: {
+                date,
+                direction: parsed.data.direction,
+                // 0 et vide valent « pas de tarif » : on ne stocke pas un zéro
+                // qui se lirait ensuite comme un transport gratuit.
+                pricePerKg: parsed.data.pricePerKg ? parsed.data.pricePerKg : null,
+            },
         });
 
         return NextResponse.json({
             ok: true,
-            convoy: { id: convoy.id, date: convoy.date, direction: convoy.direction },
+            convoy: {
+                id: convoy.id,
+                date: convoy.date,
+                direction: convoy.direction,
+                pricePerKg: convoy.pricePerKg,
+            },
         });
     } catch (e: any) {
         return NextResponse.json({ ok: false, error: e?.message ?? "Server error" }, { status: 500 });
