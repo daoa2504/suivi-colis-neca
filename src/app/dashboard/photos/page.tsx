@@ -14,6 +14,7 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
+import { cityVariantsOf, dedupeCityNames } from "@/lib/city";
 import GalleryFilters from "./GalleryFilters";
 import PhotoWall, { type PhotoEntry } from "./PhotoWall";
 
@@ -61,6 +62,18 @@ export default async function PhotosGalleryPage({
         : "client") as Grouping;
     const page = Math.max(1, Number(one("page")) || 1);
 
+    // Toutes les villes connues, pour la liste déroulante et pour retrouver
+    // les graphies d'une ville choisie. Interrogé avant de construire le
+    // filtre, qui en dépend.
+    const citiesRaw = await prisma.shipment.findMany({
+        where: { receiverCity: { not: null } },
+        select: { receiverCity: true },
+        distinct: ["receiverCity"],
+    });
+    // Une entrée par ville réelle : casse, accents et espaces confondus.
+    const knownCityNames = citiesRaw.map((c) => c.receiverCity!).filter(Boolean);
+    const cities = dedupeCityNames(knownCityNames);
+
     // Seuls les colis qui ont au moins une photo : une galerie ne gagne rien
     // à afficher des cadres vides.
     const filters: Prisma.ShipmentWhereInput[] = [{ photos: { some: {} } }];
@@ -69,7 +82,8 @@ export default async function PhotosGalleryPage({
         filters.push({ convoy: { direction } });
     }
     if (convoyId) filters.push({ convoyId });
-    if (city) filters.push({ receiverCity: { equals: city, mode: "insensitive" } });
+    // Choisir « Montréal » doit ramener les colis saisis « Montreal ».
+    if (city) filters.push({ receiverCity: { in: cityVariantsOf(city, knownCityNames) } });
     if (q) {
         filters.push({
             OR: [
@@ -112,36 +126,14 @@ export default async function PhotosGalleryPage({
         prisma.shipmentPhoto.count({ where: { shipment: where } }),
     ]);
 
-    // Toutes les villes et tous les convois, et non seulement ceux qui ont
-    // déjà des photos. Une liste qui se réduit à mesure qu'on la consulte
-    // laisse croire que le reste n'existe pas ; ici, choisir une ville sans
-    // photo donne un résultat vide, ce qui est une réponse en soi.
-    const [citiesRaw, convoysRaw] = await Promise.all([
-        prisma.shipment.findMany({
-            where: { receiverCity: { not: null } },
-            select: { receiverCity: true },
-            distinct: ["receiverCity"],
-        }),
-        prisma.convoy.findMany({
-            orderBy: { date: "desc" },
-            select: { id: true, date: true, direction: true },
-        }),
-    ]);
-
-    // « Sherbrooke » et « sherbrooke » sont deux lignes distinctes en base,
-    // mais une seule ville dans une liste déroulante. Le filtre compare déjà
-    // sans tenir compte de la casse : garder la première graphie suffit.
-    const cities = Array.from(
-        citiesRaw
-            .map((c) => c.receiverCity!.trim())
-            .filter(Boolean)
-            .reduce((seen, name) => {
-                const key = name.toLocaleLowerCase("fr");
-                if (!seen.has(key)) seen.set(key, name);
-                return seen;
-            }, new Map<string, string>())
-            .values()
-    ).sort((a, b) => a.localeCompare(b, "fr"));
+    // Tous les convois, et non seulement ceux qui ont déjà des photos : une
+    // liste qui se réduit à mesure qu'on la consulte laisse croire que le
+    // reste n'existe pas. Choisir un convoi sans photo donne un résultat
+    // vide, ce qui est une réponse en soi.
+    const convoysRaw = await prisma.convoy.findMany({
+        orderBy: { date: "desc" },
+        select: { id: true, date: true, direction: true },
+    });
 
     // Mise à plat : le visualiseur navigue d'une photo à l'autre à travers
     // tout le résultat filtré, sans se soucier des regroupements.

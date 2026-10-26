@@ -6,6 +6,7 @@ import { contentLineSchema } from "@/lib/validators";
 import { summarizeKind } from "@/lib/itemKind";
 import { resolveSurcharge, amountDue } from "@/lib/surcharge";
 import { decidePricing } from "@/lib/pricingServer";
+import { resolveCityName } from "@/lib/cityServer";
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -227,7 +228,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         data.currency = currency;
     }
     if ("receiverAddress" in body) data.receiverAddress = body.receiverAddress ? String(body.receiverAddress) : null;
-    if ("receiverCity" in body) data.receiverCity = body.receiverCity ? String(body.receiverCity) : null;
+    // Meme alignement d'orthographe qu'a la creation : une modification ne
+    // doit pas reintroduire une graphie que la base avait deja unifiee.
+    if ("receiverCity" in body) data.receiverCity = await resolveCityName(body.receiverCity);
     if ("receiverPoBox" in body) data.receiverPoBox = body.receiverPoBox ? String(body.receiverPoBox) : null;
     if ("pickupLastName" in body) data.pickupLastName = body.pickupLastName ? String(body.pickupLastName) : null;
     if ("pickupFirstName" in body) data.pickupFirstName = body.pickupFirstName ? String(body.pickupFirstName) : null;

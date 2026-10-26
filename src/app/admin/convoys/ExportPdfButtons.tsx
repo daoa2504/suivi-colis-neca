@@ -4,6 +4,7 @@ import { useState } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { describeContent } from "@/lib/itemKind";
+import { groupByCity } from "@/lib/city";
 
 type ConvoyShipment = {
     id: number;
@@ -90,15 +91,12 @@ export default function ExportPdfButtons({
             doc.setFontSize(14);
             doc.text(title, 40, 40);
 
-            // Group by city
-            const byCity = new Map<string, ConvoyShipment[]>();
-            for (const s of data.shipments) {
-                const city = (s.receiverCity || "Sans ville").trim();
-                if (!byCity.has(city)) byCity.set(city, []);
-                byCity.get(city)!.push(s);
-            }
-
-            const sortedCities = Array.from(byCity.keys()).sort();
+            // Regroupement par ville réelle : « Montréal », « Montreal » et
+            // « Montréal » avec une espace finale sont la même destination.
+            // Les traiter séparément dédoublait les sous-totaux du document.
+            const cityGroups = groupByCity(data.shipments, (s) => s.receiverCity);
+            const byCity = new Map(cityGroups.map((g) => [g.label, g.items]));
+            const sortedCities = cityGroups.map((g) => g.label);
 
             let y = 65;
             for (const city of sortedCities) {
@@ -162,14 +160,10 @@ export default function ExportPdfButtons({
             doc.setFontSize(14);
             doc.text(title, 40, 40);
 
-            // Group by city
-            const byCity = new Map<string, ConvoyShipment[]>();
-            for (const s of data.shipments) {
-                const city = (s.receiverCity || "Sans ville").trim();
-                if (!byCity.has(city)) byCity.set(city, []);
-                byCity.get(city)!.push(s);
-            }
-            const sortedCities = Array.from(byCity.keys()).sort();
+            // Même regroupement que ci-dessus : une ville, un sous-total.
+            const cityGroups = groupByCity(data.shipments, (s) => s.receiverCity);
+            const byCity = new Map(cityGroups.map((g) => [g.label, g.items]));
+            const sortedCities = cityGroups.map((g) => g.label);
 
             // Max items across the entire convoy → fixe le nombre de colonnes "Colis N"
             const maxItems = data.shipments.reduce((m, s) => Math.max(m, s.items.length), 0);

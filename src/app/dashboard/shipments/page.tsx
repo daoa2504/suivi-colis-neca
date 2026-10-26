@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import Link from "next/link";
 import { formatDimensions } from "@/lib/itemKind";
 import type { Prisma, ShipmentStatus, PaymentStatus } from "@prisma/client";
+import { cityVariantsOf, dedupeCityNames } from "@/lib/city";
 import NotifyDeliveredButton from "./NotifyDeliveredButton";
 import DeleteShipmentButton from "./DeleteShipmentButton";
 import InvoiceDownloadButton from "./InvoiceDownloadButton";
@@ -141,9 +142,27 @@ export default async function ShipmentsPage({
     // --- Filtre de convoi ---
     const convoyFilter: Prisma.ShipmentWhereInput = convoyId ? { convoyId } : {};
 
+    // --- Villes disponibles pour la direction courante ---
+    // Les villes sont saisies à la main : la même s'écrit « Montréal »,
+    // « Montreal » ou avec une espace finale. On regroupe avant d'afficher,
+    // sinon la liste déroulante propose trois fois la même destination.
+    const citiesRaw = await prisma.shipment.findMany({
+        where: {
+            convoy: { direction: direction as "NE_TO_CA" | "CA_TO_NE" },
+            receiverCity: { not: null },
+        },
+        select: { receiverCity: true },
+        distinct: ["receiverCity"],
+    });
+    const knownCityNames = citiesRaw.map((c) => c.receiverCity!).filter(Boolean);
+    const availableCities = dedupeCityNames(knownCityNames);
+
     // --- Filtre de ville ---
+    // Choisir « Montréal » doit ramener aussi les colis enregistrés
+    // « Montreal » : on filtre sur toutes les graphies connues, pas sur la
+    // seule que montre la liste.
     const cityFilter: Prisma.ShipmentWhereInput = city
-        ? { receiverCity: { equals: city, mode: "insensitive" } }
+        ? { receiverCity: { in: cityVariantsOf(city, knownCityNames) } }
         : {};
 
     // --- Permissions basées sur le rôle (SANS createdBy) ---
@@ -171,20 +190,6 @@ export default async function ShipmentsPage({
     const where: Prisma.ShipmentWhereInput = {
         AND: [directionFilter, convoyFilter, cityFilter, searchFilter, permissionFilter],
     };
-
-    // --- Villes disponibles pour la direction courante ---
-    const citiesRaw = await prisma.shipment.findMany({
-        where: {
-            convoy: { direction: direction as "NE_TO_CA" | "CA_TO_NE" },
-            receiverCity: { not: null },
-        },
-        select: { receiverCity: true },
-        distinct: ["receiverCity"],
-    });
-    const availableCities = citiesRaw
-        .map((c) => c.receiverCity!)
-        .filter(Boolean)
-        .sort();
 
     console.log("🔍 Direction:", direction);
     console.log("🔍 Role:", role);

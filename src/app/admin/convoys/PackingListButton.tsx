@@ -18,6 +18,7 @@ import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { describeContent, formatDimensions } from "@/lib/itemKind";
 import { LOGO_BANNER, LOGO_MARK } from "@/lib/branding";
+import { groupByCity } from "@/lib/city";
 
 type Company = {
     legalName: string;
@@ -458,13 +459,13 @@ export default function PackingListButton({
             y = (doc as any).lastAutoTable.finalY + 16;
 
             // ---- Tableau principal, groupé par ville ----
-            const byCity = new Map<string, Shipment[]>();
-            for (const s of selected.shipments) {
-                const city = (s.receiverCity || "Sans ville").trim();
-                if (!byCity.has(city)) byCity.set(city, []);
-                byCity.get(city)!.push(s);
-            }
-            const sortedCities = Array.from(byCity.keys()).sort();
+            // Regroupement par ville réelle : « Montréal », « Montreal » et
+            // « Montréal » avec une espace finale sont la même destination.
+            // Les séparer donnait deux sous-totaux pour un même lieu, ce que
+            // la douane lit comme deux envois distincts.
+            const cityGroups = groupByCity(selected.shipments, (s) => s.receiverCity);
+            const byCity = new Map(cityGroups.map((g) => [g.label, g.items]));
+            const sortedCities = cityGroups.map((g) => g.label);
 
             let lineNo = 0;
 
@@ -722,13 +723,11 @@ export default function PackingListButton({
     const keptPackages = preview?.shipments.reduce((a, s) => a + (s.packageCount ?? 1), 0) ?? 0;
     const keptWeight = preview?.shipments.reduce((a, s) => a + (s.weightKg ?? 0), 0) ?? 0;
 
-    const byCity = new Map<string, Shipment[]>();
-    for (const s of data?.shipments ?? []) {
-        const city = (s.receiverCity || "Sans ville").trim();
-        if (!byCity.has(city)) byCity.set(city, []);
-        byCity.get(city)!.push(s);
-    }
-    const cities = Array.from(byCity.keys()).sort();
+    // L'écran de sélection regroupe comme le PDF : ce qu'on coche ici doit
+    // correspondre aux sections qui sortiront du document.
+    const cityGroups = groupByCity(data?.shipments ?? [], (s) => s.receiverCity);
+    const byCity = new Map(cityGroups.map((g) => [g.label, g.items]));
+    const cities = cityGroups.map((g) => g.label);
 
     return (
         <>

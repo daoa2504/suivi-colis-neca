@@ -11,6 +11,7 @@ import { createShipmentByCA, createShipmentByGN } from "@/lib/validators";
 import { summarizeKind } from "@/lib/itemKind";
 import { resolveSurcharge, amountDue } from "@/lib/surcharge";
 import { decidePricing } from "@/lib/pricingServer";
+import { resolveCityName } from "@/lib/cityServer";
 import { createInvoiceForShipment, getInvoiceByShipment } from "@/lib/invoice";
 import { renderInvoicePdf } from "@/lib/invoice-pdf";
 
@@ -187,7 +188,12 @@ export async function POST(req: NextRequest) {
             rawStatus === "PAID" || rawStatus === "PARTIAL" ? rawStatus : "UNPAID";
         // Supplément de ville, figé maintenant : il fait partie de ce que le
         // client doit, au même titre que le prix convenu.
-        const resolved = await resolveSurcharge(convoy.id, body.receiverCity, currency, weightKg);
+        // Ville alignée sur l'orthographe déjà en base : la saisie est libre
+        // côté Canada → Niger, et chaque variante ajoutait une destination
+        // fantôme dans les filtres et les documents de douane.
+        const receiverCity = await resolveCityName(body.receiverCity);
+
+        const resolved = await resolveSurcharge(convoy.id, receiverCity, currency, weightKg);
         const surchargeAmount = resolved?.amount ?? null;
         const due = amountDue(totalAmount, surchargeAmount);
 
@@ -218,7 +224,7 @@ export async function POST(req: NextRequest) {
                 heightCm,
                 packageCount,
                 receiverAddress: body.receiverAddress || null,
-                receiverCity: body.receiverCity || null,
+                receiverCity,
                 receiverPoBox: body.receiverPoBox || null,
                 pickupLastName: body.pickupLastName?.trim() || null,
                 pickupFirstName: body.pickupFirstName?.trim() || null,
