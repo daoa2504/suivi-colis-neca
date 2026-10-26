@@ -80,6 +80,10 @@ export default function EditForm({
     const router = useRouter();
     const [msg, setMsg] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    /** Prévenir le client par courriel. Décoché par défaut, et remis à zéro
+     *  après chaque enregistrement : une correction interne ne regarde pas
+     *  le client, et un envoi ne doit jamais partir par habitude. */
+    const [notifyClient, setNotifyClient] = useState(false);
 
     // Champs communs
     const [receiverName, setReceiverName] = useState(shipment.receiverName || "");
@@ -198,6 +202,9 @@ export default function EditForm({
             receiverCity: effectiveCity || null,
             receiverPoBox: receiverPoBox || null,
             convoyId: selectedConvoyId || null,
+            // Décision explicite de l'agent, prise à chaque enregistrement :
+            // la case repart décochée, prévenir le client reste un geste.
+            notifyClient,
         };
 
         if (direction === "CA_TO_NE") {
@@ -224,7 +231,25 @@ export default function EditForm({
                 throw new Error(formatApiError((data as any)?.error, "Mise à jour échouée"));
             }
 
-            setMsg("✅ Modifications enregistrées");
+            // Dire ce qui est parti, ou ce qui n'est pas parti : l'agent ne
+            // doit jamais avoir à deviner si le client a été prévenu.
+            const mail = (data as any)?.email;
+            if (!notifyClient) {
+                setMsg("✅ Modifications enregistrées — aucun courriel envoyé");
+            } else if (mail?.providerOk) {
+                setMsg(`✅ Modifications enregistrées — courriel envoyé à ${mail.to}`);
+            } else if (mail?.tried) {
+                setMsg(
+                    `⚠️ Modifications enregistrées, mais le courriel n'est pas parti : ${
+                        mail.providerError || "erreur inconnue"
+                    }`
+                );
+            } else {
+                setMsg(
+                    "⚠️ Modifications enregistrées — courriel impossible, adresse du client absente ou invalide"
+                );
+            }
+            setNotifyClient(false);
             router.refresh();
         } catch (err: any) {
             setMsg(`❌ Erreur : ${err?.message || "inconnue"}`);
@@ -527,6 +552,28 @@ export default function EditForm({
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                 />
+            </div>
+
+            {/* Prévenir le client — choix explicite, jamais par défaut */}
+            <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+                <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                        type="checkbox"
+                        checked={notifyClient}
+                        onChange={(e) => setNotifyClient(e.target.checked)}
+                        className="mt-0.5 h-4 w-4"
+                    />
+                    <span className="text-sm">
+                        <span className="font-medium text-neutral-800">
+                            Prévenir le client par courriel
+                        </span>
+                        <span className="block text-xs text-neutral-600 mt-0.5">
+                            {receiverEmail.trim()
+                                ? <>Un message « Mise à jour » partira à <strong>{receiverEmail.trim()}</strong>. Laissez décoché pour une correction interne — une photo ajoutée, un poids rectifié.</>
+                                : "Aucune adresse enregistrée pour ce client : rien ne pourra être envoyé."}
+                        </span>
+                    </span>
+                </label>
             </div>
 
             {/* Submit */}

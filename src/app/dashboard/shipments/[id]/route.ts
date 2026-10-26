@@ -326,8 +326,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const FROM_FALLBACK = process.env.RESEND_TEST_FROM || "onboarding@resend.dev";
     const FROM_SAFE = FROM || FROM_FALLBACK;
 
+    // Prevenir le client n'est plus automatique. Une modification est le plus
+    // souvent une correction interne — un poids rectifie, une photo ajoutee,
+    // une faute dans un nom — et le client n'a pas a recevoir un courriel a
+    // chaque passage sur sa fiche. Il faut le demander.
+    const notifyClient = body.notifyClient === true;
+
     const to = (updated.receiverEmail || "").trim();
-    const emailTried = !!to && isValidEmail(to);
+    const emailTried = notifyClient && !!to && isValidEmail(to);
     let emailResp: { ok?: boolean; id?: string; error?: string } | null = null;
 
     if (emailTried) {
@@ -446,6 +452,9 @@ Numéro ID : ${updated.trackingId}
         ok: true,
         shipment: updated,
         email: {
+            // Demande de l'agent, et non simple disponibilite d'une adresse :
+            // l'ecran doit pouvoir distinguer « non demande » de « echec ».
+            requested: notifyClient,
             tried: emailTried,
             to,
             from: FROM_SAFE,
